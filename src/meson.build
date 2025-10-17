@@ -12,6 +12,9 @@ endif
 if have_otr
   subdir('otr')
 endif
+if have_fe_web
+  subdir('fe-web')
+endif
 if want_bot
   subdir('fe-none')
 endif

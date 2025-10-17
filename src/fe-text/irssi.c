@@ -37,11 +37,15 @@
 #include <irssi/src/fe-text/term.h>
 #include <irssi/src/fe-text/gui-entry.h>
 #include <irssi/src/fe-text/mainwindows.h>
+#include <irssi/src/fe-text/sidepanels-render.h>
 #include <irssi/src/fe-text/gui-printtext.h>
 #include <irssi/src/fe-text/gui-readline.h>
 #include <irssi/src/fe-text/statusbar.h>
 #include <irssi/src/fe-text/gui-windows.h>
 #include <irssi/irssi-version.h>
+#include <irssi/src/fe-text/sidepanels.h>
+#include <irssi/src/fe-text/gui-mouse.h>
+#include <irssi/src/fe-text/gui-gestures.h>
 
 #include <signal.h>
 #include <locale.h>
@@ -64,6 +68,9 @@ void mainwindow_activity_deinit(void);
 void mainwindows_layout_init(void);
 void mainwindows_layout_deinit(void);
 
+void sidepanels_init(void);
+void sidepanels_deinit(void);
+
 static int dirty, full_redraw;
 
 static GMainLoop *main_loop;
@@ -72,10 +79,9 @@ int quitting;
 static int display_firsttimer = FALSE;
 static unsigned int user_settings_changed = 0;
 
-
 static void sig_exit(void)
 {
-        quitting = TRUE;
+	quitting = TRUE;
 }
 
 static void sig_settings_userinfo_changed(gpointer changedp)
@@ -102,12 +108,12 @@ static void sig_autoload_modules(void)
 void irssi_redraw(void)
 {
 	dirty = TRUE;
-        full_redraw = TRUE;
+	full_redraw = TRUE;
 }
 
 void irssi_set_dirty(void)
 {
-        dirty = TRUE;
+	dirty = TRUE;
 }
 
 static void dirty_check(void)
@@ -115,10 +121,10 @@ static void dirty_check(void)
 	if (!dirty)
 		return;
 
-        term_resize_dirty();
+	term_resize_dirty();
 
 	if (full_redraw) {
-                full_redraw = FALSE;
+		full_redraw = FALSE;
 
 		/* first clear the screen so curses will be
 		   forced to redraw the screen */
@@ -126,14 +132,15 @@ static void dirty_check(void)
 		term_refresh(NULL);
 
 		mainwindows_redraw();
+		redraw_both_panels_only("screen_clear"); /* Redraw only sidepanels after full screen clear */
 		statusbar_redraw(NULL, TRUE);
 	}
 
 	mainwindows_redraw_dirty();
-        statusbar_redraw_dirty();
+	statusbar_redraw_dirty();
 	term_refresh(NULL);
 
-        dirty = FALSE;
+	dirty = FALSE;
 }
 
 static void textui_init(void)
@@ -186,6 +193,9 @@ static void textui_finish_init(void)
 	mainwindow_activity_init();
 	mainwindows_layout_init();
 	gui_windows_init();
+	gui_mouse_init();
+	gui_gestures_init();
+	sidepanels_init();
 	/* Temporarily raise the fatal level to abort on config errors. */
 	loglev = critical_fatal_section_begin();
 	statusbar_init();
@@ -207,11 +217,11 @@ static void textui_finish_init(void)
 	statusbar_redraw(NULL, TRUE);
 
 	if (servers == NULL && lookup_servers == NULL) {
-		printformat(NULL, NULL, MSGLEVEL_CRAP|MSGLEVEL_NO_ACT, TXT_IRSSI_BANNER);
+		printformat(NULL, NULL, MSGLEVEL_CRAP | MSGLEVEL_NO_ACT, TXT_IRSSI_BANNER);
 	}
 
 	if (display_firsttimer) {
-		printformat(NULL, NULL, MSGLEVEL_CRAP|MSGLEVEL_NO_ACT, TXT_WELCOME_FIRSTTIME);
+		printformat(NULL, NULL, MSGLEVEL_CRAP | MSGLEVEL_NO_ACT, TXT_WELCOME_FIRSTTIME);
 	}
 
 	/* see irc-servers-setup.c:init_userinfo */
@@ -233,7 +243,7 @@ static void textui_deinit(void)
 {
 	signal(SIGINT, SIG_DFL);
 
-        term_refresh_freeze();
+	term_refresh_freeze();
 	while (modules != NULL)
 		module_unload(modules->data);
 
@@ -244,6 +254,9 @@ static void textui_deinit(void)
 
 	lastlog_deinit();
 	statusbar_deinit();
+	sidepanels_deinit();
+	gui_gestures_deinit();
+	gui_mouse_deinit();
 	gui_entry_deinit();
 	gui_printtext_deinit();
 	gui_readline_deinit();
@@ -266,6 +279,65 @@ static void textui_deinit(void)
 	core_deinit();
 }
 
+static void copy_default_files(void)
+{
+	struct stat statbuf;
+	char *themes_dir, *startup_file, *src_path, *dst_path;
+	const char *irssi_dir = get_irssi_dir();
+	
+	/* Only copy files if this is erssi (.erssi directory) */
+	if (!g_str_has_suffix(irssi_dir, ".erssi"))
+		return;
+		
+	/* Copy themes */
+	themes_dir = g_strdup(THEMESDIR);
+	if (stat(themes_dir, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
+		GDir *dir = g_dir_open(themes_dir, 0, NULL);
+		if (dir) {
+			const char *filename;
+			while ((filename = g_dir_read_name(dir)) != NULL) {
+				if (g_str_has_suffix(filename, ".theme")) {
+					src_path = g_strdup_printf("%s/%s", themes_dir, filename);
+					dst_path = g_strdup_printf("%s/%s", irssi_dir, filename);
+					
+					/* Copy if destination doesn't exist */
+					if (stat(dst_path, &statbuf) != 0) {
+						if (g_file_test(src_path, G_FILE_TEST_EXISTS)) {
+							char *contents = NULL;
+							gsize length;
+							if (g_file_get_contents(src_path, &contents, &length, NULL)) {
+								g_file_set_contents(dst_path, contents, length, NULL);
+								g_free(contents);
+							}
+						}
+					}
+					
+					g_free(src_path);
+					g_free(dst_path);
+				}
+			}
+			g_dir_close(dir);
+		}
+	}
+	g_free(themes_dir);
+	
+	/* Copy startup banner */
+	startup_file = g_strdup_printf("%s/startup", PKGDATADIR);
+	if (stat(startup_file, &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
+		dst_path = g_strdup_printf("%s/startup", irssi_dir);
+		if (stat(dst_path, &statbuf) != 0) {
+			char *contents = NULL;
+			gsize length;
+			if (g_file_get_contents(startup_file, &contents, &length, NULL)) {
+				g_file_set_contents(dst_path, contents, length, NULL);
+				g_free(contents);
+			}
+		}
+		g_free(dst_path);
+	}
+	g_free(startup_file);
+}
+
 static void check_files(void)
 {
 	struct stat statbuf;
@@ -279,10 +351,9 @@ static void check_files(void)
 int main(int argc, char **argv)
 {
 	static int version = 0;
-	static GOptionEntry options[] = {
-		{ "version", 'v', 0, G_OPTION_ARG_NONE, &version, "Display Irssi version", NULL },
-		{ NULL }
-	};
+	static GOptionEntry options[] = { { "version", 'v', 0, G_OPTION_ARG_NONE, &version,
+		                            "Display Irssi version", NULL },
+		                          { NULL } };
 	int loglev;
 
 	core_register_options();
@@ -290,9 +361,9 @@ int main(int argc, char **argv)
 	args_register(options);
 	args_execute(argc, argv);
 
- 	if (version) {
-		printf(PACKAGE_TARNAME" " PACKAGE_VERSION" (%d %04d)\n",
-		       IRSSI_VERSION_DATE, IRSSI_VERSION_TIME);
+	if (version) {
+		printf(PACKAGE_TARNAME " " PACKAGE_VERSION " (%d %04d)\n", IRSSI_VERSION_DATE,
+		       IRSSI_VERSION_TIME);
 		return 0;
 	}
 
@@ -317,6 +388,9 @@ int main(int argc, char **argv)
 	/* Temporarily raise the fatal level to abort on config errors. */
 	loglev = critical_fatal_section_begin();
 	textui_init();
+	
+	/* Copy default files (themes, startup) for erssi after directories are created */
+	copy_default_files();
 
 	if (!term_init()) {
 		fprintf(stderr, "Can't initialize screen handling.\n");
@@ -341,8 +415,7 @@ int main(int argc, char **argv)
 
 			if (settings_get_bool("quit_on_hup")) {
 				signal_emit("gui exit", 0);
-			} 
-			else {
+			} else {
 				signal_emit("command reload", 1, "");
 			}
 		}

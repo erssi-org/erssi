@@ -389,6 +389,28 @@ static void cmd_window_last(void)
 		window_set_active(windows->next->data);
 }
 
+/* SYNTAX: WINDOW LASTONE */
+static void cmd_window_lastone(void)
+{
+	WINDOW_REC *last_window = NULL;
+	GSList *tmp;
+	int highest_refnum = 0;
+
+	/* Find window with highest refnum */
+	for (tmp = windows; tmp != NULL; tmp = tmp->next) {
+		WINDOW_REC *win = tmp->data;
+		if (win->refnum > highest_refnum) {
+			highest_refnum = win->refnum;
+			last_window = win;
+		}
+	}
+
+	/* Switch to the last window if found and different from current */
+	if (last_window && last_window != active_win) {
+		window_set_active(last_window);
+	}
+}
+
 /* SYNTAX: WINDOW PREVIOUS */
 static void cmd_window_previous(void)
 {
@@ -894,6 +916,7 @@ void window_commands_init(void)
 	command_bind("window previous", NULL, (SIGNAL_FUNC) cmd_window_previous);
 	command_bind("window next", NULL, (SIGNAL_FUNC) cmd_window_next);
 	command_bind("window last", NULL, (SIGNAL_FUNC) cmd_window_last);
+	command_bind("window lastone", NULL, (SIGNAL_FUNC) cmd_window_lastone);
 	command_bind("window level", NULL, (SIGNAL_FUNC) cmd_window_level);
 	command_bind("window immortal", NULL, (SIGNAL_FUNC) cmd_window_immortal);
 	command_bind("window item", NULL, (SIGNAL_FUNC) cmd_window_item);
@@ -936,6 +959,7 @@ void window_commands_deinit(void)
 	command_unbind("window previous", (SIGNAL_FUNC) cmd_window_previous);
 	command_unbind("window next", (SIGNAL_FUNC) cmd_window_next);
 	command_unbind("window last", (SIGNAL_FUNC) cmd_window_last);
+	command_unbind("window lastone", (SIGNAL_FUNC) cmd_window_lastone);
 	command_unbind("window level", (SIGNAL_FUNC) cmd_window_level);
 	command_unbind("window immortal", (SIGNAL_FUNC) cmd_window_immortal);
 	command_unbind("window item", (SIGNAL_FUNC) cmd_window_item);

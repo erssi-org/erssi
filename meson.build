@@ -1,5 +1,5 @@
 project('irssi', 'c',
-  version : '1.5-head',
+  version : '1.0.0-erssi',
   meson_version : '>=0.53',
   default_options : ['warning_level=1'])
 
@@ -47,6 +47,9 @@ with_perl_lib       = get_option('with-perl-lib')
 require_otr         = get_option('with-otr') == 'yes'
 want_otr            = get_option('with-otr') != 'no'
 
+require_fe_web      = get_option('with-fe-web') == 'yes'
+want_fe_web         = get_option('with-fe-web') != 'no'
+
 want_glib_internal  = get_option('install-glib') != 'no'
 require_glib_internal = get_option('install-glib') == 'force'
 
@@ -74,6 +77,7 @@ def_sysconfdir = '-D' + 'SYSCONFDIR' + '="' + (get_option('prefix') / get_option
 def_helpdir    = '-D' + 'HELPDIR'    + '="' + (get_option('prefix') / helpdir) + '"'
 def_themesdir  = '-D' + 'THEMESDIR'  + '="' + (get_option('prefix') / themedir) + '"'
 def_scriptdir  = '-D' + 'SCRIPTDIR'  + '="' + (get_option('prefix') / scriptdir) + '"'
+def_datadir    = '-D' + 'PKGDATADIR'  + '="' + (get_option('prefix') / get_option('datadir') / incdir) + '"'
 
 def_suppress_printf_fallback = '-D' + 'SUPPRESS_PRINTF_FALLBACK'
 
@@ -507,6 +511,19 @@ if want_otr
   endif
 endif
 
+##########
+# FE-WEB #
+##########
+
+have_fe_web = false
+if want_fe_web
+  # fe-web requires OpenSSL for WebSocket and encryption
+  openssl_dep = dependency('openssl', required : require_fe_web, static : want_static_dependency, include_type : 'system')
+  if openssl_dep.found()
+    have_fe_web = true
+  endif
+endif
+
 ############
 # capsicum #
 ############
@@ -688,6 +705,9 @@ subdir('scripts')
 subdir('themes')
 # subdir('utils')
 
+# Install startup banner for erssi
+install_data('startup', install_dir : get_option('datadir') / incdir)
+
 ############################
 ############################
 
@@ -712,6 +732,7 @@ message('')
 message('Building with Capsicum ........... : ' + have_capsicum.to_string('yes', 'no'))
 message('Building with utf8proc ........... : ' + have_libutf8proc.to_string('yes', 'no'))
 message('Building with OTR support ........ : ' + have_otr.to_string('yes', 'no'))
+message('Building with FE-WEB support ..... : ' + have_fe_web.to_string('yes', 'no'))
 message('')
 message('If there are any problems, read the INSTALL file.')
 message('Now type ninja -C ' + meson.current_build_dir() + ' to build Irssi')

@@ -166,7 +166,7 @@ void fe_common_core_init(void)
 	settings_add_bool("lookandfeel", "use_msgs_window", FALSE);
 	g_get_charset(&str);
 	settings_add_str("lookandfeel", "term_charset", str);
-	settings_add_str("lookandfeel", "glib_log_domains", "all");
+	settings_add_str("lookandfeel", "glib_log_domains", "");
 	themes_init();
         theme_register(fecommon_core_formats);
 

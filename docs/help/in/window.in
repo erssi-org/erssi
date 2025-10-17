@@ -13,6 +13,7 @@
     GOTO:         %|Go to the window with activity, with the given nickname, channel or with the specified number.
     NEXT:         %|Go to the next window numerically.
     LAST:         %|Go to the previously active window.
+    LASTONE:      %|Go to the window with the highest number.
     PREVIOUS:     %|Go to the previous window numerically.
     LEVEL:        %|Changes the text levels to display in the window, or query the current level.
     IMMORTAL:     %|Modifies or queries the window mortality status. Immortal windows have an extra protection against WINDOW CLOSE.

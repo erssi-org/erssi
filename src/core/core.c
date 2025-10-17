@@ -16,6 +16,12 @@
     You should have received a copy of the GNU General Public License along
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+    
+    ---
+    
+    Modifications for erssi:
+    Copyright (C) 2024-2025 erssi-org team
+    Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 */
 
 #include "module.h"
@@ -36,6 +42,7 @@
 #include <irssi/src/core/chat-protocols.h>
 #include <irssi/src/core/chatnets.h>
 #include <irssi/src/core/commands.h>
+#include <irssi/src/core/credential.h>
 #include <irssi/src/core/expandos.h>
 #include <irssi/src/core/ignore.h>
 #include <irssi/src/core/log.h>
@@ -45,6 +52,7 @@
 #include <irssi/src/core/servers.h>
 #include <irssi/src/core/special-vars.h>
 #include <irssi/src/core/write-buffer.h>
+#include <irssi/src/core/utf8.h>
 
 #include <irssi/src/core/channels.h>
 #include <irssi/src/core/queries.h>
@@ -260,6 +268,7 @@ void core_init(void)
 
 	settings_init();
 	commands_init();
+	credential_init();
 	nickmatch_cache_init();
         session_init();
 #ifdef HAVE_CAPSICUM
@@ -285,6 +294,7 @@ void core_init(void)
 	i_refstr_init();
 	special_vars_init();
 	wcwidth_wrapper_init();
+	utf8_init();
 
 	settings_add_str("misc", "ignore_signals", "");
 	settings_add_bool("misc", "override_coredump_limit", FALSE);
@@ -316,6 +326,7 @@ void core_deinit(void)
 	signal_remove("chat protocol created", (SIGNAL_FUNC) reread_setup);
 	signal_remove("irssi init finished", (SIGNAL_FUNC) sig_irssi_init_finished);
 
+	utf8_deinit();
 	wcwidth_wrapper_deinit();
 	special_vars_deinit();
 	i_refstr_deinit();
@@ -342,6 +353,7 @@ void core_deinit(void)
         session_deinit();
         nickmatch_cache_deinit();
 	commands_deinit();
+	credential_deinit();
 	settings_deinit();
 	signals_deinit();
 	net_disconnect_deinit();

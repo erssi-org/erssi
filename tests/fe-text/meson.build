@@ -1,12 +1,19 @@
 test_test_paste_join_multiline = executable('test-paste-join-multiline',
   files(
     '../../src/fe-text/gui-entry.c',
+    '../../src/fe-text/gui-gestures.c',
+    '../../src/fe-text/gui-mouse.c',
     '../../src/fe-text/gui-printtext.c',
     '../../src/fe-text/gui-windows.c',
     '../../src/fe-text/mainwindows.c',
     '../../src/fe-text/term-terminfo.c',
     '../../src/fe-text/term.c',
     '../../src/fe-text/terminfo-core.c',
+    '../../src/fe-text/sidepanels-core.c',
+    '../../src/fe-text/sidepanels-render.c',
+    '../../src/fe-text/sidepanels-activity.c',
+    '../../src/fe-text/sidepanels-signals.c',
+    '../../src/fe-text/sidepanels-layout.c',
     '../../src/fe-text/textbuffer-formats.c',
     '../../src/fe-text/textbuffer-view.c',
     '../../src/fe-text/textbuffer.c',
@@ -25,6 +32,7 @@ test_test_paste_join_multiline = executable('test-paste-join-multiline',
   implicit_include_directories : false,
   dependencies : dep + textui_dep,
 )
+
 test('test-paste-join-multiline test', test_test_paste_join_multiline,
   args : ['--tap'],
   protocol : 'tap')

@@ -85,11 +85,11 @@ FORMAT_REC gui_text_formats[] = {
 	{ NULL, "Welcome", 0 },
 
 	{ "irssi_banner",
-	  " ___           _%:"
-	  "|_ _|_ _ _____(_)%:"
-	  " | || '_(_-<_-< |%:"
-	  "|___|_| /__/__/_|%:"
-	  "Irssi v$J - https://irssi.org", 0 },
+	  "  ___  _ __  ___  ___  (_)%:"
+	  " / _ \\| '__/ __|/ __| | |%:"
+	  "|  __/| |  \\__ \\\\__ \\ | |%:"
+	  " \\___||_|  |___/|___/ |_|%:"
+	  "erssi v$J - https://erssi.org", 0 },
 	{ "welcome_firsttime",
 	  "- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n"
 	  "Hi there! If this is your first time using Irssi, you%:"
@@ -101,6 +101,23 @@ FORMAT_REC gui_text_formats[] = {
 	  "the available commands.%:"
 	  "- - - - - - - - - - - - - - - - - - - - - - - - - - - -", 0 },
 	{ "welcome_init_settings", "The following settings were initialized", 0 },
+
+	/* ---- */
+	{ NULL, "Sidepanels", 0 },
+	{ "sidepanel_header", "%B*%B$0%N", 1, { 0 } },
+	{ "sidepanel_item", "%W %W$0%N", 1, { 0 } },
+	{ "sidepanel_item_selected", "%g%w> %g%w$0%N", 1, { 0 } },
+	{ "sidepanel_item_nick_mention", "%M# %M$0%N", 1, { 0 } },
+	{ "sidepanel_item_query_msg", "%M+ %M$0%N", 1, { 0 } },
+	{ "sidepanel_item_activity", "%y* %y$0%N", 1, { 0 } },
+	{ "sidepanel_item_events", "%Go%N %G$0%N", 1, { 0 } },
+	{ "sidepanel_item_highlight", "%R! %R$0%N", 1, { 0 } },
+	{ "sidepanel_nick_op", "%Y$0", 1, { 0 } },
+	{ "sidepanel_nick_voice", "%C$0", 1, { 0 } },
+	{ "sidepanel_nick_normal", "$0", 1, { 0 } },
+	{ "sidepanel_nick_op_status", "%Y$0%N%B$1%N", 2, { 0, 0 } },
+	{ "sidepanel_nick_voice_status", "%C$0%N%c$1%N", 2, { 0, 0 } },
+	{ "sidepanel_nick_normal_status", "%w$0%N%w$1%N", 2, { 0, 0 } },
 
 	{ NULL, NULL, 0 }
 	/* clang-format on */
