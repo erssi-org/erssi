@@ -305,7 +305,7 @@ build_and_install() {
        "-Dwith-perl=yes"
        "-Dwith-otr=yes"
        "-Dwith-proxy=yes"
-       "-Dwith-web=yes"
+       "-Dwith-fe-web=yes"
        "-Ddisable-utf8proc=no"
    )
 
