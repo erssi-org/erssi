@@ -31,6 +31,7 @@
 
 #include <irssi/src/core/special-vars.h>
 #include <irssi/src/fe-common/core/fe-core-commands.h>
+#include <irssi/src/fe-common/core/fe-credential.h>
 #include <irssi/src/fe-common/core/fe-queries.h>
 #ifdef HAVE_CAPSICUM
 #include <irssi/src/fe-common/core/fe-capsicum.h>
@@ -193,6 +194,7 @@ void fe_common_core_init(void)
 	window_items_init();
 	windows_layout_init();
 	fe_core_commands_init();
+	fe_credential_init();
 
         fe_channels_init();
         fe_queries_init();
@@ -238,6 +240,7 @@ void fe_common_core_deinit(void)
 	window_items_deinit();
 	windows_layout_deinit();
 	fe_core_commands_deinit();
+	fe_credential_deinit();
 
         fe_channels_deinit();
         fe_queries_deinit();
