@@ -38,7 +38,7 @@ src/fe-fuzz/fe-common/core/theme-load-fuzz
 
 src/perl/perl-signals-list.h
 src/perl/irssi-core.pl.h
-
+credentials/
 src/perl/common/*.c
 src/perl/irc/*.c
 src/perl/textui/*.c

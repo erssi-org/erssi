@@ -29,7 +29,7 @@ char *fe_web_generate_message_id(void)
 	char *id;
 
 	now = time(NULL);
-	id = g_strdup_printf("%ld-%04d", (long)now, counter);
+	id = g_strdup_printf("%ld-%04d", (long) now, counter);
 
 	counter++;
 	if (counter >= 10000) {
@@ -56,7 +56,7 @@ char *fe_web_escape_json(const char *str)
 
 	result = g_string_new("");
 
-	for (p = (const unsigned char *)str; *p != '\0'; p++) {
+	for (p = (const unsigned char *) str; *p != '\0'; p++) {
 		switch (*p) {
 		case '"':
 			g_string_append(result, "\\\"");
@@ -177,8 +177,7 @@ WEB_MESSAGE_REC *fe_web_message_new(WEB_MESSAGE_TYPE type)
 	msg = g_new0(WEB_MESSAGE_REC, 1);
 	msg->type = type;
 	msg->timestamp = time(NULL);
-	msg->extra_data = g_hash_table_new_full(g_str_hash, g_str_equal,
-	                                        g_free, g_free);
+	msg->extra_data = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 	msg->is_own = FALSE;
 
 	return msg;
@@ -265,8 +264,9 @@ char *fe_web_message_to_json(WEB_MESSAGE_REC *msg)
 			/* For server_list_response, text contains JSON array - insert raw */
 			g_string_append_printf(json, ",\"servers\":%s", msg->text);
 		} else if (msg->type == WEB_MSG_COMMAND_RESULT) {
-			/* For command_result, text contains JSON object - insert raw (without outer braces) */
-			if (msg->text[0] == '{' && msg->text[strlen(msg->text)-1] == '}') {
+			/* For command_result, text contains JSON object - insert raw (without outer
+			 * braces) */
+			if (msg->text[0] == '{' && msg->text[strlen(msg->text) - 1] == '}') {
 				/* Skip outer braces and insert content */
 				char *content = g_strndup(msg->text + 1, strlen(msg->text) - 2);
 				g_string_append_printf(json, ",%s", content);
@@ -280,7 +280,7 @@ char *fe_web_message_to_json(WEB_MESSAGE_REC *msg)
 	}
 
 	/* timestamp */
-	g_string_append_printf(json, ",\"timestamp\":%ld", (long)msg->timestamp);
+	g_string_append_printf(json, ",\"timestamp\":%ld", (long) msg->timestamp);
 
 	/* level (for message types and activity_update) */
 	/* IMPORTANT: For activity_update, level=0 means "read", so we MUST send it! */
@@ -290,8 +290,7 @@ char *fe_web_message_to_json(WEB_MESSAGE_REC *msg)
 
 	/* is_own */
 	if (msg->type == WEB_MSG_MESSAGE) {
-		g_string_append_printf(json, ",\"is_own\":%s",
-		                      msg->is_own ? "true" : "false");
+		g_string_append_printf(json, ",\"is_own\":%s", msg->is_own ? "true" : "false");
 	}
 
 	/* extra_data - serialize hash table if not empty */
@@ -307,8 +306,8 @@ char *fe_web_message_to_json(WEB_MESSAGE_REC *msg)
 		g_hash_table_iter_init(&iter, msg->extra_data);
 		while (g_hash_table_iter_next(&iter, &key, &value)) {
 			char *escaped_key;
-			const char *key_str = (const char *)key;
-			const char *value_str = (const char *)value;
+			const char *key_str = (const char *) key;
+			const char *value_str = (const char *) value;
 
 			if (!first) {
 				g_string_append_c(json, ',');
@@ -318,13 +317,15 @@ char *fe_web_message_to_json(WEB_MESSAGE_REC *msg)
 			escaped_key = fe_web_escape_json(key_str);
 
 			/* Special handling for "params" field - it's already JSON array */
-			if (g_strcmp0(key_str, "params") == 0 && value_str != NULL && value_str[0] == '[') {
+			if (g_strcmp0(key_str, "params") == 0 && value_str != NULL &&
+			    value_str[0] == '[') {
 				/* Raw JSON array - don't escape */
 				g_string_append_printf(json, "\"%s\":%s", escaped_key, value_str);
 			} else {
 				/* Regular string value - escape it */
 				char *escaped_value = fe_web_escape_json(value_str);
-				g_string_append_printf(json, "\"%s\":\"%s\"", escaped_key, escaped_value);
+				g_string_append_printf(json, "\"%s\":\"%s\"", escaped_key,
+				                       escaped_value);
 				g_free(escaped_value);
 			}
 
@@ -372,8 +373,8 @@ void fe_web_send_message(WEB_CLIENT_REC *client, WEB_MESSAGE_REC *msg)
 
 	if (client->handle == NULL) {
 		printtext(NULL, NULL, MSGLEVEL_CLIENTERROR,
-		          "fe-web: [%s] ERROR: Cannot send %s - handle is NULL",
-		          client->id, type_str);
+		          "fe-web: [%s] ERROR: Cannot send %s - handle is NULL", client->id,
+		          type_str);
 		return;
 	}
 
@@ -389,8 +390,8 @@ void fe_web_send_message(WEB_CLIENT_REC *client, WEB_MESSAGE_REC *msg)
 		key = fe_web_crypto_get_key();
 		if (key == NULL) {
 			printtext(NULL, NULL, MSGLEVEL_CLIENTERROR,
-			          "fe-web: [%s] Encryption key not available for %s",
-			          client->id, type_str);
+			          "fe-web: [%s] Encryption key not available for %s", client->id,
+			          type_str);
 			g_free(json);
 			return;
 		}
@@ -399,10 +400,10 @@ void fe_web_send_message(WEB_CLIENT_REC *client, WEB_MESSAGE_REC *msg)
 		encrypted = g_malloc(strlen(json) + FE_WEB_CRYPTO_IV_SIZE + FE_WEB_CRYPTO_TAG_SIZE);
 
 		/* Encrypt JSON */
-		if (!fe_web_crypto_encrypt((const unsigned char *)json, strlen(json), key, encrypted, &encrypted_len)) {
+		if (!fe_web_crypto_encrypt((const unsigned char *) json, strlen(json), key,
+		                           encrypted, &encrypted_len)) {
 			printtext(NULL, NULL, MSGLEVEL_CLIENTERROR,
-			          "fe-web: [%s] Encryption failed for %s",
-			          client->id, type_str);
+			          "fe-web: [%s] Encryption failed for %s", client->id, type_str);
 			g_free(encrypted);
 			g_free(json);
 			return;
@@ -413,24 +414,24 @@ void fe_web_send_message(WEB_CLIENT_REC *client, WEB_MESSAGE_REC *msg)
 		g_free(encrypted);
 	} else {
 		/* Create WebSocket text frame with plain JSON */
-		frame = fe_web_websocket_create_frame(0x1, (const guchar *)json, strlen(json), &frame_len);
+		frame = fe_web_websocket_create_frame(0x1, (const guchar *) json, strlen(json),
+		                                      &frame_len);
 	}
 
 	/* Send frame - use SSL if enabled */
 	if (client->use_ssl && client->ssl_channel != NULL) {
 		int ssl_ret;
-		ssl_ret = fe_web_ssl_write(client->ssl_channel, (const char *)frame, frame_len);
+		ssl_ret = fe_web_ssl_write(client->ssl_channel, (const char *) frame, frame_len);
 		if (ssl_ret < 0) {
 			printtext(NULL, NULL, MSGLEVEL_CLIENTERROR,
-			          "fe-web: [%s] SSL write failed for %s",
-			          client->id, type_str);
+			          "fe-web: [%s] SSL write failed for %s", client->id, type_str);
 			g_free(frame);
 			g_free(json);
 			return;
 		}
 	} else {
 		/* Plain connection */
-		net_sendbuffer_send(client->handle, (const char *)frame, frame_len);
+		net_sendbuffer_send(client->handle, (const char *) frame, frame_len);
 	}
 
 	g_free(frame);
