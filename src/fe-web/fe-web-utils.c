@@ -179,6 +179,7 @@ WEB_MESSAGE_REC *fe_web_message_new(WEB_MESSAGE_TYPE type)
 	msg->timestamp = time(NULL);
 	msg->extra_data = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 	msg->is_own = FALSE;
+	msg->is_highlight = FALSE;
 
 	return msg;
 }
@@ -291,6 +292,12 @@ char *fe_web_message_to_json(WEB_MESSAGE_REC *msg)
 	/* is_own */
 	if (msg->type == WEB_MSG_MESSAGE) {
 		g_string_append_printf(json, ",\"is_own\":%s", msg->is_own ? "true" : "false");
+	}
+
+	/* is_highlight */
+	if (msg->type == WEB_MSG_MESSAGE) {
+		g_string_append_printf(json, ",\"is_highlight\":%s",
+		                       msg->is_highlight ? "true" : "false");
 	}
 
 	/* extra_data - serialize hash table if not empty */

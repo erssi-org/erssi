@@ -20,6 +20,7 @@
 #include <irssi/src/fe-common/core/printtext.h>
 #include <irssi/src/fe-common/core/window-items.h>
 #include <irssi/src/fe-common/core/fe-windows.h>
+#include <irssi/src/fe-common/core/hilight-text.h>
 #include <irssi/src/irc/core/irc.h>
 #include <irssi/src/irc/core/irc-servers.h>
 #include <irssi/src/irc/core/irc-channels.h>
@@ -202,6 +203,7 @@ static void sig_message_public(IRC_SERVER_REC *server, const char *msg, const ch
                                const char *address, const char *target)
 {
 	WEB_MESSAGE_REC *web_msg;
+	HILIGHT_REC *hilight;
 
 	if (server == NULL) {
 		return;
@@ -215,6 +217,11 @@ static void sig_message_public(IRC_SERVER_REC *server, const char *msg, const ch
 	web_msg->text = g_strdup(msg);
 	web_msg->level = MSGLEVEL_PUBLIC;
 	web_msg->is_own = FALSE;
+
+	/* Check if message is a highlight (mentions user's nick) */
+	hilight =
+	    hilight_match(SERVER(server), target, nick, address, MSGLEVEL_PUBLIC, msg, NULL, NULL);
+	web_msg->is_highlight = (hilight != NULL);
 
 	fe_web_send_to_server_clients(server, web_msg);
 	fe_web_message_free(web_msg);
