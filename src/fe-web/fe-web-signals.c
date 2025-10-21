@@ -687,7 +687,7 @@ static void sig_nick_mode_changed(IRC_CHANNEL_REC *channel, NICK_REC *nick)
 	(void) nick;
 }
 
-/* Signal: "message nick" */
+/* Signal: "message nick" - Someone else changed nick */
 static void sig_message_nick(IRC_SERVER_REC *server, const char *newnick, const char *oldnick,
                              const char *address)
 {
@@ -714,6 +714,55 @@ static void sig_message_nick(IRC_SERVER_REC *server, const char *newnick, const 
 		NICK_REC *nick_rec;
 
 		/* Check if the user is in this channel (using NEW nick, as irssi already renamed)
+		 */
+		nick_rec = nicklist_find(CHANNEL(channel), newnick);
+		if (nick_rec != NULL) {
+			WEB_MESSAGE_REC *update_msg;
+
+			update_msg = fe_web_message_new(WEB_MSG_NICKLIST_UPDATE);
+			update_msg->id = fe_web_generate_message_id();
+			update_msg->server_tag = g_strdup(server->tag);
+			update_msg->target = g_strdup(channel->name);
+			update_msg->nick = g_strdup(oldnick);  /* Old nick */
+			update_msg->text = g_strdup("change"); /* task */
+
+			/* Add new nick to extra_data */
+			g_hash_table_insert(update_msg->extra_data, g_strdup("new_nick"),
+			                    g_strdup(newnick));
+
+			fe_web_send_to_server_clients(server, update_msg);
+			fe_web_message_free(update_msg);
+		}
+	}
+}
+
+/* Signal: "message own_nick" - We changed our own nick */
+static void sig_message_own_nick(IRC_SERVER_REC *server, const char *newnick, const char *oldnick,
+                                 const char *address)
+{
+	WEB_MESSAGE_REC *web_msg;
+	GSList *tmp;
+
+	if (server == NULL) {
+		return;
+	}
+
+	/* Send nick_change message (global event) */
+	web_msg = fe_web_message_new(WEB_MSG_NICK_CHANGE);
+	web_msg->id = fe_web_generate_message_id();
+	web_msg->server_tag = g_strdup(server->tag);
+	web_msg->nick = g_strdup(oldnick);
+	web_msg->text = g_strdup(newnick);
+
+	fe_web_send_to_server_clients(server, web_msg);
+	fe_web_message_free(web_msg);
+
+	/* Send nicklist_update (delta: change) for each channel we are in */
+	for (tmp = server->channels; tmp != NULL; tmp = tmp->next) {
+		IRC_CHANNEL_REC *channel = tmp->data;
+		NICK_REC *nick_rec;
+
+		/* Check if we are in this channel (using NEW nick, as irssi already renamed)
 		 */
 		nick_rec = nicklist_find(CHANNEL(channel), newnick);
 		if (nick_rec != NULL) {
@@ -1467,6 +1516,7 @@ void fe_web_signals_init(void)
 
 	/* Nick changes */
 	signal_add("message nick", (SIGNAL_FUNC) sig_message_nick);
+	signal_add("message own_nick", (SIGNAL_FUNC) sig_message_own_nick);
 
 	/* Server events */
 	signal_add("server connected", (SIGNAL_FUNC) sig_server_connected);
@@ -1536,6 +1586,7 @@ void fe_web_signals_deinit(void)
 
 	/* Nick changes */
 	signal_remove("message nick", (SIGNAL_FUNC) sig_message_nick);
+	signal_remove("message own_nick", (SIGNAL_FUNC) sig_message_own_nick);
 
 	/* Server events */
 	signal_remove("server connected", (SIGNAL_FUNC) sig_server_connected);
