@@ -287,6 +287,51 @@ static void sig_message_own_private(IRC_SERVER_REC *server, const char *msg, con
 	fe_web_message_free(web_msg);
 }
 
+/* Signal: "message irc action" */
+static void sig_message_irc_action(IRC_SERVER_REC *server, const char *msg, const char *nick,
+                                   const char *address, const char *target)
+{
+	WEB_MESSAGE_REC *web_msg;
+
+	if (server == NULL) {
+		return;
+	}
+
+	web_msg = fe_web_message_new(WEB_MSG_MESSAGE);
+	web_msg->id = fe_web_generate_message_id();
+	web_msg->server_tag = g_strdup(server->tag);
+	web_msg->target = g_strdup(target);
+	web_msg->nick = g_strdup(nick);
+	web_msg->text = g_strdup(msg);
+	web_msg->level = MSGLEVEL_ACTIONS; /* Mark as ACTION */
+	web_msg->is_own = FALSE;
+
+	fe_web_send_to_server_clients(server, web_msg);
+	fe_web_message_free(web_msg);
+}
+
+/* Signal: "message irc own_action" */
+static void sig_message_irc_own_action(IRC_SERVER_REC *server, const char *msg, const char *target)
+{
+	WEB_MESSAGE_REC *web_msg;
+
+	if (server == NULL) {
+		return;
+	}
+
+	web_msg = fe_web_message_new(WEB_MSG_MESSAGE);
+	web_msg->id = fe_web_generate_message_id();
+	web_msg->server_tag = g_strdup(server->tag);
+	web_msg->target = g_strdup(target);
+	web_msg->nick = g_strdup(server->nick);
+	web_msg->text = g_strdup(msg);
+	web_msg->level = MSGLEVEL_ACTIONS; /* Mark as ACTION */
+	web_msg->is_own = TRUE;
+
+	fe_web_send_to_server_clients(server, web_msg);
+	fe_web_message_free(web_msg);
+}
+
 /* Signal: "message join" */
 static void sig_message_join(IRC_SERVER_REC *server, const char *channel, const char *nick,
                              const char *address, const char *account, const char *realname)
@@ -1097,10 +1142,16 @@ static void event_end_of_whois(IRC_SERVER_REC *server, const char *data)
 	WHOIS_REC *rec;
 	WEB_MESSAGE_REC *msg;
 
-	if (server == NULL || data == NULL)
+	if (server == NULL || data == NULL || server->tag == NULL)
 		return;
 
 	params = event_get_params(data, 2, NULL, &nick);
+
+	if (nick == NULL || nick[0] == '\0') {
+		g_free(params);
+		return;
+	}
+
 	key = whois_key(server, nick);
 
 	rec = g_hash_table_lookup(active_whois, key);
@@ -1396,6 +1447,8 @@ void fe_web_signals_init(void)
 	signal_add("message own_public", (SIGNAL_FUNC) sig_message_own_public);
 	signal_add("message private", (SIGNAL_FUNC) sig_message_private);
 	signal_add("message own_private", (SIGNAL_FUNC) sig_message_own_private);
+	signal_add("message irc action", (SIGNAL_FUNC) sig_message_irc_action);
+	signal_add("message irc own_action", (SIGNAL_FUNC) sig_message_irc_own_action);
 
 	/* Channel events */
 	signal_add("message join", (SIGNAL_FUNC) sig_message_join);
@@ -1467,6 +1520,8 @@ void fe_web_signals_deinit(void)
 	signal_remove("message own_public", (SIGNAL_FUNC) sig_message_own_public);
 	signal_remove("message private", (SIGNAL_FUNC) sig_message_private);
 	signal_remove("message own_private", (SIGNAL_FUNC) sig_message_own_private);
+	signal_remove("message irc action", (SIGNAL_FUNC) sig_message_irc_action);
+	signal_remove("message irc own_action", (SIGNAL_FUNC) sig_message_irc_own_action);
 
 	/* Channel events */
 	signal_remove("message join", (SIGNAL_FUNC) sig_message_join);
