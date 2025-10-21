@@ -1442,6 +1442,10 @@ static void sig_window_destroyed(WINDOW_REC *window)
 /* Initialize signal handlers */
 void fe_web_signals_init(void)
 {
+	/* Initialize active_whois hash table FIRST - before registering signal handlers! */
+	active_whois =
+	    g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) whois_rec_free);
+
 	/* Message signals */
 	signal_add("message public", (SIGNAL_FUNC) sig_message_public);
 	signal_add("message own_public", (SIGNAL_FUNC) sig_message_own_public);
@@ -1506,10 +1510,6 @@ void fe_web_signals_init(void)
 	/* Window lifecycle (channel/query closed in irssi) */
 	signal_add("window item remove", (SIGNAL_FUNC) sig_window_item_remove);
 	signal_add("window destroyed", (SIGNAL_FUNC) sig_window_destroyed);
-
-	/* Initialize active_whois hash table */
-	active_whois =
-	    g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) whois_rec_free);
 }
 
 /* Deinitialize signal handlers */
