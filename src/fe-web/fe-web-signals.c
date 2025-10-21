@@ -38,6 +38,7 @@ static void event_whois_away(IRC_SERVER_REC *server, const char *data);
 static void sig_window_hilight(WINDOW_REC *window);
 static void sig_window_activity(WINDOW_REC *window, int old_level);
 static void sig_window_dehilight(WINDOW_REC *window);
+static void sig_window_changed(WINDOW_REC *new_window, WINDOW_REC *old_window);
 
 /* Forward declarations for window lifecycle handlers */
 static void sig_window_item_remove(WINDOW_REC *window, WI_ITEM_REC *item);
@@ -1428,6 +1429,14 @@ static void sig_window_changed(WINDOW_REC *new_window, WINDOW_REC *old_window)
 		fe_web_send_to_all_clients(msg);
 		fe_web_message_free(msg);
 	}
+
+	/* ALWAYS send mark_read to sync read status across all clients (even if no activity) */
+	msg = fe_web_message_new(WEB_MSG_MARK_READ);
+	msg->id = fe_web_generate_message_id();
+	msg->server_tag = g_strdup(server->tag);
+	msg->target = g_strdup(item->visible_name);
+	fe_web_send_to_all_clients(msg);
+	fe_web_message_free(msg);
 }
 
 /* Window lifecycle: Handle window item removal (channel/query closed in irssi) */
@@ -1451,11 +1460,13 @@ static void sig_window_item_remove(WINDOW_REC *window, WI_ITEM_REC *item)
 	channel = IRC_CHANNEL(item);
 	if (channel != NULL) {
 		/* DON'T send CHANNEL_PART here - it was already sent by sig_message_part()
-		 * when the IRC PART message was received from server. Sending it again causes:
+		 * when the IRC PART message was received from server. Sending it again
+		 * causes:
 		 * 1. Duplicate channel_part events (first with hostname, second without)
 		 * 2. Second event is ignored because channel already removed from backend
 		 * 3. Confusion and potential race conditions
-		 * The window cleanup is internal to irssi, frontend doesn't need notification. */
+		 * The window cleanup is internal to irssi, frontend doesn't need
+		 * notification. */
 
 		return;
 	}
