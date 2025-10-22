@@ -19,6 +19,8 @@
 #include <irssi/src/fe-common/core/window-items.h>
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/fe-common/core/window-activity.h>
+#include <irssi/src/fe-text/sidepanels-activity.h>
+#include <irssi/src/fe-text/sidepanels-render.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -208,6 +210,7 @@ void fe_web_client_handle_message(WEB_CLIENT_REC *client, const char *json)
 		IRC_SERVER_REC *server;
 		WINDOW_REC *window;
 		WI_ITEM_REC *item;
+		WEB_MESSAGE_REC *msg;
 
 		target = fe_web_json_get_string(json, "target");
 		server_tag = fe_web_json_get_string(json, "server");
@@ -221,8 +224,8 @@ void fe_web_client_handle_message(WEB_CLIENT_REC *client, const char *json)
 					window = window_item_window(item);
 					if (window != NULL) {
 						/* DON'T switch window - frontend already switched
-						 * Switching here causes unnecessary window jumping in irssi
-						 * when user clicks on channel in browser.
+						 * Switching here causes unnecessary window jumping
+						 * in irssi when user clicks on channel in browser.
 						 * We only need to clear activity markers.
 						 */
 						/* window_set_active(window); // REMOVED */
@@ -231,6 +234,22 @@ void fe_web_client_handle_message(WEB_CLIENT_REC *client, const char *json)
 						 * This properly updates statusbar and emits signals
 						 */
 						window_activity(window, 0, NULL);
+
+						/* Clear sidepanel priority marker and redraw left panel */
+						reset_window_priority(window);
+						redraw_left_panels_only("mark_read");
+
+						/* IMPORTANT: Manually send activity_update with
+						 * level=0 because sig_window_activity() ignores
+						 * level decrease (see fe-web-signals.c line 1366)
+						 */
+						msg = fe_web_message_new(WEB_MSG_ACTIVITY_UPDATE);
+						msg->id = fe_web_generate_message_id();
+						msg->server_tag = g_strdup(server->tag);
+						msg->target = g_strdup(item->visible_name);
+						msg->level = 0; /* DATA_LEVEL_NONE = read */
+						fe_web_send_to_all_clients(msg);
+						fe_web_message_free(msg);
 					}
 				}
 			}

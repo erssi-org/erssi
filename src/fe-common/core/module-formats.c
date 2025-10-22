@@ -158,6 +158,7 @@ FORMAT_REC fecommon_core_formats[] = {
 	{ "query_stop", "Closing query with {nick $0}", 1, { 0 } },
 	{ "no_query", "No query with {nick $0}", 1, { 0 } },
 	{ "query_server_changed", "Query with {nick $0} changed to server {server $1}", 2, { 0, 0 } },
+	{ "queries_closed", "Closed {hilight $0} queries on {server $1}", 2, { 1, 0 } },
 
 	/* ---- */
 	{ NULL, "Highlighting", 0 },

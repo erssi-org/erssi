@@ -219,6 +219,29 @@ static void cmd_unquery(const char *data, SERVER_REC *server, WI_ITEM_REC *item)
 	cmd_params_free(free_arg);
 }
 
+/* SYNTAX: WCALL */
+static void cmd_wcall(const char *data, SERVER_REC *server, WI_ITEM_REC *item)
+{
+	GSList *tmp, *next;
+	int count = 0;
+
+	(void) data;
+	(void) item;
+
+	g_return_if_fail(server != NULL);
+
+	/* Close all queries for this server */
+	for (tmp = server->queries; tmp != NULL; tmp = next) {
+		QUERY_REC *query = tmp->data;
+		next = tmp->next;
+		query_destroy(query);
+		count++;
+	}
+
+	printformat(server, NULL, MSGLEVEL_CLIENTNOTICE,
+	            TXT_QUERIES_CLOSED, count, server->tag);
+}
+
 /* SYNTAX: QUERY [-window] [-<server tag>] <nick> [<message>] */
 static void cmd_query(const char *data, SERVER_REC *server, WI_ITEM_REC *item)
 {
@@ -374,6 +397,7 @@ void fe_queries_init(void)
 
 	command_bind("query", NULL, (SIGNAL_FUNC) cmd_query);
 	command_bind("unquery", NULL, (SIGNAL_FUNC) cmd_unquery);
+	command_bind("wcall", NULL, (SIGNAL_FUNC) cmd_wcall);
 	command_bind("window server", NULL, (SIGNAL_FUNC) cmd_window_server);
 
 	command_set_options("query", "window");
@@ -395,5 +419,6 @@ void fe_queries_deinit(void)
 
 	command_unbind("query", (SIGNAL_FUNC) cmd_query);
 	command_unbind("unquery", (SIGNAL_FUNC) cmd_unquery);
+	command_unbind("wcall", (SIGNAL_FUNC) cmd_wcall);
 	command_unbind("window server", (SIGNAL_FUNC) cmd_window_server);
 }
