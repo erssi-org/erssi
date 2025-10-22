@@ -1572,10 +1572,12 @@ void fe_web_signals_init(void)
 	signal_add("server disconnected", (SIGNAL_FUNC) sig_server_disconnected);
 
 	/* Channel lifecycle (YOU joined/parted) */
-	signal_add("channel joined", (SIGNAL_FUNC) sig_channel_joined);
+	/* Use signal_add_last to run AFTER fe-common activates the window */
+	signal_add_last("channel joined", (SIGNAL_FUNC) sig_channel_joined);
 
 	/* Query lifecycle */
-	signal_add("query created", (SIGNAL_FUNC) sig_query_created);
+	/* Use signal_add_last to run AFTER fe-common activates the window */
+	signal_add_last("query created", (SIGNAL_FUNC) sig_query_created);
 	signal_add("query destroyed", (SIGNAL_FUNC) sig_query_destroyed);
 
 	/* WHOIS events - use signal_add_last to run after fe-common/irc handlers */
@@ -1793,6 +1795,41 @@ static void fe_web_dump_server_state(WEB_CLIENT_REC *client, IRC_SERVER_REC *ser
 				msg->id = fe_web_generate_message_id();
 				msg->server_tag = g_strdup(server->tag);
 				msg->target = g_strdup(channel->name);
+				msg->level = data_level;
+				fe_web_send_message(client, msg);
+				fe_web_message_free(msg);
+			}
+		}
+	}
+
+	/* Dump queries */
+	for (tmp = server->queries; tmp != NULL; tmp = tmp->next) {
+		QUERY_REC *query = tmp->data;
+		WEB_MESSAGE_REC *msg;
+		WINDOW_REC *window;
+		WI_ITEM_REC *item;
+		int data_level;
+
+		/* Send query_opened */
+		msg = fe_web_message_new(WEB_MSG_QUERY_OPENED);
+		msg->id = fe_web_generate_message_id();
+		msg->server_tag = g_strdup(server->tag);
+		msg->nick = g_strdup(query->name);
+		fe_web_send_message(client, msg);
+		fe_web_message_free(msg);
+
+		/* Send activity status if query has unread activity */
+		window = window_find_item(SERVER(server), query->name);
+		if (window != NULL && window->active != NULL) {
+			item = window->active;
+			data_level = item->data_level > 0 ? item->data_level : window->data_level;
+
+			if (data_level > 0) {
+				/* Query has unread activity - send ACTIVITY_UPDATE */
+				msg = fe_web_message_new(WEB_MSG_ACTIVITY_UPDATE);
+				msg->id = fe_web_generate_message_id();
+				msg->server_tag = g_strdup(server->tag);
+				msg->target = g_strdup(query->name);
 				msg->level = data_level;
 				fe_web_send_message(client, msg);
 				fe_web_message_free(msg);
