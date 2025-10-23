@@ -837,8 +837,6 @@ static void sig_channel_joined(IRC_CHANNEL_REC *channel)
 	IRC_SERVER_REC *server;
 	WEB_MESSAGE_REC *msg;
 	GString *nicklist;
-	WINDOW_REC *channel_window;
-	WINDOW_REC *main_window;
 
 	if (channel == NULL) {
 		return;
@@ -895,18 +893,6 @@ static void sig_channel_joined(IRC_CHANNEL_REC *channel)
 	msg->text = g_string_free(nicklist, FALSE);
 	fe_web_send_to_server_clients(server, msg);
 	fe_web_message_free(msg);
-
-	/* Return to main window (refnum 1) to avoid focus issues
-	 * When channel is joined from node (e.g. /join from vue), irssi tends to
-	 * follow the new window. Switch back to main window so vue can control switching.
-	 */
-	channel_window = window_item_window((WI_ITEM_REC *) channel);
-	if (channel_window && active_win == channel_window) {
-		main_window = window_find_refnum(1);
-		if (main_window && main_window != channel_window) {
-			window_set_active(main_window);
-		}
-	}
 }
 
 /* Signal: "query created" - Query window opened */
@@ -914,8 +900,6 @@ static void sig_query_created(QUERY_REC *query, gpointer automatic)
 {
 	IRC_SERVER_REC *server;
 	WEB_MESSAGE_REC *msg;
-	WINDOW_REC *query_window;
-	WINDOW_REC *main_window;
 
 	if (query == NULL) {
 		return;
@@ -934,19 +918,6 @@ static void sig_query_created(QUERY_REC *query, gpointer automatic)
 
 	fe_web_send_to_server_clients(server, msg);
 	fe_web_message_free(msg);
-
-	/* Return to main window (refnum 1) to avoid focus issues with mark_read
-	 * When query is created from node (e.g. /msg from vue), irssi tends to
-	 * follow the new window which causes mark_read problems. Switch back to
-	 * main window so vue can control window switching.
-	 */
-	query_window = window_item_window((WI_ITEM_REC *) query);
-	if (query_window && active_win == query_window) {
-		main_window = window_find_refnum(1);
-		if (main_window && main_window != query_window) {
-			window_set_active(main_window);
-		}
-	}
 }
 
 /* Signal: "query destroyed" - Query window closed */
