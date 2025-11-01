@@ -22,6 +22,7 @@
 
 #include <string.h>
 #include <errno.h>
+#include <sys/socket.h>
 
 static GIOChannel *listen_channel = NULL;
 static int listen_port = -1;
@@ -446,6 +447,17 @@ static void sig_listen(void)
 	handle = net_accept(listen_channel, &ip, &port);
 	if (handle == NULL) {
 		return;
+	}
+
+	/* Increase TCP send buffer to 2MB for large state dumps */
+	{
+		int fd = g_io_channel_unix_get_fd(handle);
+		int bufsize = 2 * 1024 * 1024; /* 2MB */
+		if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize)) < 0) {
+			printtext(NULL, NULL, MSGLEVEL_CLIENTCRAP,
+			          "fe-web: Warning: Failed to set SO_SNDBUF to %d bytes: %s",
+			          bufsize, strerror(errno));
+		}
 	}
 
 	/* Get address string */
