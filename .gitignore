@@ -108,3 +108,6 @@ nexus_base_file_odzyskany.theme
 nexus_steel_test_odzyskany.theme
 utils/erssi-version.sh
 sidepanels_old.c
+memory.db
+memory.db-shm
+memory.db-wal
