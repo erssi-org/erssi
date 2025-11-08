@@ -67,7 +67,7 @@ jobs:
             | tar -xz -C /usr/local/bin --strip-components=1 git-cliff-2.4.0/git-cliff
           chmod +x /usr/local/bin/git-cliff
 
-      - name: Generate changelog
+      - name: Generate changelog for release notes
         id: changelog
         run: |
           git-cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
@@ -86,3 +86,22 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG.md in repository
+        run: |
+          # Generate full changelog
+          git-cliff --config cliff.toml -o CHANGELOG.md
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if CHANGELOG.md changed
+          if git diff --quiet CHANGELOG.md; then
+            echo "CHANGELOG.md is already up to date"
+          else
+            # Commit and push
+            git add CHANGELOG.md
+            git commit -m "docs: update CHANGELOG.md for v${{ steps.version.outputs.VERSION }} [skip ci]"
+            git push origin main
+          fi
