@@ -112,7 +112,7 @@ static void cmd_version(char *data)
 			  "Client: "PACKAGE_TARNAME" " PACKAGE_VERSION" (%d %s)",
 			  IRSSI_VERSION_DATE, time);
 		printtext(NULL, NULL, MSGLEVEL_CLIENTNOTICE,
-			  "erssi v1.0.0 - Enhanced/Evolved IRC Client");
+			  "erssi v1.1.0 - Enhanced/Evolved IRC Client");
 		printtext(NULL, NULL, MSGLEVEL_CLIENTNOTICE,
 			  "Check us on https://erssi.org");
 	}
