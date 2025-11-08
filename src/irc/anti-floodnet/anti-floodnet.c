@@ -207,14 +207,24 @@ gboolean is_message_blocked(const char *text)
     return FALSE;
 }
 
-/* Block a specific message text for given duration */
+/* Block a specific message text for given duration - extends if already blocked */
 void block_duplicate_message(const char *text, int duration)
 {
-    time_t *blocked_until = g_new(time_t, 1);
-    *blocked_until = time(NULL) + duration;
-
-    g_hash_table_insert(floodnet->blocked_patterns,
-                        g_strdup(text), blocked_until);
+    time_t *blocked_until;
+    time_t now = time(NULL);
+    
+    blocked_until = g_hash_table_lookup(floodnet->blocked_patterns, text);
+    
+    if (blocked_until) {
+        /* Extend existing block - flood still happening */
+        *blocked_until = now + duration;
+    } else {
+        /* Create new block */
+        blocked_until = g_new(time_t, 1);
+        *blocked_until = now + duration;
+        g_hash_table_insert(floodnet->blocked_patterns,
+                            g_strdup(text), blocked_until);
+    }
 }
 
 /* Enter flood protection mode */
@@ -309,6 +319,9 @@ void check_message_flood(IRC_SERVER_REC *server, const char *nick,
     /* If in protection mode, check if message is blocked */
     if (floodnet->in_protection_mode) {
         if (is_message_blocked(text) || check_tilde_ident(userhost)) {
+            /* Extend block - flood still happening */
+            block_duplicate_message(text, floodnet->block_duration);
+            
             floodnet->total_messages_blocked++;
             floodnet->blocked_since_notice++;
             g_free(userhost);
@@ -332,12 +345,11 @@ void check_message_flood(IRC_SERVER_REC *server, const char *nick,
             floodnet->total_messages_blocked++;
             floodnet->blocked_since_notice++;
 
-            /* Block all messages in current window */
+            /* Block/extend all messages in current window */
             for (tmp = floodnet->message_window; tmp != NULL; tmp = tmp->next) {
                 rec = tmp->data;
-                if (!is_message_blocked(rec->text)) {
-                    block_duplicate_message(rec->text, floodnet->block_duration);
-                }
+                /* Always call to extend if already blocked */
+                block_duplicate_message(rec->text, floodnet->block_duration);
             }
 
             g_free(userhost);
@@ -352,9 +364,14 @@ void check_message_flood(IRC_SERVER_REC *server, const char *nick,
         char *most_common = find_most_common_message(&duplicate_count);
 
         if (duplicate_count >= floodnet->duplicate_threshold) {
-            if (!is_message_blocked(most_common)) {
-                enter_protection_mode();
-                block_duplicate_message(most_common, floodnet->block_duration);
+            gboolean was_blocked = is_message_blocked(most_common);
+            
+            enter_protection_mode();
+            /* Always block/extend - flood is happening */
+            block_duplicate_message(most_common, floodnet->block_duration);
+            
+            if (!was_blocked) {
+                /* First time detecting this pattern */
                 floodnet->flood_attempts_today++;
             }
 
@@ -400,7 +417,7 @@ void irc_anti_floodnet_init(void)
     /* Initialize hash tables */
     floodnet->channel_nick_changes = g_hash_table_new_full(g_str_hash, g_str_equal,
                                                           g_free,
-                                                          (GDestroyNotify)g_slist_free);
+                                                          free_channel_nickflood_rec);
     floodnet->blocked_patterns = g_hash_table_new_full(g_str_hash, g_str_equal,
                                                       g_free, g_free);
     floodnet->ctcp_blocked_until = g_hash_table_new_full(g_direct_hash, g_direct_equal,

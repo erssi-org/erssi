@@ -1,6 +1,7 @@
 # erssi 🚀
 **Enhanced/Evolved IRC Client**
 
+[![Latest Release](https://img.shields.io/github/v/release/erssi-org/erssi)](https://github.com/erssi-org/erssi/releases/latest)
 [![GitHub stars](https://img.shields.io/github/stars/erssi-org/erssi.svg?style=social&label=Stars)](https://github.com/erssi-org/erssi)
 [![License](https://img.shields.io/badge/License-GPL--2.0--or--later-blue.svg)](https://opensource.org/licenses/GPL-2.0)
 [![IRC Network](https://img.shields.io/badge/Chat-IRC-green.svg)](irc://irc.ircnet.com)
@@ -518,6 +519,36 @@ Evolved Irssi maintains the legendary performance of classic irssi:
 - **💬 Discussion**: [GitHub Discussions](https://github.com/kofany/irssi/discussions)
 - **📧 IRC**: `#erssi` on IRCnet
 - **📖 Documentation**: [Installation Guide](INSTALL-SCRIPT.md)
+
+## 🤝 Contributing
+
+We welcome contributions from the community! erssi uses **Conventional Commits** for changelog generation and automated releases.
+
+- **📋 Contributing Guide**: [CONTRIBUTING.md](CONTRIBUTING.md) - Learn about our development workflow, commit message format, and how to submit pull requests
+- **🚀 Release Process**: [RELEASE.md](RELEASE.md) - For maintainers: how to create releases
+- **📝 Changelog**: [CHANGELOG.md](CHANGELOG.md) - See what's new in each version
+- **🏗️ Architecture**: [CLAUDE.md](CLAUDE.md) - Detailed architecture and development guide
+
+**Quick Start for Contributors:**
+
+```bash
+# Fork and clone the repository
+git clone https://github.com/YOUR_USERNAME/erssi.git
+cd erssi
+
+# Install dependencies and build
+./install-dev.sh
+meson setup Build -Dwith-perl=yes -Dwith-otr=yes
+ninja -C Build
+
+# Make your changes using conventional commits
+git commit -m "feat: add new feature"
+git commit -m "fix: resolve issue"
+
+# Submit a pull request
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## 📄 License
 

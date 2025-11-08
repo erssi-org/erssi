@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on v1.0.0, v1.1.0, etc.
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for changelog generation
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            libutf8proc-dev \
+            libperl-dev \
+            libotr5-dev \
+            libglib2.0-dev \
+            libssl-dev \
+            libgcrypt20-dev \
+            libncurses-dev
+          pip install meson
+
+      - name: Configure build
+        run: |
+          meson setup Build \
+            -Dwith-perl=yes \
+            -Dwith-otr=yes \
+            -Ddisable-utf8proc=no \
+            -Dwith-fe-web=yes
+
+      - name: Create distribution tarball
+        run: |
+          meson dist -C Build --no-tests --formats=gztar,xztar
+          # Distribution tarballs will be in Build/meson-dist/
+
+      - name: Generate checksums
+        run: |
+          cd Build/meson-dist
+          sha256sum *.tar.xz > checksums.txt
+          sha256sum *.tar.gz >> checksums.txt
+          cat checksums.txt
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Install git-cliff
+        run: |
+          curl -sSL https://github.com/orhun/git-cliff/releases/download/v2.4.0/git-cliff-2.4.0-x86_64-unknown-linux-gnu.tar.gz \
+            | tar -xz -C /usr/local/bin --strip-components=1 git-cliff-2.4.0/git-cliff
+          chmod +x /usr/local/bin/git-cliff
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          git-cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: erssi ${{ steps.version.outputs.VERSION }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            Build/meson-dist/*.tar.xz
+            Build/meson-dist/*.tar.gz
+            Build/meson-dist/checksums.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

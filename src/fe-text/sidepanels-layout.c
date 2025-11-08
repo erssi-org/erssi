@@ -154,9 +154,8 @@ void position_tw(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	aw = mw->active;
 	show_right = get_sp_enable_right() && ctx->right_w > 0;
 	if (get_sp_auto_hide_right() && show_right) {
-		/* Auto-hide: only show if active window is a channel */
-		show_right = (aw && aw->active && aw->active->visible_name &&
-		              strchr(aw->active->visible_name, '#'));
+		/* Auto-hide: only show if active window is a channel (any type: #, &, !, +) */
+		show_right = (aw && aw->active && IS_CHANNEL(aw->active));
 	}
 
 	if (show_right) {

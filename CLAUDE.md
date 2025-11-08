@@ -405,9 +405,76 @@ gdb Build/src/fe-text/irssi
 - **Credentials not encrypting**: Check master password set, verify storage mode
 - **Web interface**: Check SSL certs in `~/.erssi/certs/`, verify port not in use
 
+## Release & Versioning Workflow
+
+erssi uses **Semantic Versioning** (MAJOR.MINOR.PATCH) with **Conventional Commits** for automated changelog generation and releases.
+
+### Version Management
+
+- **Version defined in**: `meson.build` line 2: `version : '1.0.0'`
+- **NEWS file**: First line parsed for build metadata by `utils/irssi-version.sh`
+  - Format: `erssi-v1.0.0 2025-11-08  erssi-org team <...>`
+  - Script searches for `^erssi-v` first, falls back to `^v` (irssi upstream compatibility)
+- **CHANGELOG.md**: Auto-generated from git commits using `git-cliff` (Keep a Changelog format)
+- **Git tags**: `vX.Y.Z` format triggers automated release workflow
+
+### Conventional Commits
+
+All commits must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+
+**Examples**:
+```bash
+feat(sidepanels): add support for custom panel width
+fix(credentials): prevent race condition in master password prompt
+docs: update CLAUDE.md with release workflow
+```
+
+### Automated Release Process
+
+1. **Update version** in `meson.build`
+2. **Add NEWS entry** (optional, for build metadata)
+3. **Commit**: `git commit -m "chore(release): prepare for v1.1.0"`
+4. **Create tag**: `git tag -a v1.1.0 -m "Release v1.1.0"`
+5. **Push**: `git push && git push --tags`
+6. **GitHub Actions automatically**:
+   - Configures build (meson + dependencies)
+   - Creates tarballs: `meson dist -C Build --formats=gztar,xztar`
+   - Generates SHA256 checksums
+   - Generates changelog from commits (git-cliff)
+   - Creates GitHub Release with artifacts
+
+**Workflow file**: `.github/workflows/release.yml`
+
+### CI/CD Validation
+
+- **Commit validation**: `.github/workflows/commitlint.yml` - Validates commit messages in PRs
+- **PR title validation**: `.github/workflows/pr-title.yml` - Ensures PR titles follow conventional commits
+- **Build & test**: `.github/workflows/check.yml` - Existing CI for build validation
+
+### For Maintainers
+
+See **[RELEASE.md](RELEASE.md)** for detailed release instructions and troubleshooting.
+
+### For Contributors
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for commit message guidelines and PR submission process.
+
 ## Documentation
 
 - **README.md** - User-facing feature documentation
+- **CONTRIBUTING.md** - Contributor guidelines and conventional commits
+- **RELEASE.md** - Release process for maintainers
+- **CHANGELOG.md** - Auto-generated changelog (Keep a Changelog format)
 - **docs/MOUSE-GESTURES-*.md** - Gesture system documentation
 - **INSTALL-SCRIPT.md** - Installation guide
 - **src/*/README** - Component-specific notes (if present)

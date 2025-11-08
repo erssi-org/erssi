@@ -1,3 +1,39 @@
+erssi-v1.1.0 2025-11-08  erssi-org team <https://github.com/erssi-org>
+	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
+	https://erssi.org && https://erssi.dev
+	ERSSI - Enhanced/Evolved IRC Client
+	Release automation and development workflow improvements.
+
+	+ AUTOMATED RELEASE SYSTEM
+	  - Conventional Commits support for standardized commit messages
+	  - Automatic changelog generation with git-cliff (Keep a Changelog format)
+	  - GitHub Actions workflow for automated releases on git tag push
+	  - Distribution tarball generation with meson dist (.tar.gz + .tar.xz)
+	  - SHA256 checksums automatically generated for all release artifacts
+	  - Auto-publishing to GitHub Releases with generated release notes
+
+	+ DEVELOPMENT WORKFLOW
+	  - Commit message validation with commitlint in pull requests
+	  - PR title validation to ensure conventional commit format
+	  - Comprehensive contributor documentation (CONTRIBUTING.md)
+	  - Release process documentation for maintainers (RELEASE.md)
+	  - Semantic Versioning (MAJOR.MINOR.PATCH) adoption
+
+	+ BUILD SYSTEM IMPROVEMENTS
+	  - Fixed version parsing in utils/irssi-version.sh for erssi-v format
+	  - Support for both erssi-v and v (irssi upstream) NEWS entries
+	  - Correct IRSSI_VERSION_DATE and IRSSI_VERSION_TIME extraction
+	  - Migration from make-dist.sh to native meson dist
+
+	+ DOCUMENTATION
+	  - CHANGELOG.md introduced for release history tracking
+	  - CONTRIBUTING.md with conventional commit guidelines
+	  - RELEASE.md with step-by-step release instructions
+	  - Updated README.md with latest release badge and contributor info
+	  - Updated CLAUDE.md with release workflow documentation
+
+	Based on irssi v1.5-head with all upstream improvements included.
+
 erssi-v1.0.0 2025-10-17  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 	https://erssi.org && https://erssi.dev

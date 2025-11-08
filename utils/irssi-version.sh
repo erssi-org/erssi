@@ -1,13 +1,18 @@
 #!/bin/sh
 
-DATE=`grep '^v' "$1"/NEWS | head -1`
+# Try erssi-v format first (erssi releases), fallback to v format (irssi upstream)
+DATE=`grep '^erssi-v' "$1"/NEWS | head -1`
+if [ -z "$DATE" ]; then
+    DATE=`grep '^v' "$1"/NEWS | head -1`
+fi
 VERSION_DATE=`echo "$DATE" | cut -f 2 -d ' ' | tr -d -`
 case $VERSION_DATE in
   *xx)
     VERSION_DATE=`date +%Y%m%d`
     ;;
 esac
-VERSION_TIME=`echo "$DATE" | cut -f 1 -d ' ' | tr -d v | tr .- ' '`
+# Remove both 'erssi-v' and 'v' prefixes for version parsing
+VERSION_TIME=`echo "$DATE" | cut -f 1 -d ' ' | sed 's/^erssi-v//' | tr -d v | tr .- ' '`
 VERSION_TIME=`printf %d%d%02d $VERSION_TIME 2>/dev/null | cut -c 1-4`
 
 if echo "${VERSION}" | grep -q -- -head; then

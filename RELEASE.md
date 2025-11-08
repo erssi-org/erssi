@@ -1,0 +1,223 @@
+# Release Process for erssi
+
+This document describes the release process for maintainers of erssi.
+
+## Overview
+
+erssi uses **Semantic Versioning** (`MAJOR.MINOR.PATCH`) and follows **Conventional Commits** for changelog generation. Releases are automated via GitHub Actions when a version tag is pushed.
+
+## Version Numbering
+
+- **MAJOR** (e.g., `2.0.0`) - Breaking changes, incompatible API changes
+- **MINOR** (e.g., `1.1.0`) - New features, backwards-compatible
+- **PATCH** (e.g., `1.0.1`) - Bug fixes, backwards-compatible
+
+## Prerequisites
+
+Before creating a release:
+
+1. **All tests passing** - Check GitHub Actions CI
+2. **Clean working directory** - No uncommitted changes
+3. **Main branch up-to-date** - `git pull origin main`
+4. **Review commits** - Ensure conventional commit format for changelog generation
+
+## Release Workflow
+
+### 1. Review Changes
+
+```bash
+# View commits since last release
+git log $(git describe --tags --abbrev=0)..HEAD --oneline
+
+# Or use git-cliff to preview changelog
+git-cliff --unreleased
+```
+
+### 2. Decide Version Number
+
+Based on the changes:
+- Breaking changes → bump MAJOR
+- New features → bump MINOR
+- Bug fixes only → bump PATCH
+
+Example: Current version `1.0.0`
+- Breaking change → `2.0.0`
+- New feature → `1.1.0`
+- Bug fix → `1.0.1`
+
+### 3. Update Version in meson.build
+
+Edit `meson.build` line 2:
+
+```python
+project('erssi', 'c',
+  version : '1.1.0',  # Update this
+  meson_version : '>=0.53',
+```
+
+### 4. Update NEWS (Optional)
+
+While `CHANGELOG.md` is auto-generated, you may want to add a summary entry to `NEWS` following the erssi format:
+
+```
+erssi-v1.1.0 2025-11-15  erssi-org team <https://github.com/erssi-org>
+	+ Brief summary of major changes
+	+ ...
+```
+
+**Note**: The automated `irssi-version.sh` script will parse this file for build metadata.
+
+### 5. Commit the Version Bump
+
+```bash
+# Stage version changes
+git add meson.build NEWS  # and any other changed files
+
+# Commit with conventional commit format
+git commit -m "chore(release): prepare for v1.1.0"
+```
+
+### 6. Create and Push Tag
+
+```bash
+# Create annotated tag
+git tag -a v1.1.0 -m "Release v1.1.0"
+
+# Push both commit and tag
+git push origin main
+git push origin v1.1.0
+```
+
+### 7. Automated Release
+
+GitHub Actions will automatically:
+
+1. ✅ Detect the `v*` tag push
+2. ✅ Configure build environment (meson, dependencies)
+3. ✅ Create distribution tarballs (`.tar.gz`, `.tar.xz`)
+4. ✅ Generate SHA256 checksums
+5. ✅ Generate changelog from commits using `git-cliff`
+6. ✅ Create GitHub Release with:
+   - Release title: `erssi 1.1.0`
+   - Auto-generated release notes
+   - Tarball assets
+   - Checksums file
+
+**Monitor progress**: https://github.com/erssi-org/erssi/actions
+
+### 8. Verify Release
+
+1. Check GitHub Releases: https://github.com/erssi-org/erssi/releases
+2. Download tarball and verify checksum:
+
+```bash
+# Download release assets
+wget https://github.com/erssi-org/erssi/releases/download/v1.1.0/erssi-1.1.0.tar.xz
+wget https://github.com/erssi-org/erssi/releases/download/v1.1.0/checksums.txt
+
+# Verify checksum
+sha256sum -c checksums.txt
+```
+
+3. Test build from tarball:
+
+```bash
+tar -xf erssi-1.1.0.tar.xz
+cd erssi-1.1.0
+meson setup Build -Dwith-perl=yes -Dwith-otr=yes
+ninja -C Build
+./Build/src/fe-text/irssi --version
+```
+
+## Hotfix Releases
+
+For urgent bug fixes:
+
+```bash
+# Create hotfix branch from tag
+git checkout -b hotfix/1.0.1 v1.0.0
+
+# Make fix
+git commit -m "fix: critical security issue in credential handling"
+
+# Merge back to main
+git checkout main
+git merge hotfix/1.0.1
+
+# Update version to 1.0.1 in meson.build
+git commit -m "chore(release): prepare for v1.0.1"
+
+# Tag and push
+git tag -a v1.0.1 -m "Hotfix release v1.0.1"
+git push origin main v1.0.1
+```
+
+## Beta/RC Releases
+
+For pre-release testing:
+
+```bash
+# Update meson.build to e.g., '1.1.0-beta.1'
+git commit -m "chore(release): prepare for v1.1.0-beta.1"
+git tag -a v1.1.0-beta.1 -m "Beta release v1.1.0-beta.1"
+git push origin main v1.1.0-beta.1
+```
+
+GitHub Actions will create a release marked as "Pre-release".
+
+## Troubleshooting
+
+### Release Failed
+
+Check GitHub Actions logs: `.github/workflows/release.yml`
+
+Common issues:
+- **Build dependencies missing** - Update workflow with missing packages
+- **Meson configuration error** - Check build options in workflow
+- **git-cliff error** - Verify `cliff.toml` syntax
+
+Fix and re-run by deleting tag and recreating:
+
+```bash
+git tag -d v1.1.0
+git push origin :refs/tags/v1.1.0
+# Fix issue, then re-tag
+git tag -a v1.1.0 -m "Release v1.1.0"
+git push origin v1.1.0
+```
+
+### Changelog Missing Commits
+
+Ensure commits follow conventional commit format:
+- `feat: add new feature`
+- `fix: resolve bug`
+- `docs: update documentation`
+
+See `CONTRIBUTING.md` for commit message guidelines.
+
+## Conventional Commit Types
+
+Used for changelog generation:
+
+| Type | Description | Changelog Section |
+|------|-------------|------------------|
+| `feat` | New feature | ⚡ Features |
+| `fix` | Bug fix | 🐛 Bug Fixes |
+| `docs` | Documentation | 📚 Documentation |
+| `perf` | Performance improvement | 🚀 Performance |
+| `refactor` | Code refactoring | ♻️ Refactoring |
+| `test` | Test changes | 🧪 Testing |
+| `build` | Build system changes | 🔧 Build System |
+| `ci` | CI/CD changes | 👷 CI/CD |
+| `chore` | Maintenance tasks | 🔨 Miscellaneous |
+
+## References
+
+- [Semantic Versioning](https://semver.org/)
+- [Keep a Changelog](https://keepachangelog.com/)
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [git-cliff documentation](https://git-cliff.org/)
+
+## Questions?
+
+For questions about the release process, contact the erssi maintainers or open an issue on GitHub.

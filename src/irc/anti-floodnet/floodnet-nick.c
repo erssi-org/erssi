@@ -19,6 +19,30 @@
 /* Global floodnet instance - declared in anti-floodnet.c */
 extern ANTI_FLOODNET_REC *floodnet;
 
+/* Cleanup function for CHANNEL_NICKFLOOD_REC */
+void free_channel_nickflood_rec(gpointer data)
+{
+    CHANNEL_NICKFLOOD_REC *rec = (CHANNEL_NICKFLOOD_REC *)data;
+    GSList *tmp;
+
+    if (!rec)
+        return;
+
+    /* Free all NICKCHANGE_REC in the list */
+    for (tmp = rec->nick_changes; tmp != NULL; tmp = tmp->next) {
+        NICKCHANGE_REC *change = tmp->data;
+        g_free(change->old_nick);
+        g_free(change->new_nick);
+        g_free(change);
+    }
+
+    /* Free the list itself */
+    g_slist_free(rec->nick_changes);
+
+    /* Free the record */
+    g_free(rec);
+}
+
 /* Check if nick events are blocked for this channel */
 gboolean is_nick_channel_blocked(const char *channel)
 {
@@ -77,29 +101,81 @@ static void cleanup_old_nick_changes(CHANNEL_NICKFLOOD_REC *rec, time_t now)
     }
 }
 
-/* Check for nick flood and block if necessary */
-void check_nick_flood(IRC_SERVER_REC *server, const char *channel,
-                      const char *old_nick, const char *new_nick)
+/* Extend or create channel block */
+static void extend_channel_block(const char *channel)
 {
-    CHANNEL_NICKFLOOD_REC *rec;
-    time_t now;
-    NICKCHANGE_REC *change;
+    time_t *blocked_until;
+    time_t now = time(NULL);
+    
+    blocked_until = g_hash_table_lookup(floodnet->nick_blocked_channels, channel);
+    
+    if (blocked_until) {
+        /* Extend existing block */
+        *blocked_until = now + floodnet->block_duration;
+    } else {
+        /* Create new block */
+        blocked_until = g_new(time_t, 1);
+        *blocked_until = now + floodnet->block_duration;
+        g_hash_table_insert(floodnet->nick_blocked_channels,
+                           g_strdup(channel), blocked_until);
+    }
+}
+
+/* Signal handler for "message nick" - block display if nick is on any blocked channel */
+static void sig_message_nick(IRC_SERVER_REC *server, const char *newnick,
+                             const char *oldnick, const char *address)
+{
+    GSList *tmp;
 
     if (!settings_get_bool("anti_floodnet_enabled"))
         return;
 
-    if (!channel || !old_nick || !new_nick)
+    if (!IS_IRC_SERVER(server))
         return;
 
-    /* Check if already blocked for this channel */
-    if (is_nick_channel_blocked(channel)) {
-        signal_stop();
-        floodnet->total_messages_blocked++;
-        floodnet->blocked_since_notice++;
+    /* Check if nick is on any blocked channel */
+    for (tmp = server->channels; tmp != NULL; tmp = tmp->next) {
+        CHANNEL_REC *channel = tmp->data;
+        
+        if (!IS_CHANNEL(channel))
+            continue;
+
+        /* Check if this channel is blocked and user is on it */
+        if (is_nick_channel_blocked(channel->name)) {
+            /* Check if the nick that changed is actually on this channel */
+            if (nicklist_find(channel, newnick) != NULL) {
+                /* Block display and extend protection */
+                extend_channel_block(channel->name);
+                floodnet->total_messages_blocked++;
+                floodnet->blocked_since_notice++;
+                signal_stop();
+                return;
+            }
+        }
+    }
+}
+
+/* Signal handler for "nicklist changed" - fires once per channel where nick changed */
+static void sig_nicklist_changed(CHANNEL_REC *channel, NICK_REC *nick, const char *oldnick)
+{
+    CHANNEL_NICKFLOOD_REC *rec;
+    NICKCHANGE_REC *change;
+    time_t now;
+
+    if (!settings_get_bool("anti_floodnet_enabled"))
+        return;
+
+    if (!channel || !nick || !oldnick)
+        return;
+
+    /* Don't track if already blocked - just tracking, not blocking display here */
+    if (is_nick_channel_blocked(channel->name)) {
+        /* Extend block - flood is still happening */
+        extend_channel_block(channel->name);
         return;
     }
 
-    rec = get_channel_nickflood_rec(channel);
+    rec = get_channel_nickflood_rec(channel->name);
     now = time(NULL);
 
     /* Clean up old entries */
@@ -108,116 +184,35 @@ void check_nick_flood(IRC_SERVER_REC *server, const char *channel,
     /* Add current nick change */
     change = g_new0(NICKCHANGE_REC, 1);
     change->timestamp = now;
-    change->old_nick = g_strdup(old_nick);
-    change->new_nick = g_strdup(new_nick);
+    change->old_nick = g_strdup(oldnick);
+    change->new_nick = g_strdup(nick->nick);
 
     rec->nick_changes = g_slist_prepend(rec->nick_changes, change);
     rec->change_count++;
 
     /* Check if threshold exceeded */
     if (rec->change_count >= floodnet->nickchange_threshold) {
-        /* Block all nick events for this channel */
-        time_t *blocked_until;
-
         enter_protection_mode();
-
-        blocked_until = g_new(time_t, 1);
-        *blocked_until = now + floodnet->block_duration;
-
-        g_hash_table_insert(floodnet->nick_blocked_channels,
-                           g_strdup(channel), blocked_until);
+        extend_channel_block(channel->name);
 
         floodnet->flood_attempts_today++;
-        floodnet->total_messages_blocked++;
-        floodnet->blocked_since_notice++;
-
-        /* Block this current nick change */
-        signal_stop();
-        return;
-    }
-}
-
-/* Signal handler for NICK events */
-static void sig_event_nick(IRC_SERVER_REC *server, const char *data,
-                          const char *nick, const char *address)
-{
-    GSList *tmp;
-    char *new_nick;
-    WI_ITEM_REC *item;
-    CHANNEL_REC *channel;
-    NICK_REC *usernick;
-
-    if (!IS_IRC_SERVER(server))
-        return;
-
-    new_nick = g_strdup(data);
-
-    /* Check all channels we share with this user */
-    for (tmp = server->channels; tmp != NULL; tmp = tmp->next) {
-        item = tmp->data;
-        if (!IS_CHANNEL(item))
-            continue;
-
-        channel = (CHANNEL_REC *)item;
-
-        /* Check if user is on this channel */
-        usernick = nicklist_find(channel, new_nick);
-        if (usernick && usernick->host) {
-            /* User is changing nick while on this channel */
-            check_nick_flood(server, channel->name, nick, new_nick);
-        }
-    }
-
-    g_free(new_nick);
-}
-
-/* Pre-check for nick events - block if channel is in flood mode */
-static void sig_nick_pre_check(IRC_SERVER_REC *server, const char *new_nick,
-                              const char *old_nick, const char *address)
-{
-    GSList *tmp;
-
-    if (!settings_get_bool("anti_floodnet_enabled"))
-        return;
-
-    if (!IS_IRC_SERVER(server))
-        return;
-
-    /* Check all channels we might be affected */
-    for (tmp = server->channels; tmp != NULL; tmp = tmp->next) {
-        WI_ITEM_REC *item;
-        CHANNEL_REC *channel;
-
-        item = tmp->data;
-        if (!IS_CHANNEL(item))
-            continue;
-
-        channel = (CHANNEL_REC *)item;
-
-        if (is_nick_channel_blocked(channel->name)) {
-            /* This channel is in nick flood mode */
-            signal_stop();
-            return;
-        }
+        /* Note: We don't block here - "message nick" handler will block display */
     }
 }
 
 /* Initialize nick change flood protection */
 void nick_flood_init(void)
 {
-    /* Register nick change signal handlers */
-    signal_add_first("event nick", (SIGNAL_FUNC) sig_event_nick);
-    signal_add_first("nicklist new", (SIGNAL_FUNC) sig_nick_pre_check);
-    signal_add_first("nicklist changed", (SIGNAL_FUNC) sig_nick_pre_check);
-    signal_add_first("nicklist host changed", (SIGNAL_FUNC) sig_nick_pre_check);
+    /* Register for "nicklist changed" - track flood per channel */
+    signal_add_first("nicklist changed", (SIGNAL_FUNC) sig_nicklist_changed);
+    
+    /* Register for "message nick" - block display if on blocked channel */
+    signal_add_first("message nick", (SIGNAL_FUNC) sig_message_nick);
 }
 
 /* Deinitialize nick change flood protection */
 void nick_flood_deinit(void)
 {
-    /* Remove signal handlers */
-    signal_remove("event nick", (SIGNAL_FUNC) sig_event_nick);
-    signal_remove("nicklist new", (SIGNAL_FUNC) sig_nick_pre_check);
-    signal_remove("nicklist changed", (SIGNAL_FUNC) sig_nick_pre_check);
-    signal_remove("nicklist host changed", (SIGNAL_FUNC) sig_nick_pre_check);
+    signal_remove("nicklist changed", (SIGNAL_FUNC) sig_nicklist_changed);
+    signal_remove("message nick", (SIGNAL_FUNC) sig_message_nick);
 }

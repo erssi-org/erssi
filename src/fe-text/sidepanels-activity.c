@@ -117,9 +117,9 @@ GSList *build_sorted_window_list(void)
 			sort_rec->sort_group = 0;
 			sort_rec->sort_key = g_strdup("Notices");
 		} else if (sort_rec->server && !win->active) {
-			/* Check if this is a kicked channel (has server, no active, but name starts with #) */
-			if (win_name && win_name[0] == '#') {
-				/* Kicked channel - treat as channel for sorting */
+			/* Check if this is a kicked channel (has server, no active, but name is a channel) */
+			if (win_name && server_ischannel(SERVER(sort_rec->server), win_name)) {
+				/* Kicked channel (any type: #, &, !, +) - treat as channel for sorting */
 				sort_rec->sort_group = 2;
 				sort_rec->sort_key = g_strdup(win_name);
 			} else {

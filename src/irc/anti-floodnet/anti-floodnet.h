@@ -17,7 +17,7 @@
 #define DEFAULT_TILDE_THRESHOLD 5
 #define DEFAULT_DUPLICATE_THRESHOLD 3
 #define DEFAULT_CTCP_THRESHOLD 5
-#define DEFAULT_NICKCHANGE_THRESHOLD 10
+#define DEFAULT_NICKCHANGE_THRESHOLD 5
 #define DEFAULT_BLOCK_DURATION 60
 #define DEFAULT_TIME_WINDOW 5
 #define DEFAULT_NICKCHANGE_WINDOW 3
@@ -84,6 +84,9 @@ typedef struct {
 /* Function prototypes */
 void irc_anti_floodnet_init(void);
 void irc_anti_floodnet_deinit(void);
+
+/* Cleanup functions */
+void free_channel_nickflood_rec(gpointer data);
 
 /* Flood detection functions */
 gboolean check_tilde_ident(const char *userhost);
