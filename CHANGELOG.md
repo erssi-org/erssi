@@ -5,6 +5,52 @@ All notable changes to erssi will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-11-08
+
+### 🔧 Build System
+
+- **Automated Release Workflow**
+  - Implement conventional commits validation with commitlint
+  - Add automated release via GitHub Actions on git tag push
+  - Add git-cliff for automatic changelog generation (Keep a Changelog format)
+  - Auto-generate distribution tarballs with `meson dist` (.tar.gz + .tar.xz)
+  - Auto-generate SHA256 checksums for release artifacts
+  - Auto-publish to GitHub Releases with generated release notes
+
+- **Version Management Improvements**
+  - Fix version parsing in `utils/irssi-version.sh` for erssi-v format
+  - Support both `erssi-v` and `v` (irssi upstream) NEWS entry formats
+  - Correct `IRSSI_VERSION_DATE` and `IRSSI_VERSION_TIME` extraction
+  - Migrate from `make-dist.sh` to native `meson dist` for tarball generation
+
+### 👷 CI/CD
+
+- **Development Workflow**
+  - Add commit message validation in pull requests (commitlint workflow)
+  - Add PR title validation to ensure conventional commit format
+  - Adopt Semantic Versioning (MAJOR.MINOR.PATCH) for releases
+
+### 📚 Documentation
+
+- **Comprehensive Documentation**
+  - Add `CHANGELOG.md` for release history tracking (Keep a Changelog format)
+  - Add `CONTRIBUTING.md` with conventional commit guidelines and PR process
+  - Add `RELEASE.md` with step-by-step release instructions for maintainers
+  - Update `README.md` with latest release badge and contributor information
+  - Update `CLAUDE.md` with release workflow documentation
+
+### 🐛 Bug Fixes
+
+- **sidepanels**: Use `server_ischannel()` for all channel types (#, &, !, +)
+  - Previously only checked for `#` prefix, now properly handles all RFC 2812 channel types
+  - Fixes kicked channel detection for non-standard channel prefixes
+
+- **anti-floodnet**: Extend block duration for duplicate messages
+  - When a duplicate message is detected, extend the block time instead of resetting
+  - Improves flood protection effectiveness
+
+---
+
 ## [1.0.0] - 2025-10-17
 
 ### ⚡ Features
