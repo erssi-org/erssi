@@ -250,11 +250,20 @@ void sig_nicklist_new(CHANNEL_REC *ch, NICK_REC *nick)
 
 void sig_nicklist_changed(CHANNEL_REC *channel, NICK_REC *nick, const char *old_nick)
 {
-	/* Nicklist changes don't trigger activity - just redraw right panels */
+	/* NOTE: Don't redraw here to avoid conflict with message_nick
+	 *
+	 * Signal flow for nick changes:
+	 *   1. nicklist_changed fires PER CHANNEL (low-level IRC core)
+	 *   2. message_nick fires PER SERVER (high-level UI event)
+	 *
+	 * message_nick handles both activity updates + redraw,
+	 * so batching here would cause duplicate/conflicting redraws.
+	 *
+	 * See WEECHAT-ANALYSIS.md for details on proper batching architecture.
+	 */
 	(void) channel;
 	(void) nick;
 	(void) old_nick;
-	schedule_batched_redraw("nicklist_changed");
 }
 
 /* Wrapper functions for signals that don't provide event names */
@@ -277,7 +286,7 @@ void sig_message_join(SERVER_REC *server, const char *channel, const char *nick,
 		        window->refnum, active_win ? active_win->refnum : -1);
 		handle_new_activity(window, DATA_LEVEL_EVENT);
 	}
-	redraw_both_panels_only("message_join"); /* Join affects both activity (left) and nicklist (right) */
+	schedule_batched_redraw("message_join"); /* Join affects both activity (left) and nicklist (right) */
 }
 
 void sig_message_part(SERVER_REC *server, const char *channel, const char *nick,
@@ -290,7 +299,7 @@ void sig_message_part(SERVER_REC *server, const char *channel, const char *nick,
 		        window->refnum, active_win ? active_win->refnum : -1);
 		handle_new_activity(window, DATA_LEVEL_EVENT);
 	}
-	redraw_both_panels_only("message_part"); /* Part affects both activity (left) and nicklist (right) */
+	schedule_batched_redraw("message_part"); /* Part affects both activity (left) and nicklist (right) */
 }
 
 void sig_message_quit(SERVER_REC *server, const char *nick, const char *address,
@@ -304,7 +313,7 @@ void sig_message_quit(SERVER_REC *server, const char *nick, const char *address,
 			handle_new_activity(window, DATA_LEVEL_EVENT);
 		}
 	}
-	redraw_both_panels_only("message_quit"); /* Quit affects activity (left) and nicklists (right) across channels */
+	schedule_batched_redraw("message_quit"); /* Quit affects activity (left) and nicklists (right) across channels */
 }
 
 void sig_message_nick(SERVER_REC *server, const char *newnick, const char *oldnick,
@@ -318,7 +327,7 @@ void sig_message_nick(SERVER_REC *server, const char *newnick, const char *oldni
 			handle_new_activity(window, DATA_LEVEL_EVENT);
 		}
 	}
-	redraw_both_panels_only("message_nick"); /* Nick change affects activity (left) and nicklists (right) */
+	schedule_batched_redraw("message_nick"); /* Nick change affects activity (left) and nicklists (right) */
 }
 
 void sig_message_kick_own(SERVER_REC *server, const char *channel, const char *nick,
@@ -372,11 +381,11 @@ void sig_message_kick_own(SERVER_REC *server, const char *channel, const char *n
 	
 	/* Set highest priority (4) to highlight this in theme */
 	handle_new_activity(window, MSGLEVEL_MSGS); /* Use MSGS level for highest priority (4) */
-	
+
 	sp_logf("KICK: Set window %d priority to maximum for kick from %s", window->refnum, channel);
-	
+
 	/* Redraw panels to show the change */
-	redraw_both_panels_only("message_kick_own");
+	schedule_batched_redraw("message_kick_own");
 }
 
 void sig_nick_mode_filter(CHANNEL_REC *channel, NICK_REC *nick,

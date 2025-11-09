@@ -53,7 +53,7 @@
 /* Redraw batching system to prevent excessive redraws during mass events */
 gboolean redraw_pending = FALSE;
 int redraw_timer_tag = -1;
-int redraw_batch_timeout = 100; /* ms - timeout for batching */
+int redraw_batch_timeout = 5; /* ms - WeeChat uses 1ms, we use 5ms for safety */
 gboolean batch_mode_active = FALSE;
 
 /* External functions we need */
@@ -787,7 +787,7 @@ static gboolean batched_redraw_timeout(gpointer data)
 {
 	const char *event_name = (const char *) data;
 
-	redraw_right_panels_only(event_name);
+	redraw_both_panels_only(event_name);
 	redraw_pending = FALSE;
 	redraw_timer_tag = -1;
 	batch_mode_active = FALSE;
