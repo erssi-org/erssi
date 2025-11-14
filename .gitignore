@@ -111,3 +111,4 @@ sidepanels_old.c
 memory.db
 memory.db-shm
 memory.db-wal
+SIDEPANEL-SELECTIVE-REDRAW.md

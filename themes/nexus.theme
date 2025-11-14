@@ -809,31 +809,33 @@ formats = {
     paste_prompt = "%Y⚠%N Hit Ctrl-K to paste, Ctrl-C to abort?";
 
     # === ENHANCED SIDEPANEL THEME ===
-    # Server headers - electric blue with power symbol (consistent with theme primary)
-    sidepanel_header = "%B⚡%B$0%N";
+    # Format: $0 = window number, $1 = window name
+    
+    # Server headers - electric blue number and name (consistent with theme primary)
+    sidepanel_header = "%B$0.%N %B$1%N";
 
-    # Normal items - steel gray (consistent with theme secondary text)
-    sidepanel_item = "%W %W$0%N";
+    # Normal items - steel gray number and name (consistent with theme secondary text)
+    sidepanel_item = "%W$0.%N %W$1%N";
 
-    # Selected items - neon green highlight (consistent with theme highlights)
-    sidepanel_item_selected = "%g%w❱ %g%w$0%N";
+    # Selected items - neon green number and bright white name (consistent with theme highlights)
+    sidepanel_item_selected = "%g$0.%N %g%w$1%N";
 
     # === ACTIVITY HIERARCHY (by priority) ===
 
-    # PRIORITY 4 (Highest): NICK MENTION - magenta alert (when your nick is mentioned on channel)
-    sidepanel_item_nick_mention = "%M⬢ %M$0%N";
+    # PRIORITY 4 (Highest): NICK MENTION - magenta number and name (when your nick is mentioned on channel)
+    sidepanel_item_nick_mention = "%M$0.%N %M$1%N";
 
-    # PRIORITY 4 (Highest): QUERY MESSAGE - magenta alert (new messages in query/private)
-    sidepanel_item_query_msg = "%M◆ %M$0%N";
+    # PRIORITY 4 (Highest): QUERY MESSAGE - magenta number and name (new messages in query/private)
+    sidepanel_item_query_msg = "%M$0.%N %M$1%N";
 
-    # PRIORITY 3: CHANNEL ACTIVITY - yellow warning (messages on channel without mention)
-    sidepanel_item_activity = "%y● %y$0%N";
+    # PRIORITY 3: CHANNEL ACTIVITY - yellow number and name (messages on channel without mention)
+    sidepanel_item_activity = "%y$0.%N %y$1%N";
 
-    # PRIORITY 1 (Lowest): EVENTS - green info (join/part/quit/nick changes)
-    sidepanel_item_events = "%G○%N %G$0%N";
+    # PRIORITY 1 (Lowest): EVENTS - green number and name (join/part/quit/nick changes)
+    sidepanel_item_events = "%G$0.%N %G$1%N";
 
-    # PRIORITY 2: HIGHLIGHTS - red alert (keyword highlights, fallback)
-    sidepanel_item_highlight = "%R⚠  %R$0%N";
+    # PRIORITY 2: HIGHLIGHTS - red number and name (keyword highlights, fallback)
+    sidepanel_item_highlight = "%R$0.%N %R$1%N";
 
     # New dual-parameter formats - status and nick separated for theme flexibility
     # Operators - gold status symbol with steel nick (power users)
