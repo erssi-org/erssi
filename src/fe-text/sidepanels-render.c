@@ -53,7 +53,7 @@
 /* Redraw batching system to prevent excessive redraws during mass events */
 gboolean redraw_pending = FALSE;
 int redraw_timer_tag = -1;
-int redraw_batch_timeout = 100; /* ms - timeout for batching */
+int redraw_batch_timeout = 5; /* ms - WeeChat uses 1ms, we use 5ms for safety */
 gboolean batch_mode_active = FALSE;
 
 /* External functions we need */
@@ -453,7 +453,12 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		const char *display_name = sort_rec->sort_key;
 		int activity = win->data_level;
 		int format;
+		char refnum_str[16];
+		int display_num;
 
+		/* Calculate display number (1-based position in sorted list) */
+		display_num = list_index + 1;
+		
 		/* Skip items before our scroll offset */
 		if (list_index++ < skip)
 			continue;
@@ -505,10 +510,12 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 			}
 		}
 
-		/* Draw the item */
+		/* Draw the item with sorted position number and name */
+		g_snprintf(refnum_str, sizeof(refnum_str), "%d", display_num);
+		
 		term_move(tw, 0, row);
-		draw_str_themed(tw, 0, row, mw->active, format,
-		                display_name ? display_name : "window");
+		draw_str_themed_2params(tw, 0, row, mw->active, format,
+		                        refnum_str, display_name ? display_name : "window");
 		row++;
 	}
 
@@ -787,7 +794,7 @@ static gboolean batched_redraw_timeout(gpointer data)
 {
 	const char *event_name = (const char *) data;
 
-	redraw_right_panels_only(event_name);
+	redraw_both_panels_only(event_name);
 	redraw_pending = FALSE;
 	redraw_timer_tag = -1;
 	batch_mode_active = FALSE;
