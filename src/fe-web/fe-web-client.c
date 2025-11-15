@@ -19,8 +19,6 @@
 #include <irssi/src/fe-common/core/window-items.h>
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/fe-common/core/window-activity.h>
-#include <irssi/src/fe-text/sidepanels-activity.h>
-#include <irssi/src/fe-text/sidepanels-render.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -234,10 +232,6 @@ void fe_web_client_handle_message(WEB_CLIENT_REC *client, const char *json)
 						 * This properly updates statusbar and emits signals
 						 */
 						window_activity(window, 0, NULL);
-
-						/* Clear sidepanel priority marker and redraw left panel */
-						reset_window_priority(window);
-						redraw_left_panels_only("mark_read");
 
 						/* IMPORTANT: Manually send activity_update with
 						 * level=0 because sig_window_activity() ignores
