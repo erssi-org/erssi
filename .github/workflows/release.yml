@@ -87,29 +87,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Checkout main branch for changelog update
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Update CHANGELOG.md in repository
         run: |
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Set up authenticated remote
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-
-          # Fetch main branch to get latest commits (stay in detached HEAD)
-          git fetch origin main
-
-          # Generate full changelog (we have full history from fetch-depth: 0)
+          # Generate full changelog (now on main branch)
           git-cliff --config cliff.toml -o CHANGELOG.md
 
           # Check if CHANGELOG.md changed
           if git diff --quiet CHANGELOG.md; then
             echo "CHANGELOG.md is already up to date"
           else
-            # Commit changelog in detached HEAD
+            # Commit and push
             git add CHANGELOG.md
             git commit -m "docs: update CHANGELOG.md for v${{ steps.version.outputs.VERSION }} [skip ci]"
-
-            # Push current HEAD to main branch (detached HEAD -> main)
-            git push origin HEAD:refs/heads/main
+            git push
           fi
