@@ -1,3 +1,36 @@
+erssi-v1.2.0 2025-11-18  erssi-org team <https://github.com/erssi-org>
+	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
+	https://erssi.org && https://erssi.dev
+	ERSSI - Enhanced/Evolved IRC Client
+	Full IRCv3 nicklist support with dynamic server-based sorting and UI improvements.
+
+	+ NICKLIST ENHANCEMENTS
+	  - Full IRCv3 prefix support: Owner (~), Admin (&), Halfop (%)
+	  - Dedicated color schemes for each privilege level (magenta, red, yellow, green, cyan)
+	  - Dynamic sorting using server's ISUPPORT PREFIX configuration
+	  - Official nicklist_compare() API integration (replaces custom implementation)
+	  - Support for all mode change events (~, &, @, %, +)
+	  - Automatic handling of non-standard prefixes on different IRC networks
+
+	+ SIDEPANEL IMPROVEMENTS
+	  - Window numbers instead of icons in left panel
+	  - Channel name truncation to prevent overflow
+	  - Optimized redraw path with prepend+reverse (O(1) vs O(n))
+	  - Proper format strings with dual-parameter support for all items
+
+	+ PERFORMANCE OPTIMIZATIONS
+	  - Batching system with 5ms timeout (based on WeeChat architecture)
+	  - Elimination of duplicate redraws from conflicting signal handlers
+	  - Mass event handling: 50 nick changes = 1 redraw after 5ms
+	  - Immediate redraw for user actions, batched for floods
+	  - Fixed signal flow conflicts (message_nick vs nicklist_changed)
+
+	+ ARCHITECTURE IMPROVEMENTS
+	  - Server-aware sorting compatible with any IRC network configuration
+	  - Fallback to standard prefix order (~&@%+) for legacy servers
+	  - Better separation of concerns in sidepanel rendering
+	  - Safety checks for missing server information
+
 erssi-v1.1.0 2025-11-08  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 	https://erssi.org && https://erssi.dev

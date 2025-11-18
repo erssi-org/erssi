@@ -391,13 +391,15 @@ void sig_message_kick_own(SERVER_REC *server, const char *channel, const char *n
 void sig_nick_mode_filter(CHANNEL_REC *channel, NICK_REC *nick,
 					  const char *setby, const char *modestr, const char *typestr)
 {
-	/* Only redraw for nick prefixes @ and + (op and voice) */
+	/* Redraw for all nick prefixes: ~ & @ % + (owner, admin, op, halfop, voice) */
 	(void) channel;
-	(void) nick; 
+	(void) nick;
 	(void) setby;
 	(void) typestr;
-	
-	if (modestr && (strchr(modestr, '@') || strchr(modestr, '+'))) {
+
+	if (modestr && (strchr(modestr, '~') || strchr(modestr, '&') ||
+	                strchr(modestr, '@') || strchr(modestr, '%') ||
+	                strchr(modestr, '+'))) {
 		redraw_right_panels_only("nick_mode_changed");
 	}
 }
