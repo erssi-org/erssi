@@ -546,36 +546,14 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 /* Nick comparison function for case-insensitive sorting - moved to activity module */
 
-/* Get priority for nick prefix (lower number = higher priority) */
-static int get_nick_prefix_priority(char prefix)
+/* Wrapper for nicklist_compare to work with g_slist_sort_with_data */
+static gint nick_display_compare_with_server(gconstpointer a, gconstpointer b, gpointer user_data)
 {
-	switch (prefix) {
-	case '~': return 0; /* Owner/Founder (q) */
-	case '&': return 1; /* Admin/Protected (a) */
-	case '@': return 2; /* Operator (o) */
-	case '%': return 3; /* Half-op (h) */
-	case '+': return 4; /* Voice (v) */
-	default:  return 5; /* Regular user */
-	}
-}
+	const NICK_REC *nick_a = a;
+	const NICK_REC *nick_b = b;
+	const char *nick_prefix = user_data;
 
-/* Comparison function for sorting nicks by prefix priority, then alphabetically */
-static int nick_prefix_compare(gconstpointer a, gconstpointer b)
-{
-	const NICK_REC *nick1 = a;
-	const NICK_REC *nick2 = b;
-	int priority1, priority2;
-
-	/* Get priorities based on first prefix */
-	priority1 = get_nick_prefix_priority(nick1->prefixes[0]);
-	priority2 = get_nick_prefix_priority(nick2->prefixes[0]);
-
-	/* Sort by priority first */
-	if (priority1 != priority2)
-		return priority1 - priority2;
-
-	/* Same priority - sort alphabetically (case-insensitive) */
-	return g_ascii_strcasecmp(nick1->nick, nick2->nick);
+	return nicklist_compare((NICK_REC *) nick_a, (NICK_REC *) nick_b, nick_prefix);
 }
 
 /* Get format and prefix string for a nick based on their highest privilege */
@@ -645,28 +623,51 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 	if (IS_CHANNEL(aw->active)) {
 		CHANNEL_REC *ch = CHANNEL(aw->active);
+		SERVER_REC *server = ch->server;
 		GSList *nicks = nicklist_getnicks(ch);
-		GSList *sorted_nicks = NULL;
+		GSList *sorted_nicks;
 		GSList *cur;
 		NICK_REC *nick;
 		char *truncated_nick;
 		int format;
 		const char *prefix_str;
+		const char *nick_prefix;
 		/* Calculate available width for nick display */
 		/* Available width = total panel width - 1 (start position) - 1 (status) - 1 (border margin) */
 		int nick_max_width = MAX(1, ctx->right_w - 3);
 
-		/* Sort all nicks by prefix priority, then alphabetically */
-		sorted_nicks = g_slist_sort(nicks, nick_prefix_compare);
+		/* Safety check for server */
+		if (!server) {
+			g_slist_free(nicks);
+			draw_border_vertical(tw, ctx->right_w, ctx->right_h, 0);
+			irssi_set_dirty();
+			return;
+		}
+
+		/* Get nick prefix order from server (from ISUPPORT PREFIX) */
+		nick_prefix = server->get_nick_flags ? server->get_nick_flags(server) : NULL;
+		if (!nick_prefix || *nick_prefix == '\0')
+			nick_prefix = "~&@%+"; /* fallback for servers without PREFIX */
+
+		/* Sort all nicks using official nicklist_compare with server's prefix order */
+		sorted_nicks = g_slist_copy(nicks);
+		sorted_nicks = g_slist_sort_with_data(sorted_nicks,
+		                                      (GCompareDataFunc) nick_display_compare_with_server,
+		                                      (gpointer) nick_prefix);
+		g_slist_free(nicks);
 
 		/* Render sorted nicks */
-		for (cur = sorted_nicks; cur && row < height; cur = cur->next) {
+		for (cur = sorted_nicks; cur; cur = cur->next) {
 			nick = cur->data;
 			if (!nick || !nick->nick)
 				continue;
 
-			ctx->right_order = g_slist_append(ctx->right_order, nick);
+			/* Use prepend (O(1)) instead of append (O(n)) - will reverse at end */
+			ctx->right_order = g_slist_prepend(ctx->right_order, nick);
+
 			if (index++ < skip)
+				continue;
+			if (row >= height)
 				continue;
 
 			/* Get appropriate format and prefix for this nick */
@@ -678,6 +679,9 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 			g_free(truncated_nick);
 			row++;
 		}
+
+		/* Reverse to get correct order (we used prepend for performance) */
+		ctx->right_order = g_slist_reverse(ctx->right_order);
 
 		g_slist_free(sorted_nicks);
 	}
