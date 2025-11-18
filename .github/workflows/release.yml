@@ -89,12 +89,16 @@ jobs:
 
       - name: Update CHANGELOG.md in repository
         run: |
-          # Generate full changelog
-          git-cliff --config cliff.toml -o CHANGELOG.md
-
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Checkout main branch (we're currently in detached HEAD at tag)
+          git fetch origin main
+          git checkout -B main origin/main
+
+          # Generate full changelog (now on main branch with full history)
+          git-cliff --config cliff.toml -o CHANGELOG.md
 
           # Check if CHANGELOG.md changed
           if git diff --quiet CHANGELOG.md; then
