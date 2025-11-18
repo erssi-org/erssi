@@ -94,6 +94,13 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Ensure we are on main branch (not detached HEAD)
+        run: |
+          # Fetch and create local main branch tracking remote
+          git fetch origin main:main
+          git checkout main
+          git pull origin main
+
       - name: Generate full changelog
         run: |
           git-cliff --config cliff.toml -o CHANGELOG.md
