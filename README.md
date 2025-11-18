@@ -81,56 +81,22 @@
 - **Full Feature Support**: Perl scripting, OTR messaging, UTF8proc, SSL/TLS out of the box
 - **Cross-Platform**: Native support for macOS and Linux distributions
 
-## 🎉 What's New in v0.0.7 - Perfect UTF-8 Display
+---
 
-### 🎨 Critical Chat Window Fixes
-- **Emoji Overflow Eliminated**: Completely resolved text overflow from chat window into sidepanels
-- **Unified Display Logic**: Chat window and input field now use identical emoji width calculation
-- **Variation Selector Mastery**: Perfect handling of emoji with variation selectors (❣️, ♥️, etc.)
-- **Modern Terminal Excellence**: Flawless rendering in Ghostty without requiring legacy mode
-- **Display Precision**: Accurate text measurement prevents any layout corruption
+## ✨ Latest Release - v1.2.0
 
-### 🔧 Enhanced Implementation
-- **Consistent Grapheme Logic**: Both input and display systems use same advanced UTF-8 processing
-- **Special Emoji Handling**: Proper width calculation for base emoji + variation selector combinations
-- **Zero Breaking Changes**: All existing functionality preserved and enhanced
-- **Cross-Platform Stability**: Reliable operation across all supported terminals and systems
+### 🎯 Full IRCv3 Nicklist Support
 
-## 📚 Previous Release - v0.0.6 - Emoji & Unicode Milestone
+The v1.2.0 release brings complete IRCv3 user privilege hierarchy support to erssi's sidepanel nicklist system:
 
-### 🎨 Advanced Emoji Support
-- **Grapheme Cluster Detection**: Full Unicode Standard Annex #29 compliance for proper emoji rendering
-- **Multi-Codepoint Emoji**: Handles complex emoji like 👨‍👩‍👧‍👦 (family), 🧑🏻‍💻 (person with skin tone), ♥️ (heart with variation selector)
-- **Initial Sidepanel Fixes**: Major improvements to emoji handling in modern terminals
-- **Transparent Implementation**: Automatic detection with fallback to legacy mode when utf8proc unavailable
-- **Zero Configuration**: Always-on improvement with no settings required
+- **Complete Privilege Hierarchy**: Full support for Owner (~), Admin (&), Operator (@), Half-Operator (%), Voice (+), and regular users
+- **Dynamic Server-Based Sorting**: Uses server's ISUPPORT PREFIX configuration for automatic compatibility with any IRC network
+- **Dedicated Color Schemes**: Each privilege level has its own distinct color coding (magenta for owner, red for admin, yellow for operator, green for halfop, cyan for voice)
+- **Official API Integration**: Leverages irssi's native `nicklist_compare()` function for robust, server-aware sorting
+- **Performance Optimized**: Prepend+reverse pattern for O(1) list operations instead of O(n) append
+- **Universal Event Handling**: Responds to all mode change events (~, &, @, %, +) for real-time nicklist updates
 
-## 📚 Previous Release - v0.0.5 Milestone
-
-### 🏗️ Complete Modular Architecture
-- **Separated Components**: Dedicated modules for core logic, layout management, rendering, activity tracking, and signal handling
-- **Clean APIs**: Well-defined interfaces between components for maintainability and extensibility
-- **Terminal Resize Fix**: Resolved issue where sidepanel content disappeared during terminal resize
-
-### 🌐 Enhanced Multi-Server Support  
-- **Intelligent Server Sorting**: Alphabetical grouping of servers with proper window positioning
-- **Server Tag Labels**: Display actual server tags instead of connection strings for clarity
-- **Scalable Architecture**: Supports unlimited number of IRC networks simultaneously
-
-### 💪 Kicked Channel Resilience
-- **Label Preservation**: Channel names remain visible even after being kicked from channels
-- **Priority Highlighting**: Kicked channels receive maximum priority (level 4) for immediate attention
-- **Position Maintenance**: Kicked channels maintain their position in window sorting instead of falling to bottom
-
-### ⚡ Smart Window Management
-- **Auto-Separator Creation**: Automatic generation of server status windows with proper message level filtering
-- **Synchronized Sorting**: Window list (`/window list`) perfectly matches sidepanel sorting
-- **Message Level Filtering**: Notices window receives all client messages (help, errors, command output) while server windows get relevant IRC traffic
-
-### 🧹 Code Quality Improvements
-- **Debug Code Cleanup**: Removed development debugging statements for production readiness
-- **Performance Optimization**: Cleaner code paths and reduced logging overhead
-- **Maintainability**: Better code organization and documentation
+**See [CHANGELOG.md](CHANGELOG.md) for complete version history and detailed changes.**
 
 ## 🚀 Quick Start
 
