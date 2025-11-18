@@ -96,19 +96,20 @@ jobs:
           # Set up authenticated remote
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
-          # Fetch and checkout main branch (we're currently in detached HEAD at tag)
-          git fetch origin main:main
-          git checkout main
+          # Fetch main branch to get latest commits (stay in detached HEAD)
+          git fetch origin main
 
-          # Generate full changelog (now on main branch with full history)
+          # Generate full changelog (we have full history from fetch-depth: 0)
           git-cliff --config cliff.toml -o CHANGELOG.md
 
           # Check if CHANGELOG.md changed
           if git diff --quiet CHANGELOG.md; then
             echo "CHANGELOG.md is already up to date"
           else
-            # Commit and push
+            # Commit changelog in detached HEAD
             git add CHANGELOG.md
             git commit -m "docs: update CHANGELOG.md for v${{ steps.version.outputs.VERSION }} [skip ci]"
-            git push origin main
+
+            # Push current HEAD to main branch (detached HEAD -> main)
+            git push origin HEAD:refs/heads/main
           fi
