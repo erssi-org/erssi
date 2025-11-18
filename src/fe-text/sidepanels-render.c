@@ -546,6 +546,71 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 /* Nick comparison function for case-insensitive sorting - moved to activity module */
 
+/* Get priority for nick prefix (lower number = higher priority) */
+static int get_nick_prefix_priority(char prefix)
+{
+	switch (prefix) {
+	case '~': return 0; /* Owner/Founder (q) */
+	case '&': return 1; /* Admin/Protected (a) */
+	case '@': return 2; /* Operator (o) */
+	case '%': return 3; /* Half-op (h) */
+	case '+': return 4; /* Voice (v) */
+	default:  return 5; /* Regular user */
+	}
+}
+
+/* Comparison function for sorting nicks by prefix priority, then alphabetically */
+static int nick_prefix_compare(gconstpointer a, gconstpointer b)
+{
+	const NICK_REC *nick1 = a;
+	const NICK_REC *nick2 = b;
+	int priority1, priority2;
+
+	/* Get priorities based on first prefix */
+	priority1 = get_nick_prefix_priority(nick1->prefixes[0]);
+	priority2 = get_nick_prefix_priority(nick2->prefixes[0]);
+
+	/* Sort by priority first */
+	if (priority1 != priority2)
+		return priority1 - priority2;
+
+	/* Same priority - sort alphabetically (case-insensitive) */
+	return g_ascii_strcasecmp(nick1->nick, nick2->nick);
+}
+
+/* Get format and prefix string for a nick based on their highest privilege */
+static void get_nick_format_and_prefix(NICK_REC *nick, int *format, const char **prefix_str)
+{
+	char prefix = nick->prefixes[0];
+
+	switch (prefix) {
+	case '~': /* Owner */
+		*format = TXT_SIDEPANEL_NICK_OWNER_STATUS;
+		*prefix_str = "~";
+		break;
+	case '&': /* Admin */
+		*format = TXT_SIDEPANEL_NICK_ADMIN_STATUS;
+		*prefix_str = "&";
+		break;
+	case '@': /* Operator */
+		*format = TXT_SIDEPANEL_NICK_OP_STATUS;
+		*prefix_str = "@";
+		break;
+	case '%': /* Half-op */
+		*format = TXT_SIDEPANEL_NICK_HALFOP_STATUS;
+		*prefix_str = "%";
+		break;
+	case '+': /* Voice */
+		*format = TXT_SIDEPANEL_NICK_VOICE_STATUS;
+		*prefix_str = "+";
+		break;
+	default: /* Regular user */
+		*format = TXT_SIDEPANEL_NICK_NORMAL_STATUS;
+		*prefix_str = "";
+		break;
+	}
+}
+
 void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 {
 	TERM_WINDOW *tw;
@@ -554,7 +619,6 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	int skip;
 	int index;
 	int row;
-	GSList *nt;
 	if (!ctx)
 		return;
 	tw = ctx->right_tw;
@@ -582,74 +646,40 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	if (IS_CHANNEL(aw->active)) {
 		CHANNEL_REC *ch = CHANNEL(aw->active);
 		GSList *nicks = nicklist_getnicks(ch);
-		GSList *ops = NULL, *voices = NULL, *normal = NULL;
+		GSList *sorted_nicks = NULL;
 		GSList *cur;
 		NICK_REC *nick;
 		char *truncated_nick;
 		int format;
+		const char *prefix_str;
 		/* Calculate available width for nick display */
 		/* Available width = total panel width - 1 (start position) - 1 (status) - 1 (border margin) */
 		int nick_max_width = MAX(1, ctx->right_w - 3);
 
-		/* Split nicks by status */
-		for (nt = nicks; nt; nt = nt->next) {
-			nick = nt->data;
+		/* Sort all nicks by prefix priority, then alphabetically */
+		sorted_nicks = g_slist_sort(nicks, nick_prefix_compare);
+
+		/* Render sorted nicks */
+		for (cur = sorted_nicks; cur && row < height; cur = cur->next) {
+			nick = cur->data;
 			if (!nick || !nick->nick)
 				continue;
-			if (nick->op)
-				ops = g_slist_prepend(ops, nick);
-			else if (nick->voice)
-				voices = g_slist_prepend(voices, nick);
-			else
-				normal = g_slist_prepend(normal, nick);
+
+			ctx->right_order = g_slist_append(ctx->right_order, nick);
+			if (index++ < skip)
+				continue;
+
+			/* Get appropriate format and prefix for this nick */
+			get_nick_format_and_prefix(nick, &format, &prefix_str);
+
+			term_move(tw, 1, row);
+			truncated_nick = truncate_nick_for_sidepanel(nick->nick, nick_max_width);
+			draw_str_themed_2params(tw, 1, row, mw->active, format, prefix_str, truncated_nick);
+			g_free(truncated_nick);
+			row++;
 		}
 
-		/* Sort each group alphabetically */
-		ops = g_slist_sort(ops, ci_nick_compare);
-		voices = g_slist_sort(voices, ci_nick_compare);
-		normal = g_slist_sort(normal, ci_nick_compare);
-
-		/* Build ordered list and render */
-		for (cur = ops; cur && row < height; cur = cur->next) {
-			nick = cur->data;
-			ctx->right_order = g_slist_append(ctx->right_order, nick);
-			if (index++ < skip)
-				continue;
-			term_move(tw, 1, row);
-			format = TXT_SIDEPANEL_NICK_OP_STATUS;
-			truncated_nick = truncate_nick_for_sidepanel(nick->nick, nick_max_width);
-			draw_str_themed_2params(tw, 1, row, mw->active, format, "@", truncated_nick);
-			g_free(truncated_nick);
-			row++;
-		}
-		for (cur = voices; cur && row < height; cur = cur->next) {
-			nick = cur->data;
-			ctx->right_order = g_slist_append(ctx->right_order, nick);
-			if (index++ < skip)
-				continue;
-			term_move(tw, 1, row);
-			format = TXT_SIDEPANEL_NICK_VOICE_STATUS;
-			truncated_nick = truncate_nick_for_sidepanel(nick->nick, nick_max_width);
-			draw_str_themed_2params(tw, 1, row, mw->active, format, "+", truncated_nick);
-			g_free(truncated_nick);
-			row++;
-		}
-		for (cur = normal; cur && row < height; cur = cur->next) {
-			nick = cur->data;
-			ctx->right_order = g_slist_append(ctx->right_order, nick);
-			if (index++ < skip)
-				continue;
-			term_move(tw, 1, row);
-			format = TXT_SIDEPANEL_NICK_NORMAL_STATUS;
-			truncated_nick = truncate_nick_for_sidepanel(nick->nick, nick_max_width);
-			draw_str_themed_2params(tw, 1, row, mw->active, format, "", truncated_nick);
-			g_free(truncated_nick);
-			row++;
-		}
-		g_slist_free(ops);
-		g_slist_free(voices);
-		g_slist_free(normal);
-		g_slist_free(nicks);
+		g_slist_free(sorted_nicks);
 	}
 	draw_border_vertical(tw, ctx->right_w, ctx->right_h, 0);
 	irssi_set_dirty();
