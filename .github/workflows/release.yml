@@ -94,24 +94,15 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update CHANGELOG.md in repository
+      - name: Generate full changelog
         run: |
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Ensure we're on a proper main branch (GitHub Actions might still be in detached HEAD)
-          git checkout -B main origin/main
-
-          # Generate full changelog
           git-cliff --config cliff.toml -o CHANGELOG.md
 
-          # Check if CHANGELOG.md changed
-          if git diff --quiet CHANGELOG.md; then
-            echo "CHANGELOG.md is already up to date"
-          else
-            # Commit and push
-            git add CHANGELOG.md
-            git commit -m "docs: update CHANGELOG.md for v${{ steps.version.outputs.VERSION }} [skip ci]"
-            git push origin main
-          fi
+      - name: Commit and push changelog
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: update CHANGELOG.md for v${{ steps.version.outputs.VERSION }} [skip ci]"
+          file_pattern: 'CHANGELOG.md'
+          commit_user_name: 'github-actions[bot]'
+          commit_user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_author: 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'
