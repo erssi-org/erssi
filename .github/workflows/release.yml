@@ -96,8 +96,7 @@ jobs:
 
       - name: Ensure we are on main branch (not detached HEAD)
         run: |
-          # Fetch and create local main branch tracking remote
-          git fetch origin main:main
+          # Checkout main if not already on it, and pull latest
           git checkout main
           git pull origin main
 
