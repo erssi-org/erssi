@@ -455,10 +455,13 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		int format;
 		char refnum_str[16];
 		int display_num;
+		char *truncated_name;
+		int refnum_width;
+		int name_max_width;
 
 		/* Calculate display number (1-based position in sorted list) */
 		display_num = list_index + 1;
-		
+
 		/* Skip items before our scroll offset */
 		if (list_index++ < skip)
 			continue;
@@ -510,12 +513,24 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 			}
 		}
 
-		/* Draw the item with sorted position number and name */
+		/* Draw the item with sorted position number and truncated name */
 		g_snprintf(refnum_str, sizeof(refnum_str), "%d", display_num);
-		
+
+		/* Calculate available width for channel name */
+		/* Format is "$0. $1" so we need space for: number + ". " (3 chars) + name */
+		refnum_width = string_width(refnum_str, -1);
+		name_max_width = MAX(1, ctx->left_w - refnum_width - 3);
+
+		/* Truncate display name if needed (same function used for nicks in right panel) */
+		truncated_name = truncate_nick_for_sidepanel(
+			display_name ? display_name : "window", name_max_width);
+
 		term_move(tw, 0, row);
 		draw_str_themed_2params(tw, 0, row, mw->active, format,
-		                        refnum_str, display_name ? display_name : "window");
+		                        refnum_str, truncated_name);
+
+		/* Free allocated memory */
+		g_free(truncated_name);
 		row++;
 	}
 
