@@ -16,9 +16,9 @@
     You should have received a copy of the GNU General Public License along
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-    
+
     ---
-    
+
     Modifications for erssi:
     Copyright (C) 2024-2025 erssi-org team
     Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
@@ -60,8 +60,8 @@
 #include <irssi/src/core/nickmatch-cache.h>
 
 #ifdef HAVE_SYS_RESOURCE_H
-#  include <sys/resource.h>
-   static struct rlimit orig_core_rlimit;
+#include <sys/resource.h>
+static struct rlimit orig_core_rlimit;
 #endif
 
 void chat_commands_init(void);
@@ -84,13 +84,13 @@ static GSList *dialog_type_queue, *dialog_text_queue;
 
 const char *get_irssi_dir(void)
 {
-        return irssi_dir;
+	return irssi_dir;
 }
 
 /* return full path for ~/.irssi/config */
 const char *get_irssi_config(void)
 {
-        return irssi_config_file;
+	return irssi_config_file;
 }
 
 static void sig_hup(int signo)
@@ -105,28 +105,22 @@ static void sig_term(int signo)
 
 static void read_settings(void)
 {
-	static int signals[] = {
-		SIGINT, SIGQUIT, SIGTERM,
-		SIGALRM, SIGUSR1, SIGUSR2
-	};
-	static char *signames[] = {
-		"int", "quit", "term",
-		"alrm", "usr1", "usr2"
-	};
+	static int signals[] = { SIGINT, SIGQUIT, SIGTERM, SIGALRM, SIGUSR1, SIGUSR2 };
+	static char *signames[] = { "int", "quit", "term", "alrm", "usr1", "usr2" };
 
 	const char *ignores;
 	struct sigaction act;
-        int n;
+	int n;
 
 	ignores = settings_get_str("ignore_signals");
 
-	sigemptyset (&act.sa_mask);
+	sigemptyset(&act.sa_mask);
 	act.sa_flags = 0;
 
 	act.sa_handler = sig_hup;
 	sigaction(SIGHUP, &act, NULL);
 
-	for (n = 0; n < sizeof(signals)/sizeof(signals[0]); n++) {
+	for (n = 0; n < sizeof(signals) / sizeof(signals[0]); n++) {
 		if (find_substr(ignores, signames[n])) {
 			act.sa_handler = SIG_IGN;
 		} else {
@@ -145,10 +139,10 @@ static void read_settings(void)
 	else {
 		struct rlimit rlimit;
 
-                rlimit.rlim_cur = RLIM_INFINITY;
-                rlimit.rlim_max = RLIM_INFINITY;
+		rlimit.rlim_cur = RLIM_INFINITY;
+		rlimit.rlim_max = RLIM_INFINITY;
 		if (setrlimit(RLIMIT_CORE, &rlimit) == -1)
-                        settings_set_bool("override_coredump_limit", FALSE);
+			settings_set_bool("override_coredump_limit", FALSE);
 	}
 #endif
 }
@@ -163,20 +157,20 @@ static void sig_init_finished(void)
 {
 	GSList *type, *text;
 
-        signal_remove("gui dialog", (SIGNAL_FUNC) sig_gui_dialog);
+	signal_remove("gui dialog", (SIGNAL_FUNC) sig_gui_dialog);
 	signal_remove("irssi init finished", (SIGNAL_FUNC) sig_init_finished);
 
 	/* send the dialog texts that were in queue before irssi
 	   was initialized */
 	type = dialog_type_queue;
-        text = dialog_text_queue;
+	text = dialog_text_queue;
 	for (; text != NULL; text = text->next, type = type->next) {
 		signal_emit("gui dialog", 2, type->data, text->data);
 		g_free(type->data);
-                g_free(text->data);
+		g_free(text->data);
 	}
-        g_slist_free(dialog_type_queue);
-        g_slist_free(dialog_text_queue);
+	g_slist_free(dialog_type_queue);
+	g_slist_free(dialog_text_queue);
 }
 
 static char *fix_path(const char *str)
@@ -198,11 +192,12 @@ static char *fix_path(const char *str)
 
 void core_register_options(void)
 {
-	static GOptionEntry options[] = {
-		{ "config", 0, 0, G_OPTION_ARG_STRING, &irssi_config_file, "Configuration file location (~/.irssi/config)", "PATH" },
-		{ "home", 0, 0, G_OPTION_ARG_STRING, &irssi_dir, "Irssi home dir location (~/.irssi)", "PATH" },
-		{ NULL }
-	};
+	static GOptionEntry options[] = { { "config", 0, 0, G_OPTION_ARG_STRING, &irssi_config_file,
+		                            "Configuration file location (~/.irssi/config)",
+		                            "PATH" },
+		                          { "home", 0, 0, G_OPTION_ARG_STRING, &irssi_dir,
+		                            "Irssi home dir location (~/.irssi)", "PATH" },
+		                          { NULL } };
 
 	args_register(options);
 	session_register_options();
@@ -225,11 +220,11 @@ void core_preinit(const char *path)
 		irssi_dir = fix_path(str);
 		g_free(str);
 		len = strlen(irssi_dir);
-		if (irssi_dir[len-1] == G_DIR_SEPARATOR)
-			irssi_dir[len-1] = '\0';
+		if (irssi_dir[len - 1] == G_DIR_SEPARATOR)
+			irssi_dir[len - 1] = '\0';
 	}
 	if (irssi_config_file == NULL)
-		irssi_config_file = g_strdup_printf("%s/"IRSSI_HOME_CONFIG, irssi_dir);
+		irssi_config_file = g_strdup_printf("%s/" IRSSI_HOME_CONFIG, irssi_dir);
 	else {
 		str = irssi_config_file;
 		irssi_config_file = fix_path(str);
@@ -241,7 +236,7 @@ void core_preinit(const char *path)
 
 static void sig_irssi_init_finished(void)
 {
-        irssi_init_finished = TRUE;
+	irssi_init_finished = TRUE;
 }
 
 static void reread_setup(void)
@@ -270,17 +265,17 @@ void core_init(void)
 	commands_init();
 	credential_init();
 	nickmatch_cache_init();
-        session_init();
+	session_init();
 #ifdef HAVE_CAPSICUM
 	capsicum_init();
 #endif
 
 	chat_protocols_init();
 	chatnets_init();
-        expandos_init();
+	expandos_init();
 	ignore_init();
 	servers_init();
-        write_buffer_init();
+	write_buffer_init();
 	log_init();
 	log_away_init();
 	rawlog_init();
@@ -299,7 +294,8 @@ void core_init(void)
 	settings_add_str("misc", "ignore_signals", "");
 	settings_add_bool("misc", "override_coredump_limit", FALSE);
 	settings_add_bool("misc", "quit_on_hup", FALSE);
-	settings_add_str("misc", "autoload_modules", "irc dcc flood notifylist perl otr");
+	settings_add_str("misc", "autoload_modules",
+	                 "irc dcc flood notifylist perl otr fe_web anti_floodnet");
 
 #ifdef HAVE_SYS_RESOURCE_H
 	getrlimit(RLIMIT_CORE, &orig_core_rlimit);
@@ -313,7 +309,7 @@ void core_init(void)
 
 	settings_check();
 
-        module_register("core", "core");
+	module_register("core", "core");
 }
 
 void core_deinit(void)
@@ -340,18 +336,18 @@ void core_deinit(void)
 	rawlog_deinit();
 	log_away_deinit();
 	log_deinit();
-        write_buffer_deinit();
+	write_buffer_deinit();
 	servers_deinit();
 	ignore_deinit();
-        expandos_deinit();
+	expandos_deinit();
 	chatnets_deinit();
 	chat_protocols_deinit();
 
 #ifdef HAVE_CAPSICUM
 	capsicum_deinit();
 #endif
-        session_deinit();
-        nickmatch_cache_deinit();
+	session_deinit();
+	nickmatch_cache_deinit();
 	commands_deinit();
 	credential_deinit();
 	settings_deinit();
@@ -362,5 +358,5 @@ void core_deinit(void)
 	modules_deinit();
 
 	g_free(irssi_dir);
-        g_free(irssi_config_file);
+	g_free(irssi_config_file);
 }

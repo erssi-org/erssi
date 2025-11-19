@@ -1,10 +1,10 @@
 #ifndef IRSSI_COMMON_H
 #define IRSSI_COMMON_H
 
-#define IRSSI_DIR_FULL "%s/.irssi" /* %s == g_get_home_dir() */
+#define IRSSI_DIR_FULL "%s/.erssi" /* %s == g_get_home_dir() */
 
 #define IRSSI_GLOBAL_CONFIG "irssi.conf" /* config file name in /etc/ */
-#define IRSSI_HOME_CONFIG "config" /* config file name in ~/.irssi/ */
+#define IRSSI_HOME_CONFIG "config"       /* config file name in ~/.irssi/ */
 
 #define IRSSI_ABI_VERSION 56
 
@@ -24,15 +24,15 @@
 
 #include <sys/types.h>
 #ifdef HAVE_SYS_TIME_H
-#  include <sys/time.h>
+#include <sys/time.h>
 #endif
 #include <sys/stat.h>
 
 #ifdef HAVE_UNISTD_H
-#  include <unistd.h>
+#include <unistd.h>
 #endif
 #ifdef HAVE_DIRENT_H
-#  include <dirent.h>
+#include <dirent.h>
 #endif
 #include <fcntl.h>
 
@@ -46,7 +46,7 @@ typedef guint64 uoff_t;
 #define I_INPUT_READ (1 << 0)
 #define I_INPUT_WRITE (1 << 1)
 
-typedef void (*GInputFunction) (void *data, GIOChannel *source, int condition);
+typedef void (*GInputFunction)(void *data, GIOChannel *source, int condition);
 
 int i_input_add(GIOChannel *source, int condition, GInputFunction function, void *data);
 int i_input_add_full(GIOChannel *source, int priority, int condition, GInputFunction function,
@@ -62,10 +62,15 @@ const char *get_irssi_config(void);
 
 #define g_free_not_null(a) g_free(a)
 
-#define g_free_and_null(a) \
-	G_STMT_START { \
-	  if (a) { g_free(a); (a) = NULL; } \
-	} G_STMT_END
+#define g_free_and_null(a)                                                                         \
+	G_STMT_START                                                                               \
+	{                                                                                          \
+		if (a) {                                                                           \
+			g_free(a);                                                                 \
+			(a) = NULL;                                                                \
+		}                                                                                  \
+	}                                                                                          \
+	G_STMT_END
 
 /* ctype.h isn't safe with chars, use our own instead */
 #define i_toupper(x) toupper((int) (unsigned char) (x))
