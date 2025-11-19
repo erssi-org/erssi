@@ -40,6 +40,10 @@ static void fe_web_setup_changed(void)
 	enabled = settings_get_bool("fe_web_enabled");
 
 	if (enabled) {
+		/* Reinitialize crypto in case password was changed or is now available */
+		fe_web_crypto_deinit();
+		fe_web_crypto_init();
+
 		fe_web_server_init();
 		printtext(NULL, NULL, MSGLEVEL_CLIENTNOTICE,
 		          "fe-web: WebSocket server started on port %d",
