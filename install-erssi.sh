@@ -16,6 +16,7 @@ NC='\033[0m' # No Color
 install_path=""
 system=""
 pkg_mgr=""
+VERSION=""
 
 # Print functions
 print_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
@@ -388,7 +389,7 @@ show_completion_message() {
    print_success "🎉 erssi installation completed!"
    echo ""
    print_info "Installation details:"
-   echo "  • Application: erssi v1.0.0"
+   echo "  • Application: erssi v${VERSION}"
    echo "  • Location: $install_path"
    echo "  • Binary: $install_path/bin/erssi"
    
@@ -429,9 +430,24 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 main() {
+   # Extract version from NEWS file
+   if [[ -f "NEWS" ]]; then
+       # Try erssi-v format first (erssi releases), fallback to v format (irssi upstream)
+       VERSION_LINE=$(grep '^erssi-v' NEWS | head -1)
+       if [ -z "$VERSION_LINE" ]; then
+           VERSION_LINE=$(grep '^v' NEWS | head -1)
+       fi
+       
+       # Extract version number (e.g., 1.2.0)
+       # Remove 'erssi-v' or 'v' prefix and take the first word
+       VERSION=$(echo "$VERSION_LINE" | awk '{print $1}' | sed 's/^erssi-v//;s/^v//')
+   else
+       VERSION="unknown"
+   fi
+
    echo "🚀 erssi Installation Script"
    echo "====================================="
-   echo "Enhanced/Evolved IRC Client v1.0.0"
+   echo "Enhanced/Evolved IRC Client v${VERSION}"
    echo "https://erssi.org"
    echo ""
 
