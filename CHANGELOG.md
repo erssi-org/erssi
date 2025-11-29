@@ -5,6 +5,23 @@ All notable changes to erssi will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-11-29
+
+### Fe-netsplit
+
+- Fix nickname truncation to avoid trailing comma-space
+
+### 🐛 Bug Fixes
+
+- **fe-web**: Reinitialize crypto on fe_web_enabled to pick up password changes
+- **formats**: Fix hide_text_style and hide_colors to mitigate color bleed
+
+### 📚 Documentation
+
+- Streamline README with professional release structure
+- Update CHANGELOG.md for v1.2.0 [skip ci]
+- Remove outdated Version History section from README
+
 ## [1.2.0] - 2025-11-18
 
 ### 🐛 Bug Fixes
