@@ -10,7 +10,7 @@
 
 ## What is erssi?
 
-**erssi v1.2.0** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
+**erssi v1.2.1** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
 
 🎯 **Mission**: Modernizing IRC, one feature at a time, while preserving the soul of irssi.
 
@@ -83,18 +83,16 @@
 
 ---
 
-## ✨ Latest Release - v1.2.0
+## ✨ Latest Release - v1.2.1
 
-### 🎯 Full IRCv3 Nicklist Support
+### 🔧 Upstream Sync & Bug Fixes
 
-The v1.2.0 release brings complete IRCv3 user privilege hierarchy support to erssi's sidepanel nicklist system:
+The v1.2.1 release syncs with upstream irssi and includes important bug fixes:
 
-- **Complete Privilege Hierarchy**: Full support for Owner (~), Admin (&), Operator (@), Half-Operator (%), Voice (+), and regular users
-- **Dynamic Server-Based Sorting**: Uses server's ISUPPORT PREFIX configuration for automatic compatibility with any IRC network
-- **Dedicated Color Schemes**: Each privilege level has its own distinct color coding (magenta for owner, red for admin, yellow for operator, green for halfop, cyan for voice)
-- **Official API Integration**: Leverages irssi's native `nicklist_compare()` function for robust, server-aware sorting
-- **Performance Optimized**: Prepend+reverse pattern for O(1) list operations instead of O(n) append
-- **Universal Event Handling**: Responds to all mode change events (~, &, @, %, +) for real-time nicklist updates
+- **Color Bleed Fix**: Fixed `hide_text_style` and `hide_colors` settings to properly mitigate color bleeding
+- **Netsplit Message Fix**: Fixed nickname truncation in netsplit messages to avoid trailing comma-space
+- **Documentation Fix**: Typo fix in `/LUSERS` help documentation
+- **Scrollback Improvement**: Increased default `scrollback_lines` for better history retention
 
 **See [CHANGELOG.md](CHANGELOG.md) for complete version history and detailed changes.**
 

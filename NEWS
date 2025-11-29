@@ -1,3 +1,17 @@
+erssi-v1.2.1 2025-11-29  erssi-org team <https://github.com/erssi-org>
+	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
+	https://erssi.org && https://erssi.dev
+	ERSSI - Enhanced/Evolved IRC Client
+	Upstream sync release with bug fixes from irssi.
+
+	+ BUG FIXES
+	  - Fix hide_text_style and hide_colors to mitigate color bleed (upstream 3811b1ff)
+	  - Fix nickname truncation in netsplit messages to avoid trailing comma-space
+	  - Typo fix in /LUSERS help documentation
+
+	+ IMPROVEMENTS
+	  - Increase default scrollback_lines for better history retention
+
 erssi-v1.2.0 2025-11-18  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 	https://erssi.org && https://erssi.dev
