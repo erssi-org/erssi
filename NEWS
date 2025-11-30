@@ -1,3 +1,13 @@
+erssi-v1.2.2 2025-11-30  erssi-org team <https://github.com/erssi-org>
+	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
+	https://erssi.org && https://erssi.dev
+	ERSSI - Enhanced/Evolved IRC Client
+	Binary renamed from 'irssi' to 'erssi' for consistent branding.
+
+	+ BRANDING
+	  - Binary executable renamed from 'irssi' to 'erssi'
+	  - Consistent naming: binary, config directory (~/.erssi/), and project name now all use 'erssi'
+
 erssi-v1.2.1 2025-11-29  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 	https://erssi.org && https://erssi.dev

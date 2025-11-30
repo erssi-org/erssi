@@ -10,7 +10,7 @@
 
 ## What is erssi?
 
-**erssi v1.2.1** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
+**erssi v1.2.2** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
 
 🎯 **Mission**: Modernizing IRC, one feature at a time, while preserving the soul of irssi.
 
@@ -83,16 +83,15 @@
 
 ---
 
-## ✨ Latest Release - v1.2.1
+## ✨ Latest Release - v1.2.2
 
-### 🔧 Upstream Sync & Bug Fixes
+### 🏷️ Branding Consistency
 
-The v1.2.1 release syncs with upstream irssi and includes important bug fixes:
+The v1.2.2 release completes the erssi branding with consistent naming:
 
-- **Color Bleed Fix**: Fixed `hide_text_style` and `hide_colors` settings to properly mitigate color bleeding
-- **Netsplit Message Fix**: Fixed nickname truncation in netsplit messages to avoid trailing comma-space
-- **Documentation Fix**: Typo fix in `/LUSERS` help documentation
-- **Scrollback Improvement**: Increased default `scrollback_lines` for better history retention
+- **Binary Renamed**: Executable changed from `irssi` to `erssi` for consistent branding
+- **Complete Identity**: Binary, config directory (`~/.erssi/`), and project name now all use `erssi`
+- **Coexistence Support**: Can still run alongside standard irssi without conflicts
 
 **See [CHANGELOG.md](CHANGELOG.md) for complete version history and detailed changes.**
 
