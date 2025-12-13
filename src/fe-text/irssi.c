@@ -224,17 +224,43 @@ static void textui_finish_init(void)
 		printformat(NULL, NULL, MSGLEVEL_CRAP | MSGLEVEL_NO_ACT, TXT_WELCOME_FIRSTTIME);
 	}
 
-	/* see irc-servers-setup.c:init_userinfo */
-	if (user_settings_changed)
-		printformat(NULL, NULL, MSGLEVEL_CLIENTNOTICE, TXT_WELCOME_INIT_SETTINGS);
-	if (user_settings_changed & USER_SETTINGS_REAL_NAME)
-		fe_settings_set_print("real_name");
-	if (user_settings_changed & USER_SETTINGS_USER_NAME)
-		fe_settings_set_print("user_name");
-	if (user_settings_changed & USER_SETTINGS_NICK)
-		fe_settings_set_print("nick");
-	if (user_settings_changed & USER_SETTINGS_HOSTNAME)
-		fe_settings_set_print("hostname");
+	/* First run: show local account info and safe defaults for privacy.
+	 * See irc-servers-setup.c:init_userinfo for details. */
+	if (user_settings_changed & USER_SETTINGS_FIRST_RUN) {
+		const char *sys_user, *sys_real;
+		const char *irc_nick, *irc_user, *irc_real;
+
+		/* Get system-detected values */
+		sys_user = g_get_user_name();
+		sys_real = g_get_real_name();
+
+		/* Get current IRC defaults from config */
+		irc_nick = settings_get_str("nick");
+		irc_user = settings_get_str("user_name");
+		irc_real = settings_get_str("real_name");
+
+		/* Display local account info */
+		printformat(NULL, NULL, MSGLEVEL_CLIENTNOTICE | MSGLEVEL_NO_ACT,
+		            TXT_FIRSTRUN_LOCAL_HEADER);
+		printformat(NULL, NULL, MSGLEVEL_CLIENTNOTICE | MSGLEVEL_NO_ACT,
+		            TXT_FIRSTRUN_LOCAL_SETTING, "user_name:", sys_user);
+		printformat(NULL, NULL, MSGLEVEL_CLIENTNOTICE | MSGLEVEL_NO_ACT,
+		            TXT_FIRSTRUN_LOCAL_SETTING, "real_name:", sys_real);
+
+		/* Display IRC safe defaults */
+		printformat(NULL, NULL, MSGLEVEL_CLIENTNOTICE | MSGLEVEL_NO_ACT,
+		            TXT_FIRSTRUN_IRC_HEADER);
+		printformat(NULL, NULL, MSGLEVEL_CLIENTNOTICE | MSGLEVEL_NO_ACT,
+		            TXT_FIRSTRUN_IRC_SETTING, "nick:", irc_nick ? irc_nick : "");
+		printformat(NULL, NULL, MSGLEVEL_CLIENTNOTICE | MSGLEVEL_NO_ACT,
+		            TXT_FIRSTRUN_IRC_SETTING, "user_name:", irc_user ? irc_user : "");
+		printformat(NULL, NULL, MSGLEVEL_CLIENTNOTICE | MSGLEVEL_NO_ACT,
+		            TXT_FIRSTRUN_IRC_SETTING, "real_name:", irc_real ? irc_real : "");
+
+		/* Display how to change */
+		printformat(NULL, NULL, MSGLEVEL_CLIENTNOTICE | MSGLEVEL_NO_ACT,
+		            TXT_FIRSTRUN_HOWTO);
+	}
 
 	term_environment_check();
 }

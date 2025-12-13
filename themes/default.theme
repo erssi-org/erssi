@@ -67,8 +67,8 @@ abstracts = {
   # timestamp styling, nothing by default
   timestamp = "%b$*%C>%N";
 
-  # any kind of text that needs hilighting, default is to bold
-  hilight = "%Y%_$*%_%N";
+  # any kind of text that needs hilighting, orange for visibility
+  hilight = "%ZFF9955%_$*%_%N";
   # any kind of error message, default is bright red
   error = "%R$*%n";
 
@@ -143,12 +143,14 @@ abstracts = {
   pubnick = "%G$*%n";
 
   # public message in channel meant for me, $0 = nick mode, $1 = nick
-  pubmsgmenick = "{msgnick $0$1-}";
-  menick = "%Y$*%n";
+  # Orange text for mentions (same as nexus.theme)
+  pubmsgmenick = "{msgnick %ZFF9955$0$1-}%ZFF9955";
+  menick = "%ZFF9955$*%n";
 
   # public highlighted message in channel
   # $0 = highlight color, $1 = nick mode, $2 = nick
-  pubmsghinick = "{msgnick $1 $0$2-%n}";
+  # Orange text for highlighted messages to stand out
+  pubmsghinick = "{msgnick %ZFF9955$1 $0$2-%n}%ZFF9955";
 
   # channel name is printed with message
   msgchannel = "%K:%c$*%n";

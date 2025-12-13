@@ -637,8 +637,10 @@ static void sig_message_irc_mode(IRC_SERVER_REC *server, const char *channel, co
 				}
 
 				/* Check if this is a user mode that affects nicklist */
-				if (c == 'o' || c == 'v' || c == 'h') {
-					/* These modes take a nick parameter */
+				if (c == 'o' || c == 'v' || c == 'h' || c == 'q' || c == 'a') {
+					/* These modes take a nick parameter:
+					 * o = op (@), v = voice (+), h = halfop (%)
+					 * q = owner (~), a = admin (&) */
 					if (param_idx < params_count) {
 						char task[3];
 						task[0] = current_sign;
@@ -646,12 +648,6 @@ static void sig_message_irc_mode(IRC_SERVER_REC *server, const char *channel, co
 						task[2] = '\0';
 						fe_web_send_nicklist_update(
 						    server, chanrec, params[param_idx], task);
-						param_idx++;
-					}
-				} else if (c == 'q' || c == 'a') {
-					/* Owner/admin modes also take nick but we may not handle
-					 * them */
-					if (param_idx < params_count) {
 						param_idx++;
 					}
 				} else if (c == 'l') {

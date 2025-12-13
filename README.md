@@ -10,7 +10,7 @@
 
 ## What is erssi?
 
-**erssi v1.2.2** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
+**erssi v1.2.3** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
 
 🎯 **Mission**: Modernizing IRC, one feature at a time, while preserving the soul of irssi.
 
@@ -83,15 +83,16 @@
 
 ---
 
-## ✨ Latest Release - v1.2.2
+## ✨ Latest Release - v1.2.3
 
-### 🏷️ Branding Consistency
+### 🏷️ Complete Rebranding & Privacy
 
-The v1.2.2 release completes the erssi branding with consistent naming:
+The v1.2.3 release completes user-facing branding and adds privacy-focused first-run:
 
-- **Binary Renamed**: Executable changed from `irssi` to `erssi` for consistent branding
-- **Complete Identity**: Binary, config directory (`~/.erssi/`), and project name now all use `erssi`
-- **Coexistence Support**: Can still run alongside standard irssi without conflicts
+- **Message Prefix**: Changed from "Irssi:" to "erssi:" in all user messages
+- **Privacy First-Run**: Displays local account info without auto-setting IRC identity (protects macOS users)
+- **Simplified Install**: Streamlined `install.sh` script without unnecessary file conversion
+- **Activity Fix**: System messages (Day changed, etc.) no longer trigger sidepanel activity
 
 **See [CHANGELOG.md](CHANGELOG.md) for complete version history and detailed changes.**
 
@@ -103,7 +104,7 @@ The v1.2.2 release completes the erssi branding with consistent naming:
 # Clone and run the installation script
 git clone https://github.com/erssi-org/erssi.git
 cd erssi
-./install-erssi.sh
+./install.sh
 ```
 
 The installation script will:
@@ -117,13 +118,13 @@ The installation script will:
 
 **Option 1: Global installation (Recommended)**
 ```bash
-./install-erssi.sh
-# Choose: 1 (Global) → installs to /opt/erssi with symlink in /usr/bin
+./install.sh
+# Choose: 1 (Global) → installs to /opt/erssi with symlink in /usr/local/bin
 ```
 
 **Option 2: Local installation**
 ```bash
-./install-erssi.sh
+./install.sh
 # Choose: 2 (Local) → installs to ~/.local with symlink in ~/.local/bin
 ```
 

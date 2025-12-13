@@ -127,20 +127,20 @@ ask_dependencies_installation() {
        read -n 1 choice
        echo -e "\n"
        case "$choice" in
-           1) 
+           1)
                print_info "Installing dependencies..."
                install_dependencies
-               break 
+               break
                ;;
-           2) 
+           2)
                print_warning "Skipping dependency installation - assuming packages are already installed"
                print_info "If build fails, install dependencies manually and try again"
-               break 
+               break
                ;;
-           3) 
+           3)
                print_info "Installation cancelled. Install dependencies manually and run script again."
                print_info "See docs/INSTALL for complete dependency lists for your system."
-               exit 0 
+               exit 0
                ;;
            *) print_error "Please enter 1, 2, or 3" ;;
        esac
@@ -154,9 +154,9 @@ yes_or_no() {
        echo -e "\n"
        case "$REPLY" in
            Y|y) return 0 ;;
-           N|n) 
+           N|n)
                print_warning "Operation cancelled by user"
-               return 1 
+               return 1
                ;;
        esac
    done
@@ -196,100 +196,6 @@ setup_build_environment() {
            export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/opt/ncurses/lib/pkgconfig:$PKG_CONFIG_PATH"
        fi
    fi
-}
-
-convert_to_erssi() {
-   print_info "Converting irssi to erssi..."
-   
-   # Check if required files exist
-   if [[ ! -f "meson.build" ]]; then
-       print_error "meson.build not found for erssi conversion"
-       exit 1
-   fi
-   
-   if [[ ! -f "src/common.h" ]]; then
-       print_error "src/common.h not found for erssi conversion"
-       exit 1
-   fi
-   
-   # 1. w meson.build: incdir = 'irssi' -> incdir = 'erssi'
-   if [[ "$system" == "macos" ]]; then
-       sed -i '' "s/incdir              = 'irssi'/incdir              = 'erssi'/" meson.build || {
-           print_error "Failed to update meson.build"
-           exit 1
-       }
-   else
-       sed -i "s/incdir              = 'irssi'/incdir              = 'erssi'/" meson.build || {
-           print_error "Failed to update meson.build"
-           exit 1
-       }
-   fi
-
-   # 2. w src/common.h: .irssi -> .erssi
-   if [[ "$system" == "macos" ]]; then
-       sed -i '' 's/\.irssi/\.erssi/g' src/common.h || {
-           print_error "Failed to update src/common.h"
-           exit 1
-       }
-   else
-       sed -i 's/\.irssi/\.erssi/g' src/common.h || {
-           print_error "Failed to update src/common.h"
-           exit 1
-       }
-   fi
-
-   # 3. GLOBALNA zmiana: #include <irssi/ -> #include <erssi/
-   # Omijamy katalogi build*, .git i scripts
-   if [[ "$system" == "macos" ]]; then
-       export LC_ALL=C
-       find . -type f -not -path "./build*/*" -not -path "./Build*/*" -not -path "./.git/*" -not -path "./scripts/*" | \
-           xargs sed -i '' 's|<irssi/|<erssi/|g' || {
-           print_error "Failed to update include paths"
-           exit 1
-       }
-   else
-       find . -type f -not -path "./build*/*" -not -path "./Build*/*" -not -path "./.git/*" -not -path "./scripts/*" | \
-           xargs sed -i 's|<irssi/|<erssi/|g' || {
-           print_error "Failed to update include paths"
-           exit 1
-       }
-   fi
-
-   # 4. GLOBALNA zmiana: ".irssi/" -> ".erssi/" (tylko z slashem)
-   # Omijamy katalogi build*, .git i scripts
-   if [[ "$system" == "macos" ]]; then
-       export LC_ALL=C
-       find . -type f -not -path "./build*/*" -not -path "./Build*/*" -not -path "./.git/*" -not -path "./scripts/*" | \
-           xargs sed -i '' 's|\.irssi/|\.erssi/|g' || {
-           print_error "Failed to update directory paths"
-           exit 1
-       }
-   else
-       find . -type f -not -path "./build*/*" -not -path "./Build*/*" -not -path "./.git/*" -not -path "./scripts/*" | \
-           xargs sed -i 's|\.irssi/|\.erssi/|g' || {
-           print_error "Failed to update directory paths"
-           exit 1
-       }
-   fi
-
-   # 5. w src/fe-text/meson.build: executable('irssi', -> executable('erssi',
-   if [[ -f "src/fe-text/meson.build" ]]; then
-       if [[ "$system" == "macos" ]]; then
-           sed -i '' "s/executable('irssi',/executable('erssi',/" src/fe-text/meson.build || {
-               print_error "Failed to update executable name"
-               exit 1
-           }
-       else
-           sed -i "s/executable('irssi',/executable('erssi',/" src/fe-text/meson.build || {
-               print_error "Failed to update executable name"
-               exit 1
-           }
-       fi
-   else
-       print_warning "src/fe-text/meson.build not found - skipping executable name change"
-   fi
-
-   print_success "Successfully converted to erssi - 5 changes made"
 }
 
 build_and_install() {
@@ -347,34 +253,39 @@ create_symlinks() {
        return 1
    fi
 
-   # For global install, create symlink in /usr/bin
+   # For global install, create symlink in /usr/local/bin (safer than /usr/bin)
    if [[ "$install_path" == "/opt/erssi" ]]; then
-       print_info "Creating symlink in /usr/bin..."
-       
-       # Remove old symlink if exists
-       if [[ -L "/usr/bin/erssi" ]]; then
-           sudo rm -f /usr/bin/erssi
+       print_info "Creating symlink in /usr/local/bin..."
+
+       # Create /usr/local/bin if it doesn't exist
+       if [[ ! -d "/usr/local/bin" ]]; then
+           sudo mkdir -p /usr/local/bin
        fi
-       
-       sudo ln -sf "$bin_path" /usr/bin/erssi || {
-           print_error "Failed to create symlink in /usr/bin"
+
+       # Remove old symlink if exists
+       if [[ -L "/usr/local/bin/erssi" ]]; then
+           sudo rm -f /usr/local/bin/erssi
+       fi
+
+       sudo ln -sf "$bin_path" /usr/local/bin/erssi || {
+           print_error "Failed to create symlink in /usr/local/bin"
            print_warning "You may need to manually add $install_path/bin to your PATH"
            return 1
        }
-       
-       print_success "Created symlink: /usr/bin/erssi -> $bin_path"
+
+       print_success "Created symlink: /usr/local/bin/erssi -> $bin_path"
    else
        # For local install, create symlink in ~/.local/bin
        mkdir -p "$HOME/.local/bin" || {
            print_error "Failed to create $HOME/.local/bin"
            return 1
        }
-       
+
        ln -sf "$bin_path" "$HOME/.local/bin/erssi" || {
            print_error "Failed to create symlink"
            return 1
        }
-       
+
        print_success "Created symlink: $HOME/.local/bin/erssi -> $bin_path"
 
        # Add to PATH if not already there
@@ -392,20 +303,21 @@ show_completion_message() {
    echo "  • Application: erssi v${VERSION}"
    echo "  • Location: $install_path"
    echo "  • Binary: $install_path/bin/erssi"
-   
+
    if [[ "$install_path" == "/opt/erssi" ]]; then
-       echo "  • Symlink: /usr/bin/erssi"
+       echo "  • Symlink: /usr/local/bin/erssi"
    else
        echo "  • Symlink: $HOME/.local/bin/erssi"
    fi
-   
+
    echo ""
-   print_info "erssi-specific features:"
+   print_info "erssi features:"
    echo "  • Configuration directory: ~/.erssi/"
    echo "  • Secure credential management with AES-256 encryption"
    echo "  • Advanced sidepanels with mouse gesture support"
    echo "  • Full Unicode/emoji grapheme cluster support"
-   echo "  • All RFC 2812 compliant channel types (#, &, !, +)"
+   echo "  • Web interface (fe-web) with WebSocket support"
+   echo "  • 100% compatible with irssi Perl scripts"
    echo ""
    print_info "To run: erssi"
    print_info "Website: https://erssi.org"
@@ -418,17 +330,6 @@ show_completion_message() {
    fi
 }
 
-# Cleanup function
-cleanup() {
-   if [[ -d "Build" ]]; then
-       print_info "Cleaning up temporary files..."
-       rm -rf Build
-   fi
-}
-
-# Setup trap for cleanup
-trap cleanup EXIT INT TERM
-
 main() {
    # Extract version from NEWS file
    if [[ -f "NEWS" ]]; then
@@ -437,9 +338,8 @@ main() {
        if [ -z "$VERSION_LINE" ]; then
            VERSION_LINE=$(grep '^v' NEWS | head -1)
        fi
-       
+
        # Extract version number (e.g., 1.2.0)
-       # Remove 'erssi-v' or 'v' prefix and take the first word
        VERSION=$(echo "$VERSION_LINE" | awk '{print $1}' | sed 's/^erssi-v//;s/^v//')
    else
        VERSION="unknown"
@@ -474,9 +374,6 @@ main() {
 
    # Setup build environment
    setup_build_environment
-
-   # Convert to erssi
-   convert_to_erssi
 
    # Ask installation location
    ask_installation_location

@@ -176,18 +176,24 @@ static void init_userinfo(void)
 	first_run = (stat(config_path, &statbuf) != 0);
 	g_free(config_path);
 
-	/* real_name: set from system on first run or if empty */
+	/* On first run, we intentionally DO NOT auto-set nick/user_name/real_name
+	 * from system to protect user privacy (macOS exposes real name in GECOS).
+	 * Instead, we keep safe defaults from config and just display info. */
+	if (first_run) {
+		changed |= USER_SETTINGS_FIRST_RUN;
+	}
+
+	/* Only set from env/system if settings are completely empty */
 	set = settings_get_str("real_name");
-	if (first_run || set == NULL || *set == '\0') {
+	if (set == NULL || *set == '\0') {
 		str = g_getenv("IRCNAME");
 		settings_set_str("real_name",
 				 str != NULL ? str : g_get_real_name());
 		changed |= USER_SETTINGS_REAL_NAME;
 	}
 
-	/* user_name: set from system on first run or if empty */
 	user_name = settings_get_str("user_name");
-	if (first_run || user_name == NULL || *user_name == '\0') {
+	if (user_name == NULL || *user_name == '\0') {
 		str = g_getenv("IRCUSER");
 		settings_set_str("user_name",
 				 str != NULL ? str : g_get_user_name());
@@ -196,9 +202,8 @@ static void init_userinfo(void)
 		changed |= USER_SETTINGS_USER_NAME;
 	}
 
-	/* nick: set from system on first run or if empty */
 	nick = settings_get_str("nick");
-	if (first_run || nick == NULL || *nick == '\0') {
+	if (nick == NULL || *nick == '\0') {
 		str = g_getenv("IRCNICK");
 		settings_set_str("nick", str != NULL ? str : user_name);
 

@@ -35,6 +35,7 @@ enum {
 	USER_SETTINGS_USER_NAME = 0x2,
 	USER_SETTINGS_NICK	= 0x4,
 	USER_SETTINGS_HOSTNAME	= 0x8,
+	USER_SETTINGS_FIRST_RUN = 0x10,
 };
 
 /* macros for handling the default Irssi configuration */

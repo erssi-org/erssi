@@ -101,6 +101,11 @@ FORMAT_REC gui_text_formats[] = {
 	  "the available commands.%:"
 	  "- - - - - - - - - - - - - - - - - - - - - - - - - - - -", 0 },
 	{ "welcome_init_settings", "The following settings were initialized", 0 },
+	{ "firstrun_local_header", "%_Your local account settings are:%_", 0 },
+	{ "firstrun_local_setting", "  %c$[20]0%n $1", 2, { 0, 0 } },
+	{ "firstrun_irc_header", "%_For IRC connection, erssi will use these safe defaults:%_", 0 },
+	{ "firstrun_irc_setting", "  %W$[20]0%n $1", 2, { 0, 0 } },
+	{ "firstrun_howto", "%yTo use your own identity, run:%n /SET nick <yournick> && /SET user_name <yourusername> && /SET real_name <yourname>", 0 },
 
 	/* ---- */
 	{ NULL, "Sidepanels", 0 },

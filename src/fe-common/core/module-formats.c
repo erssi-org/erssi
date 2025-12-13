@@ -29,7 +29,7 @@ FORMAT_REC fecommon_core_formats[] = {
 	{ NULL, "Windows", 0 },
 
 	{ "line_start", "{line_start}", 0 },
-	{ "line_start_irssi", "{line_start}{hilight Irssi:} ", 0 },
+	{ "line_start_irssi", "{line_start}{hilight erssi:} ", 0 },
         { "timestamp", "{timestamp $Z} ", 0 },
 	{ "servertag", "[$0] ", 1, { 0 } },
 	{ "daychange", "Day changed to %%d %%b %%Y", 0 },

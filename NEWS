@@ -1,3 +1,22 @@
+erssi-v1.2.3 2025-12-13  erssi-org team <https://github.com/erssi-org>
+	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
+	https://erssi.org && https://erssi.dev
+	ERSSI - Enhanced/Evolved IRC Client
+	Rebranding improvements and privacy-focused first-run experience.
+
+	+ BRANDING
+	  - Message prefix changed from "Irssi:" to "erssi:" for complete user-facing branding
+	  - Simplified install script - removed unnecessary file conversion (install.sh)
+
+	+ PRIVACY
+	  - First-run now displays local account info without auto-setting IRC identity
+	  - Protects user privacy on macOS (GECOS field exposes real name)
+	  - Shows safe defaults and instructions for /SET commands
+
+	+ BUG FIXES
+	  - Fixed sidepanel activity tracking for system messages (Day changed, etc.)
+	  - MSGLEVEL_NEVER and similar messages no longer trigger activity indicators
+
 erssi-v1.2.2 2025-11-30  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 	https://erssi.org && https://erssi.dev
