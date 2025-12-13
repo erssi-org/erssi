@@ -165,11 +165,16 @@ static void init_userinfo(void)
 	const char *set, *nick, *user_name, *str;
 	struct stat statbuf;
 	int first_run;
+	char *config_path;
 
 	changed = 0;
 
-	/* Check if config directory exists - if not, this is first run */
-	first_run = (stat(get_irssi_dir(), &statbuf) != 0);
+	/* Check if config file exists - if not, this is first run.
+	 * Note: We check for config file, not directory, because the directory
+	 * is created earlier by init_configfile() in settings.c */
+	config_path = g_strdup_printf("%s/config", get_irssi_dir());
+	first_run = (stat(config_path, &statbuf) != 0);
+	g_free(config_path);
 
 	/* real_name: set from system on first run or if empty */
 	set = settings_get_str("real_name");
