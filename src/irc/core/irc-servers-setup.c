@@ -24,6 +24,9 @@
 #include <irssi/src/core/servers-setup.h>
 #include <irssi/src/lib-config/iconfig.h>
 #include <irssi/src/core/settings.h>
+#include <irssi/src/core/core.h>
+
+#include <sys/stat.h>
 
 #include <irssi/src/irc/core/irc-chatnets.h>
 #include <irssi/src/irc/core/irc-servers-setup.h>
@@ -160,20 +163,26 @@ static void init_userinfo(void)
 {
 	unsigned int changed;
 	const char *set, *nick, *user_name, *str;
+	struct stat statbuf;
+	int first_run;
 
 	changed = 0;
-	/* check if nick/username/realname wasn't read from setup.. */
-        set = settings_get_str("real_name");
-	if (set == NULL || *set == '\0') {
+
+	/* Check if config directory exists - if not, this is first run */
+	first_run = (stat(get_irssi_dir(), &statbuf) != 0);
+
+	/* real_name: set from system on first run or if empty */
+	set = settings_get_str("real_name");
+	if (first_run || set == NULL || *set == '\0') {
 		str = g_getenv("IRCNAME");
 		settings_set_str("real_name",
 				 str != NULL ? str : g_get_real_name());
 		changed |= USER_SETTINGS_REAL_NAME;
 	}
 
-	/* username */
-        user_name = settings_get_str("user_name");
-	if (user_name == NULL || *user_name == '\0') {
+	/* user_name: set from system on first run or if empty */
+	user_name = settings_get_str("user_name");
+	if (first_run || user_name == NULL || *user_name == '\0') {
 		str = g_getenv("IRCUSER");
 		settings_set_str("user_name",
 				 str != NULL ? str : g_get_user_name());
@@ -182,9 +191,9 @@ static void init_userinfo(void)
 		changed |= USER_SETTINGS_USER_NAME;
 	}
 
-	/* nick */
-        nick = settings_get_str("nick");
-	if (nick == NULL || *nick == '\0') {
+	/* nick: set from system on first run or if empty */
+	nick = settings_get_str("nick");
+	if (first_run || nick == NULL || *nick == '\0') {
 		str = g_getenv("IRCNICK");
 		settings_set_str("nick", str != NULL ? str : user_name);
 
@@ -192,8 +201,8 @@ static void init_userinfo(void)
 		changed |= USER_SETTINGS_NICK;
 	}
 
-	/* host name */
-        set = settings_get_str("hostname");
+	/* hostname: only set from env var (not from system) */
+	set = settings_get_str("hostname");
 	if (set == NULL || *set == '\0') {
 		str = g_getenv("IRCHOST");
 		if (str != NULL) {
