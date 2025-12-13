@@ -281,6 +281,16 @@ void sig_print_text(TEXT_DEST_REC *dest, const char *msg)
 	if (window == active_win)
 		return;
 
+	/* Skip messages that explicitly should not trigger activity:
+	 * - MSGLEVEL_NEVER: Used by "Day changed" and similar system messages
+	 * - MSGLEVEL_NO_ACT: Explicit flag to suppress activity
+	 * - MSGLEVEL_CRAP/CLIENTCRAP: Low-priority informational messages
+	 * - MSGLEVEL_CLIENTNOTICE/CLIENTERROR: Client-side messages */
+	if (dest->level & (MSGLEVEL_NEVER | MSGLEVEL_NO_ACT | MSGLEVEL_CRAP |
+	                   MSGLEVEL_CLIENTCRAP | MSGLEVEL_CLIENTNOTICE | MSGLEVEL_CLIENTERROR)) {
+		return;
+	}
+
 	/* Filter out message levels that are handled by dedicated signals to avoid duplicates */
 	if (dest->level & (MSGLEVEL_JOINS | MSGLEVEL_PARTS | MSGLEVEL_QUITS | MSGLEVEL_KICKS |
 	                   MSGLEVEL_MODES | MSGLEVEL_TOPICS | MSGLEVEL_NICKS | MSGLEVEL_ACTIONS)) {
