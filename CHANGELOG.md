@@ -5,6 +5,24 @@ All notable changes to erssi will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2025-12-13
+
+### 🐛 Bug Fixes
+
+- **sidepanels**: Prevent system messages from triggering activity
+- **irc**: Detect first run by config directory existence
+- **irc**: Check config file instead of directory for first run
+
+## [1.2.2] - 2025-11-30
+
+### 📚 Documentation
+
+- Update CHANGELOG.md for v1.2.1 [skip ci]
+
+### 🔨 Miscellaneous
+
+- Remove CLAUDE.md from repository
+
 ## [1.2.1] - 2025-11-29
 
 ### Fe-netsplit
@@ -63,6 +81,538 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2025-10-18
 
+### /connect
+
+- Add help for -nocap
+
+### /server
+
+- Add help for -cap/-nocap
+
+### Lang-Fix
+
+- Use more general messages
+
+### Core
+
+- Remove unused len variable
+
+### Fe-text
+
+- Include the real tputs(3) from term.h
+- Remove const for better Darwin support
+
+### ⚡ Features
+
+- Update startup banner to erssi branding
+- Add credential frontend commands (/credential)
+
+### 🐛 Bug Fixes
+
+- Fix yet another meson regression
+
+broken by meson 0.60.0
+
+- Fix scrollback redraw not updating linecount
+
+- Fix memory leak when updating single line
+
+- Fix visible lines expiring from cache
+
+- Fix recount of lines after window set
+
+- Fix recount of lines after scroll
+
+- Fix crash when loading server without chatnet
+
+- Fix clang-format
+
+- Fix lastlog -window
+
+- Fix signals file
+
+- Fix crash on connect in startup
+
+fixes #1449
+
+does not completely fix the issue (connect still does not work, error message is misleading)
+
+- Fix stale special collector use after free
+
+reported by ednash and investigated by @dwfreed
+
+- Fix usage of $type in ExtUtils::ParseXS 3.50
+
+- Fix /ban command
+
+- Fix irssi SASL negotiation with multiple CAP ACK
+
+when attempting SASL, if multiple CAP ACK were received (for example,
+because a script sent an additional CAP REQ), then any not containing
+`sasl` would cause SASL to fail (immediately aborting the connection
+with no message, depending on sasl_disconnect_on_failure setting)
+
+check not only if SASL is set in this line, but also if we've already
+seen it in a previous line.
+
+- Fix _GNU_SOURCE redefined warning due to perl ccflags
+
+- Fix xbps
+
+- Add fe-web compilation flag to install-erssi.sh
+- Correct fe-web compilation flag in install-erssi.sh
+- Change project name from 'irssi' to 'erssi' in meson.build
+
+### 📚 Documentation
+
+- Document meson apple workaround
+
+workaround for https://github.com/mesonbuild/meson/issues/11165
+
+
+### 🔨 Miscellaneous
+
+- Update for github workflows deprecations
+
+### 🧪 Testing
+
+- Test solaris build with vmactions
+
+- Test the void
+
+
+## [1.5+1-dev] - 2022-06-06
+
+### NEWS
+
+- Remove 2 lines that would be confusing
+
+### Fe-text/mainwindows
+
+- Fix /window balance warning
+
+### Hilight.in
+
+- Fix typo the->to
+
+### Meson.build
+
+- Remove unnecessary -Wall
+
+### ♻️ Refactoring
+
+- Refactor glib install
+
+- Refactor quit message into a separate function
+
+
+### 🎨 Styling
+
+- Style format change
+
+
+### 🐛 Bug Fixes
+
+- Fix test on Big Endian 64bit, due to pointer size mismatch
+
+- Fix missing AC_DEFINE
+
+- Fix irssi-version link
+
+- Fix reconnect of multiplexed proxy
+
+- Fix realpath on old solaris
+
+POSIX.1-2001 did not implement realpath(..., NULL) yet.
+Fixes #1042
+
+- Fix code block NEWS formatting
+
+- Fix small overflow
+
+- Fix cut off text with theme-indent and /set indent_always off
+
+- Fix build system debug config to include -fno-omit-frame-pointer
+
+- Fix glib version dependency
+
+- Fix cap queue order
+
+- Fix crash in setname
+
+- Fix crashes when nick is missing
+
+- Fix autotools build
+
+- Fix wrong version
+
+- Fix crash on startup when resizing before active_win
+
+- Fix use after free receiving caps
+
+fixes GL#34
+
+- Fix warning in fe-fuzz/server-fuzz
+
+- Fix crash in join due to incorrect free
+
+- Fix the fix
+
+- Fix #641
+
+Track the address family of the last failed connection attempt
+(either immediately or during TLS handshake), then disprefer
+that address family during reconnection.
+
+- Fix /ignore ... MODES NO_ACT not working
+
+reported by letty
+
+- Fix perl module build on openbsd
+
+unfortunately, some mangling is needed to create the correct linker
+and compiler invocations
+
+- Fix crash on /quit when unloading modules
+
+this fixes a crash on /quit when the module unloaded is trying
+to reference symbols from already-unloaded modules, by reversing
+the lists.
+
+- Fix npe on no text from format_get_text_theme_charargs
+
+- Fix NULL assertion in format args
+
+- Fix extended bg colours
+
+- Fix crash when server got disconnected/reconnected before it was properly connected
+
+- Fix missing wrapping of line in signals
+
+- Fix clang-format-xs option parser by using getopt
+
+- Fix clang-format-xs formatting whole file
+
+regression of #1230
+
+- Fix clang-format-xs formatting whole file
+
+incomplete fix in #1234
+
+- Fix multiple identical active caps
+
+- Fix autotools build
+
+- Fix assertion failure when the line does not have text (yet)
+
+- Fix level uninitialised
+
+Credit to OSS-Fuzz
+
+- Fix clang formatting
+
+- Fix missing output
+
+- Fix off by one
+
+- Fix double free
+
+- Fix crash on /connect /dev/null
+
+- Fix crash on /connect -tls
+
+fixes #1239
+
+- Fix crash on tls error
+
+- Fix reconnect to use tls settings
+
+- Fix fe-fuzz
+
+- Fix build with meson 0.58.0
+
+- Fix use of wrong "equal" function in meta hash tables
+
+- Fix wrong server_time in $line->get_meta
+
+- Fix recursive crash in Perl scripts
+
+- Fix reading of old config ssl_verify key
+
+- Fix reading of starttls = "no" in config
+
+- Fix reading of starttls = "no" in config, attempt 2
+
+- Fix queue bug
+
+- Fix pedantic error in MSGLEVEL enum
+
+reported by horgh
+
+- Fix /server modify port argument order
+
+- Fix wrong argument type in printformat
+
+- Fix max_lag disconnect
+
+- Fix stuck meta on dcc chat
+
+- Fix help text wrt SERVER command
+
+reported by Remco
+
+- Fix help text wrt SERVER LIST command
+
+- Fix crash in Perl's $view->set_bookmark
+
+reported on the freebsd issue tracker https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=254237#c13
+
+- Fix crash when accessing settings during shutdown
+
+- Fix formatting
+
+- Fix intentation
+
+- Fix some stupidness
+
+- Fix something
+
+- Fix meson deprecations
+
+- Fix irc module in fuzzer
+
+- Fix clang-format
+
+- Fix scroll_page_count settings with .
+
+- Fix formatting
+
+- Fix missing len in g_array_copy
+
+
+### 🔧 Build System
+
+- Build fixes when using install-glib and on openbsd
+
+
+### 🧪 Testing
+
+- Test termux pkg
+
+- Test OBS workflow
+
+
+## [1.3-dev] - 2019-02-11
+
+### Channel_change_topic
+
+- Change one strlen == 0 to *str == '\0'
+
+### Configure
+
+- Fix Perl detection on macOS Mojave
+
+### Core/ignore
+
+- Fix ignore_match_level handling of flag levels
+- Fix #900
+
+### Fe-text
+
+- Add window_default_hidelevel setting
+- Only save non-default window hidelevel
+- Clear hidelevel in layout if default
+
+### Gui-windows
+
+- Make the wcwidth_impl global var into static
+
+### Irc-cap
+
+- Don't show warning on CAP LIST response
+
+### Modules_deinit
+
+- Fix -Werror=declaration-after-statement
+
+### Otr
+
+- Add KEY_GEN_STARTED state to avoid starting it twice
+- Fix missing 'target' param in 'message private' signal
+- Add target param to the unencrypted 'message private' signal
+- Rename module.c to otr-module.c
+- Fix blatant lies in help text
+
+### Signals.txt
+
+- Add missing 'server cap new|delete' signals
+
+### Wcwidth-wrapper
+
+- Avoid cast with a tiny wrapper, julia_wcwidth()
+
+### ♻️ Refactoring
+
+- Refactor common parts
+
+- Refactor cnotice test into function
+
+
+### 🐛 Bug Fixes
+
+- Fix test builds on some platforms
+
+- Fix sequence error
+
+- Fix crash in notifylist
+
+- Fix uaf in signal path
+
+- Fix build with LibreSSL 2.7.0
+
+- Fix a crash when trying to append to a NULL line
+
+reported by @vague666
+
+- Fix build
+
+- Fix accessing unallocated text when checking entry position
+
+fixes #928
+
+- Fix compilation of theme-indent module
+
+- Fix compilation of python module
+
+- Fix irssi being stuck when resized very small
+
+- Fix and document window width on screen width dependency
+
+- Fix flood test libs
+
+- Fix duplicate include guard
+
+- Fixup perl side
+
+- Fix paste_join_multiline
+
+- Fix width of byte codepoints
+
+- Fix backward completion
+
+- Fix gui_input_get_extent
+
+it was causing a free of data with [transfer=none]
+
+
+### 🧪 Testing
+
+- Test line joining
+
+
+## [1.2-dev] - 2018-01-08
+
+### Consistency
+
+- Use FALSE instead of 0.
+
+### NEWS
+
+- Avoid explicitly mentioning freenode in the pinning examples
+
+### Dcc.in
+
+- Fixed typo 'resolved' -&gt; 'resolves'
+
+### Expand_escape
+
+- Expand double backslash as a backslash
+
+### Fe-common-core
+
+- Fix redeclaration of server_tag_len
+
+### Fe-dcc-
+
+- **get|send**: Fix some -Wpointer-compare with newer gcc
+
+### Fe-netjoin
+
+- Remove irc servers on "server disconnected" signal
+
+### Notify-ison
+
+- Don't send ison before the connection is done
+
+### Parse_time_interval
+
+- Allow negative time in settings
+
+### Term-terminfo
+
+- Avoid switching out of alt screen on unexpected exits
+
+### ♻️ Refactoring
+
+- Refactor history to use history_entries list
+
+this allows access to the global history even when a using /window history
+named or /set window_history on, and you want to recall something from one
+of the other windows' histories.
+
+usage (default): ctrl+up/down
+
+
+### 🐛 Bug Fixes
+
+- Fix regression in completion
+
+fixes #609
+
+- Fix dcc get
+
+fixes #656
+
+- Fix weird n-fold unescaping
+
+- Fix out of bounds read in compress_colors
+
+Reported by Hanno Böck.
+
+Fixes GL#12
+
+- Fix uaf in chanquery module
+
+the chanquery needs to be removed in any case if a channel rec is
+destroyed, regardless of any state
+
+Fixes GL#13
+
+- Fix dcc issue
+
+- Fix key length checker to actually do some work
+
+- Fix comments
+
+- Fix /exec -o for blank lines
+
+since it is not allowed to send nothing, instead of spamming the status window
+with error, send " " instead
+
+Fixes FS#902
+
+- Fix some more
+
+- Fix redraw
+
+
+### 🧪 Testing
+
+- Test trusty container
+
+
+## [1.1-dev] - 2017-01-05
+
 ### /IGNORE
 
 - -word -> -full, like it's with /HILIGHT.
@@ -87,14 +637,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - --home and --config parameters weren't passed to new irssi.
 
-### /connect
-
-- Add help for -nocap
-
-### /server
-
-- Add help for -cap/-nocap
-
 ### AUTHORS
 
 - Move myself from contributors to staff
@@ -103,14 +645,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Http://bugs.irssi.org/?do=details&id=99
 - Http://bugs.irssi.org/?do=details&id=121
-
-### Consistency
-
-- Use FALSE instead of 0.
-
-### GtkIText
-
-- Imlib isn't required anymore, underlined text works
 
 ### INSTALL
 
@@ -136,10 +670,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - :get_gui() now returns IRSSI_GUI_xxx which is in use.
 - :timeout_add(), timeout_add_once() and input_add() were buggy.
 
-### Lang-Fix
-
-- Use more general messages
-
 ### Makefile.am
 
 - Add default-config.h and default-theme.h to CLEANFILES
@@ -147,8 +677,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### NEWS
 
 - Describe my changes (not others') since 0.8.11.
-- Avoid explicitly mentioning freenode in the pinning examples
-- Remove 2 lines that would be confusing
 
 ### README.md
 
@@ -180,26 +708,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Nick1,nick2,nick3 -> nick1 nick2 nick3
 
-### Channel_change_topic
-
-- Change one strlen == 0 to *str == '\0'
-
 ### Completion
 
 - Fix crash when the complist provided by a script has nulls
-
-### Configure
-
-- Fix Perl detection on macOS Mojave
-
-### Core
-
-- Remove unused len variable
-
-### Core/ignore
-
-- Fix ignore_match_level handling of flag levels
-- Fix #900
 
 ### Cutbuffer
 
@@ -208,38 +719,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dcc-get
 
 - Close() the temp fd so we don't get ETXTBSY in ntfs mounts
-
-### Dcc.in
-
-- Fixed typo 'resolved' -&gt; 'resolves'
-
-### Expand_escape
-
-- Expand double backslash as a backslash
-
-### Fe-common-core
-
-- Fix redeclaration of server_tag_len
-
-### Fe-dcc-
-
-- **get|send**: Fix some -Wpointer-compare with newer gcc
-
-### Fe-netjoin
-
-- Remove irc servers on "server disconnected" signal
-
-### Fe-text
-
-- Add window_default_hidelevel setting
-- Only save non-default window hidelevel
-- Clear hidelevel in layout if default
-- Include the real tputs(3) from term.h
-- Remove const for better Darwin support
-
-### Fe-text/mainwindows
-
-- Fix /window balance warning
 
 ### Fe_channel_skip_prefix
 
@@ -254,14 +733,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Http://svn.irssi.org/repos/irssi/trunk@4410 dbcabf3a-b0e7-0310-adc4-f8d773084564
 - Http://svn.irssi.org/repos/irssi/trunk@4421 dbcabf3a-b0e7-0310-adc4-f8d773084564
 
-### Gui-windows
-
-- Make the wcwidth_impl global var into static
-
-### Hilight.in
-
-- Fix typo the->to
-
 ### Http
 
 - //irssi.org -> http://irssi.org/
@@ -273,7 +744,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Irc-cap
 
 - Don't send a space at the beginning of the CAP REQ parameter
-- Don't show warning on CAP LIST response
 
 ### Irc/core/irc-commands.c
 
@@ -291,14 +761,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Avoid using pointer after freeing it
 
-### Meson.build
-
-- Remove unnecessary -Wall
-
-### Modules_deinit
-
-- Fix -Werror=declaration-after-statement
-
 ### Net_gethosterror
 
 - Handle EAI_SYSTEM ("System error") properly
@@ -306,22 +768,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Network-openssl
 
 - Show why a certificate failed validation.
-
-### Notify-ison
-
-- Don't send ison before the connection is done
-
-### Otr
-
-- Add KEY_GEN_STARTED state to avoid starting it twice
-- Fix missing 'target' param in 'message private' signal
-- Add target param to the unencrypted 'message private' signal
-- Rename module.c to otr-module.c
-- Fix blatant lies in help text
-
-### Parse_time_interval
-
-- Allow negative time in settings
 
 ### Paste_bracketed_end
 
@@ -339,10 +785,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix nickmode lookup, use cleantarget instead
 
-### Signals.txt
-
-- Add missing 'server cap new|delete' signals
-
 ### Ssl
 
 - Add option to specify SSL cipher suite preference.
@@ -352,10 +794,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Use strlen() directly instead of a remaining_len variable
 - Make it look more like the original version
-
-### Term-terminfo
-
-- Avoid switching out of alt screen on unexpected exits
 
 ### Trivial
 
@@ -369,71 +807,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Works only with ircu. updated ircu notes.
 
-### Wcwidth-wrapper
-
-- Avoid cast with a tiny wrapper, julia_wcwidth()
-
-### ♻️ Refactoring
-
-- Refactor history to use history_entries list
-
-this allows access to the global history even when a using /window history
-named or /set window_history on, and you want to recall something from one
-of the other windows' histories.
-
-usage (default): ctrl+up/down
-
-- Refactor common parts
-
-- Refactor cnotice test into function
-
-- Refactor glib install
-
-- Refactor quit message into a separate function
-
-
-### ⚡ Features
-
-- Update startup banner to erssi branding
-- Add credential frontend commands (/credential)
-
-### 🎨 Styling
-
-- Style format change
-
-
 ### 🐛 Bug Fixes
-
-- Fix for building irssi from different directory
-
-
-git-svn-id: http://svn.irssi.org/repos/irssi/trunk@17 dbcabf3a-b0e7-0310-adc4-f8d773084564
-
-- Fixed bug in configuring popt
-
-
-git-svn-id: http://svn.irssi.org/repos/irssi/trunk@35 dbcabf3a-b0e7-0310-adc4-f8d773084564
-
-- Fixed MSGLEVELS in plugins
-
-
-git-svn-id: http://svn.irssi.org/repos/irssi/trunk@58 dbcabf3a-b0e7-0310-adc4-f8d773084564
-
-- Fixed some problems with ignoring server modes. Added different format
-text for server modes.
-
-
-git-svn-id: http://svn.irssi.org/repos/irssi/trunk@97 dbcabf3a-b0e7-0310-adc4-f8d773084564
-
-- Fixes by vkoivula@saunalahti.fi
-
-
-git-svn-id: http://svn.irssi.org/repos/irssi/trunk@116 dbcabf3a-b0e7-0310-adc4-f8d773084564
-
-- Fixed default configuration file
-
-
-git-svn-id: http://svn.irssi.org/repos/irssi/trunk@147 dbcabf3a-b0e7-0310-adc4-f8d773084564
 
 - Fixed
 
@@ -841,326 +1215,8 @@ fallout from #480
 
 - Fix GRegex GError problem
 
-- Fix regression in completion
-
-fixes #609
-
-- Fix dcc get
-
-fixes #656
-
-- Fix weird n-fold unescaping
-
-- Fix out of bounds read in compress_colors
-
-Reported by Hanno Böck.
-
-Fixes GL#12
-
-- Fix uaf in chanquery module
-
-the chanquery needs to be removed in any case if a channel rec is
-destroyed, regardless of any state
-
-Fixes GL#13
-
-- Fix dcc issue
-
-- Fix key length checker to actually do some work
-
-- Fix comments
-
-- Fix /exec -o for blank lines
-
-since it is not allowed to send nothing, instead of spamming the status window
-with error, send " " instead
-
-Fixes FS#902
-
-- Fix some more
-
-- Fix redraw
-
-- Fix test builds on some platforms
-
-- Fix sequence error
-
-- Fix crash in notifylist
-
-- Fix uaf in signal path
-
-- Fix build with LibreSSL 2.7.0
-
-- Fix a crash when trying to append to a NULL line
-
-reported by @vague666
-
-- Fix build
-
-- Fix accessing unallocated text when checking entry position
-
-fixes #928
-
-- Fix compilation of theme-indent module
-
-- Fix compilation of python module
-
-- Fix irssi being stuck when resized very small
-
-- Fix and document window width on screen width dependency
-
-- Fix flood test libs
-
-- Fix duplicate include guard
-
-- Fixup perl side
-
-- Fix paste_join_multiline
-
-- Fix width of byte codepoints
-
-- Fix backward completion
-
-- Fix gui_input_get_extent
-
-it was causing a free of data with [transfer=none]
-
-- Fix test on Big Endian 64bit, due to pointer size mismatch
-
-- Fix missing AC_DEFINE
-
-- Fix irssi-version link
-
-- Fix reconnect of multiplexed proxy
-
-- Fix realpath on old solaris
-
-POSIX.1-2001 did not implement realpath(..., NULL) yet.
-Fixes #1042
-
-- Fix code block NEWS formatting
-
-- Fix small overflow
-
-- Fix cut off text with theme-indent and /set indent_always off
-
-- Fix build system debug config to include -fno-omit-frame-pointer
-
-- Fix glib version dependency
-
-- Fix cap queue order
-
-- Fix crash in setname
-
-- Fix crashes when nick is missing
-
-- Fix autotools build
-
-- Fix wrong version
-
-- Fix crash on startup when resizing before active_win
-
-- Fix use after free receiving caps
-
-fixes GL#34
-
-- Fix warning in fe-fuzz/server-fuzz
-
-- Fix crash in join due to incorrect free
-
-- Fix the fix
-
-- Fix #641
-
-Track the address family of the last failed connection attempt
-(either immediately or during TLS handshake), then disprefer
-that address family during reconnection.
-
-- Fix /ignore ... MODES NO_ACT not working
-
-reported by letty
-
-- Fix perl module build on openbsd
-
-unfortunately, some mangling is needed to create the correct linker
-and compiler invocations
-
-- Fix crash on /quit when unloading modules
-
-this fixes a crash on /quit when the module unloaded is trying
-to reference symbols from already-unloaded modules, by reversing
-the lists.
-
-- Fix npe on no text from format_get_text_theme_charargs
-
-- Fix NULL assertion in format args
-
-- Fix extended bg colours
-
-- Fix crash when server got disconnected/reconnected before it was properly connected
-
-- Fix missing wrapping of line in signals
-
-- Fix clang-format-xs option parser by using getopt
-
-- Fix clang-format-xs formatting whole file
-
-regression of #1230
-
-- Fix clang-format-xs formatting whole file
-
-incomplete fix in #1234
-
-- Fix multiple identical active caps
-
-- Fix autotools build
-
-- Fix assertion failure when the line does not have text (yet)
-
-- Fix level uninitialised
-
-Credit to OSS-Fuzz
-
-- Fix clang formatting
-
-- Fix missing output
-
-- Fix off by one
-
-- Fix double free
-
-- Fix crash on /connect /dev/null
-
-- Fix crash on /connect -tls
-
-fixes #1239
-
-- Fix crash on tls error
-
-- Fix reconnect to use tls settings
-
-- Fix fe-fuzz
-
-- Fix build with meson 0.58.0
-
-- Fix use of wrong "equal" function in meta hash tables
-
-- Fix wrong server_time in $line->get_meta
-
-- Fix recursive crash in Perl scripts
-
-- Fix reading of old config ssl_verify key
-
-- Fix reading of starttls = "no" in config
-
-- Fix reading of starttls = "no" in config, attempt 2
-
-- Fix queue bug
-
-- Fix pedantic error in MSGLEVEL enum
-
-reported by horgh
-
-- Fix /server modify port argument order
-
-- Fix wrong argument type in printformat
-
-- Fix max_lag disconnect
-
-- Fix stuck meta on dcc chat
-
-- Fix help text wrt SERVER command
-
-reported by Remco
-
-- Fix help text wrt SERVER LIST command
-
-- Fix crash in Perl's $view->set_bookmark
-
-reported on the freebsd issue tracker https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=254237#c13
-
-- Fix crash when accessing settings during shutdown
-
-- Fix formatting
-
-- Fix intentation
-
-- Fix some stupidness
-
-- Fix something
-
-- Fix meson deprecations
-
-- Fix irc module in fuzzer
-
-- Fix clang-format
-
-- Fix scroll_page_count settings with .
-
-- Fix formatting
-
-- Fix missing len in g_array_copy
-
-- Fix yet another meson regression
-
-broken by meson 0.60.0
-
-- Fix scrollback redraw not updating linecount
-
-- Fix memory leak when updating single line
-
-- Fix visible lines expiring from cache
-
-- Fix recount of lines after window set
-
-- Fix recount of lines after scroll
-
-- Fix crash when loading server without chatnet
-
-- Fix clang-format
-
-- Fix lastlog -window
-
-- Fix signals file
-
-- Fix crash on connect in startup
-
-fixes #1449
-
-does not completely fix the issue (connect still does not work, error message is misleading)
-
-- Fix stale special collector use after free
-
-reported by ednash and investigated by @dwfreed
-
-- Fix usage of $type in ExtUtils::ParseXS 3.50
-
-- Fix /ban command
-
-- Fix irssi SASL negotiation with multiple CAP ACK
-
-when attempting SASL, if multiple CAP ACK were received (for example,
-because a script sent an additional CAP REQ), then any not containing
-`sasl` would cause SASL to fail (immediately aborting the connection
-with no message, depending on sasl_disconnect_on_failure setting)
-
-check not only if SASL is set in this line, but also if we've already
-seen it in a previous line.
-
-- Fix _GNU_SOURCE redefined warning due to perl ccflags
-
-- Fix xbps
-
-- Add fe-web compilation flag to install-erssi.sh
-- Correct fe-web compilation flag in install-erssi.sh
-- Change project name from 'irssi' to 'erssi' in meson.build
 
 ### 📚 Documentation
-
-- Docs/help - online helps for /HELP. Anyone care to write them? :)
-
-
-git-svn-id: http://svn.irssi.org/repos/irssi/trunk@69 dbcabf3a-b0e7-0310-adc4-f8d773084564
 
 - Docs generator updates
 
@@ -1174,19 +1230,6 @@ git-svn-id: http://svn.irssi.org/repos/irssi/trunk@3020 dbcabf3a-b0e7-0310-adc4-
 
 - Updated help for exec, EXEC without any arguments displays the list of started processes
 - Added the explanation of the -noproxy option of in the server command
-- Document meson apple workaround
-
-workaround for https://github.com/mesonbuild/meson/issues/11165
-
-
-### 🔧 Build System
-
-- Build fixes when using install-glib and on openbsd
-
-
-### 🔨 Miscellaneous
-
-- Update for github workflows deprecations
 
 ### 🧪 Testing
 
@@ -1194,17 +1237,53 @@ workaround for https://github.com/mesonbuild/meson/issues/11165
 
 - Test make dist in travis
 
-- Test trusty container
 
-- Test line joining
+## [0.7.90-cvs] - 2000-04-14
 
-- Test termux pkg
+### GtkIText
 
-- Test OBS workflow
+- Imlib isn't required anymore, underlined text works
 
-- Test solaris build with vmactions
+### 🐛 Bug Fixes
 
-- Test the void
+- Fix for building irssi from different directory
+
+
+git-svn-id: http://svn.irssi.org/repos/irssi/trunk@17 dbcabf3a-b0e7-0310-adc4-f8d773084564
+
+- Fixed bug in configuring popt
+
+
+git-svn-id: http://svn.irssi.org/repos/irssi/trunk@35 dbcabf3a-b0e7-0310-adc4-f8d773084564
+
+- Fixed MSGLEVELS in plugins
+
+
+git-svn-id: http://svn.irssi.org/repos/irssi/trunk@58 dbcabf3a-b0e7-0310-adc4-f8d773084564
+
+- Fixed some problems with ignoring server modes. Added different format
+text for server modes.
+
+
+git-svn-id: http://svn.irssi.org/repos/irssi/trunk@97 dbcabf3a-b0e7-0310-adc4-f8d773084564
+
+- Fixes by vkoivula@saunalahti.fi
+
+
+git-svn-id: http://svn.irssi.org/repos/irssi/trunk@116 dbcabf3a-b0e7-0310-adc4-f8d773084564
+
+- Fixed default configuration file
+
+
+git-svn-id: http://svn.irssi.org/repos/irssi/trunk@147 dbcabf3a-b0e7-0310-adc4-f8d773084564
+
+
+### 📚 Documentation
+
+- Docs/help - online helps for /HELP. Anyone care to write them? :)
+
+
+git-svn-id: http://svn.irssi.org/repos/irssi/trunk@69 dbcabf3a-b0e7-0310-adc4-f8d773084564
 
 
 <!-- generated by git-cliff -->
