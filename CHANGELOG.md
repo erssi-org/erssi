@@ -11,10 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **sidepanels**: Implement differential rendering to eliminate flicker
 
+### 🐛 Bug Fixes
+
+- **sidepanels**: Clear all unused lines to prevent tmux artifacts
+
 ### 📚 Documentation
 
 - Update CHANGELOG.md for v1.2.3 [skip ci]
 - **readme**: Update Latest Release section to v1.2.4
+- Update CHANGELOG.md for v1.2.4 [skip ci]
 
 ## [1.2.3] - 2025-12-13
 
