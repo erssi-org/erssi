@@ -121,6 +121,11 @@ static void dirty_check(void)
 	if (!dirty)
 		return;
 
+	/* Freeze terminal output - all drawing operations will be buffered
+	 * and flushed once at the end. This eliminates flicker from multiple
+	 * intermediate flushes during window/statusbar redraws. */
+	term_refresh_freeze();
+
 	term_resize_dirty();
 
 	if (full_redraw) {
@@ -129,7 +134,6 @@ static void dirty_check(void)
 		/* first clear the screen so curses will be
 		   forced to redraw the screen */
 		term_clear();
-		term_refresh(NULL);
 
 		mainwindows_redraw();
 		redraw_both_panels_only("screen_clear"); /* Redraw only sidepanels after full screen clear */
@@ -138,7 +142,9 @@ static void dirty_check(void)
 
 	mainwindows_redraw_dirty();
 	statusbar_redraw_dirty();
-	term_refresh(NULL);
+
+	/* Thaw and flush all buffered output in one operation */
+	term_refresh_thaw();
 
 	dirty = FALSE;
 }
