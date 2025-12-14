@@ -1,3 +1,15 @@
+erssi-v1.2.5 2025-12-14  erssi-org team <https://github.com/erssi-org>
+	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
+	https://erssi.org && https://erssi.dev
+	ERSSI - Enhanced/Evolved IRC Client
+	Main window rendering optimization with freeze/thaw buffering.
+
+	+ RENDERING
+	  - Added freeze/thaw buffering to dirty_check() for main window rendering
+	  - All redraw operations (mainwindows, sidepanels, statusbar) now buffered
+	  - Single terminal flush at end instead of multiple intermediate flushes
+	  - Eliminates potential flicker during window switching and redraws
+
 erssi-v1.2.4 2025-12-14  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 	https://erssi.org && https://erssi.dev
