@@ -10,7 +10,7 @@
 
 ## What is erssi?
 
-**erssi v1.2.3** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
+**erssi v1.2.4** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
 
 🎯 **Mission**: Modernizing IRC, one feature at a time, while preserving the soul of irssi.
 
@@ -19,6 +19,7 @@
 ## 🌟 Key Features
 
 ### 🎨 Advanced Sidepanel System
+- **Differential Rendering**: Flicker-free updates - only changed lines are redrawn, similar to WeeChat/modern TUI approach
 - **Modular Architecture**: Complete separation of concerns with dedicated modules for core, layout, rendering, activity tracking, and signal handling
 - **Smart Window Sorting**: Multi-server support with alphabetical server grouping and intelligent window positioning
 - **Kicked Channel Preservation**: Maintains channel labels and highlights with maximum priority when kicked from channels
@@ -41,7 +42,7 @@
 
 ### Enhanced User Experience
 - **Whois in Active Window**: Say goodbye to context switching! Whois responses appear directly in your current chat window
-- **Optimized Sidepanels with Mouse Support**: Intelligent redraw system for left (window list) and right (nicklist) panels with batching for mass events
+- **Flicker-Free Sidepanels**: Differential rendering with line-by-line caching for smooth, flicker-free panel updates
 - **Enhanced Nick Display**: Advanced nick alignment, intelligent truncation, and hash-based nick coloring system with separate mode colors
 - **Performance Optimizations**: Granular panel redraws instead of full refreshes, batched updates for mass join/part events
 - **Separate Configuration**: Uses `~/.erssi/` directory, allowing coexistence with standard irssi

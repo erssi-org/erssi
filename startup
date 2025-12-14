@@ -49,7 +49,7 @@
 /ECHO \033[37m    ◆ \033[92m✅ Configuration Compatible\033[37m - Import existing irssi config\033[0m
 /ECHO \033[30m═══════════════════════════════════════════════════════════════════════════════════════════\033[0m
 /ECHO
-/ECHO \033[92m🚀 ERSSI v1.2.3 - WHERE CLASSIC MEETS MODERN 🚀\033[0m
+/ECHO \033[92m🚀 ERSSI v1.2.4 - WHERE CLASSIC MEETS MODERN 🚀\033[0m
 /ECHO \033[37m   Visit: https://erssi.org | https://github.com/erssi-org/erssi\033[0m
 /ECHO \033[37m   iTerm2 Color Scheme: material-erssi.itermcolors (in repo root)\033[0m
 /ECHO

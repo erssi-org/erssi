@@ -1,3 +1,17 @@
+erssi-v1.2.4 2025-12-14  erssi-org team <https://github.com/erssi-org>
+	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
+	https://erssi.org && https://erssi.dev
+	ERSSI - Enhanced/Evolved IRC Client
+	Flicker-free sidepanels with differential rendering.
+
+	+ SIDEPANELS
+	  - Implemented differential rendering for both left and right panels
+	  - Only changed lines are redrawn instead of entire panel refresh
+	  - Added line-by-line cache comparison (text, prefix, format, refnum)
+	  - Terminal operations buffered with term_refresh_freeze/thaw
+	  - Cache invalidation on dimension or scroll offset changes
+	  - Eliminates flickering effect, similar to WeeChat/modern TUI approach
+
 erssi-v1.2.3 2025-12-13  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 	https://erssi.org && https://erssi.dev
