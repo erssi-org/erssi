@@ -28,6 +28,9 @@
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/core/servers.h>
 
+/* Forward declaration for cache structures */
+typedef struct _SP_PANEL_CACHE SP_PANEL_CACHE;
+
 /* SP_MAINWIN_CTX structure definition - shared across all modules */
 typedef struct {
 	TERM_WINDOW *left_tw;
@@ -48,6 +51,9 @@ typedef struct {
 	int right_h;
 	/* ordered nick pointers matching rendered order */
 	GSList *right_order;
+	/* differential rendering cache */
+	SP_PANEL_CACHE *left_cache;
+	SP_PANEL_CACHE *right_cache;
 } SP_MAINWIN_CTX;
 
 /* Window Priority State - Simpler approach */
@@ -63,5 +69,37 @@ typedef struct {
 	char *sort_key; /* For alphabetical sorting within group */
 	SERVER_REC *server; /* Server for grouping */
 } WINDOW_SORT_REC;
+
+/*
+ * Differential Rendering Cache
+ *
+ * Instead of clearing and redrawing entire panels on every update,
+ * we cache the previous state and only redraw lines that changed.
+ * This eliminates flicker and reduces CPU usage significantly.
+ *
+ * Inspired by WeeChat's approach and modern TUI frameworks.
+ */
+
+/* Maximum lines we can cache per panel */
+#define SP_CACHE_MAX_LINES 256
+
+/* Single cached line for differential rendering */
+typedef struct {
+	char *text;      /* Displayed text (without color codes) */
+	char *prefix;    /* Prefix for right panel (nick status: @, +, etc.) */
+	int format;      /* Theme format ID (TXT_SIDEPANEL_*) */
+	int refnum;      /* Window refnum (left) or nick pointer hash (right) */
+	gboolean valid;  /* Is this cache entry valid? */
+} SP_LINE_CACHE;
+
+/* Panel render cache */
+struct _SP_PANEL_CACHE {
+	SP_LINE_CACHE lines[SP_CACHE_MAX_LINES];
+	int count;           /* Number of valid cached lines */
+	int scroll_offset;   /* Cached scroll offset */
+	int panel_height;    /* Cached panel height */
+	int panel_width;     /* Cached panel width */
+	gboolean initialized;
+};
 
 #endif

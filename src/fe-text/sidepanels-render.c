@@ -64,6 +64,121 @@ extern void draw_main_window_borders(MAIN_WINDOW_REC *mw);
 
 /* Forward declarations - ci_nick_compare is declared in activity header */
 
+/*
+ * ============================================================================
+ * DIFFERENTIAL RENDERING CACHE MANAGEMENT
+ * ============================================================================
+ *
+ * These functions manage the line cache for differential rendering.
+ * Instead of clearing and redrawing entire panels, we compare new state
+ * with cached state and only redraw lines that actually changed.
+ */
+
+/* Allocate and initialize a panel cache */
+SP_PANEL_CACHE *sp_cache_create(void)
+{
+	SP_PANEL_CACHE *cache = g_new0(SP_PANEL_CACHE, 1);
+	cache->initialized = TRUE;
+	return cache;
+}
+
+/* Free a single cache line's allocated memory */
+static void sp_cache_line_free(SP_LINE_CACHE *line)
+{
+	if (!line)
+		return;
+	g_free(line->text);
+	g_free(line->prefix);
+	line->text = NULL;
+	line->prefix = NULL;
+	line->valid = FALSE;
+}
+
+/* Clear all lines in a panel cache */
+void sp_cache_clear(SP_PANEL_CACHE *cache)
+{
+	int i;
+	if (!cache)
+		return;
+	for (i = 0; i < cache->count; i++) {
+		sp_cache_line_free(&cache->lines[i]);
+	}
+	cache->count = 0;
+}
+
+/* Free a panel cache completely */
+void sp_cache_free(SP_PANEL_CACHE *cache)
+{
+	if (!cache)
+		return;
+	sp_cache_clear(cache);
+	g_free(cache);
+}
+
+/* Check if a cache line matches new content */
+static gboolean sp_cache_line_matches(SP_LINE_CACHE *cached, const char *text,
+                                       const char *prefix, int format, int refnum)
+{
+	if (!cached || !cached->valid)
+		return FALSE;
+
+	if (cached->format != format)
+		return FALSE;
+
+	if (cached->refnum != refnum)
+		return FALSE;
+
+	if (g_strcmp0(cached->text, text) != 0)
+		return FALSE;
+
+	if (g_strcmp0(cached->prefix, prefix) != 0)
+		return FALSE;
+
+	return TRUE;
+}
+
+/* Update a cache line with new content */
+static void sp_cache_line_update(SP_LINE_CACHE *line, const char *text,
+                                  const char *prefix, int format, int refnum)
+{
+	g_free(line->text);
+	g_free(line->prefix);
+
+	line->text = g_strdup(text);
+	line->prefix = prefix ? g_strdup(prefix) : NULL;
+	line->format = format;
+	line->refnum = refnum;
+	line->valid = TRUE;
+}
+
+/* Clear a single line on screen (fill with spaces + clrtoeol) */
+static void sp_clear_line(TERM_WINDOW *tw, int y, int width)
+{
+	if (!tw)
+		return;
+	term_set_color(tw, ATTR_RESET);
+	term_move(tw, 0, y);
+	term_clrtoeol(tw);
+}
+
+/* Invalidate cache when panel dimensions change */
+static gboolean sp_cache_needs_full_redraw(SP_PANEL_CACHE *cache, int height,
+                                            int width, int scroll_offset)
+{
+	if (!cache || !cache->initialized)
+		return TRUE;
+
+	/* Full redraw needed if dimensions changed */
+	if (cache->panel_height != height || cache->panel_width != width)
+		return TRUE;
+
+	/* Full redraw needed if scroll position changed */
+	if (cache->scroll_offset != scroll_offset)
+		return TRUE;
+
+	return FALSE;
+}
+
 /* UTF-8 character reading function based on textbuffer-view.c */
 static inline unichar read_unichar(const unsigned char *data, const unsigned char **next,
                                    int *width)
@@ -422,42 +537,116 @@ char *truncate_nick_for_sidepanel(const char *nick, int max_width)
 	return result;
 }
 
+/*
+ * Determine format for a window entry based on selection and activity
+ */
+static int get_window_format(WINDOW_REC *win, WINDOW_SORT_REC *sort_rec,
+                              int selected_index)
+{
+	int activity = win->data_level;
+	int format;
+
+	/* Determine format based on selection and activity */
+	if (win->refnum - 1 == selected_index) {
+		format = TXT_SIDEPANEL_ITEM_SELECTED;
+	} else if (sort_rec->sort_group == 0 || sort_rec->sort_group == 1) {
+		/* Notices and server status windows use header format unless selected */
+		if (activity >= DATA_LEVEL_HILIGHT) {
+			/* Check if this is a nick mention (has hilight_color indicating
+			 * nick mention) */
+			if (win->hilight_color != NULL) {
+				format = TXT_SIDEPANEL_ITEM_NICK_MENTION;
+			} else {
+				format = TXT_SIDEPANEL_ITEM_HIGHLIGHT;
+			}
+		} else if (activity > DATA_LEVEL_NONE) {
+			format = TXT_SIDEPANEL_ITEM_ACTIVITY;
+		} else {
+			format = TXT_SIDEPANEL_HEADER;
+		}
+	} else {
+		/* Channels, queries, and other windows - SIMPLE PRIORITY SYSTEM */
+		int current_priority = get_window_current_priority(win);
+
+		switch (current_priority) {
+		case 4: /* PRIORITY 4: Nick mention OR Query messages (magenta) */
+			/* Use QUERY_MSG only for query windows, NICK_MENTION for channel
+			 * mentions */
+			if (win->active && IS_QUERY(win->active)) {
+				format = TXT_SIDEPANEL_ITEM_QUERY_MSG;
+			} else {
+				format = TXT_SIDEPANEL_ITEM_NICK_MENTION;
+			}
+			break;
+		case 3: /* PRIORITY 3: Channel activity (yellow) */
+			format = TXT_SIDEPANEL_ITEM_ACTIVITY;
+			break;
+		case 2: /* PRIORITY 2: Highlights (red) */
+			format = TXT_SIDEPANEL_ITEM_HIGHLIGHT;
+			break;
+		case 1: /* PRIORITY 1: Events (cyan) */
+			format = TXT_SIDEPANEL_ITEM_EVENTS;
+			break;
+		default: /* PRIORITY 0: No activity (white) */
+			format = TXT_SIDEPANEL_ITEM;
+			break;
+		}
+	}
+	return format;
+}
+
 void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 {
 	TERM_WINDOW *tw;
 	int row;
 	int skip;
 	int height;
+	int width;
 	GSList *sort_list, *s;
 	int list_index;
+	SP_PANEL_CACHE *cache;
+	gboolean full_redraw;
+	int new_count;
+	int lines_changed = 0;
 
 	if (!ctx)
 		return;
 	tw = ctx->left_tw;
 	if (!tw)
 		return;
-	clear_window_full(tw, ctx->left_w, ctx->left_h);
 
-	row = 0;
-	skip = ctx->left_scroll_offset;
 	height = ctx->left_h;
+	width = ctx->left_w;
+	skip = ctx->left_scroll_offset;
+
+	/* Ensure cache exists */
+	if (!ctx->left_cache) {
+		ctx->left_cache = sp_cache_create();
+	}
+	cache = ctx->left_cache;
+
+	/* Check if we need full redraw (dimensions or scroll changed) */
+	full_redraw = sp_cache_needs_full_redraw(cache, height, width, skip);
 
 	/* Get sorted list using shared function */
 	sort_list = build_sorted_window_list();
 
-	/* Draw windows in sorted order */
+	/* Count visible items and build new state */
+	row = 0;
 	list_index = 0;
+	new_count = 0;
+
 	for (s = sort_list; s && row < height; s = s->next) {
 		WINDOW_SORT_REC *sort_rec = s->data;
 		WINDOW_REC *win = sort_rec->win;
 		const char *display_name = sort_rec->sort_key;
-		int activity = win->data_level;
 		int format;
 		char refnum_str[16];
 		int display_num;
 		char *truncated_name;
 		int refnum_width;
 		int name_max_width;
+		gboolean line_changed;
 
 		/* Calculate display number (1-based position in sorted list) */
 		display_num = list_index + 1;
@@ -466,82 +655,76 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		if (list_index++ < skip)
 			continue;
 
-		/* Determine format based on selection and activity */
-		if (win->refnum - 1 == ctx->left_selected_index) {
-			format = TXT_SIDEPANEL_ITEM_SELECTED;
-		} else if (sort_rec->sort_group == 0 || sort_rec->sort_group == 1) {
-			/* Notices and server status windows use header format unless selected */
-			if (activity >= DATA_LEVEL_HILIGHT) {
-				/* Check if this is a nick mention (has hilight_color indicating
-				 * nick mention) */
-				if (win->hilight_color != NULL) {
-					format = TXT_SIDEPANEL_ITEM_NICK_MENTION;
-				} else {
-					format = TXT_SIDEPANEL_ITEM_HIGHLIGHT;
-				}
-			} else if (activity > DATA_LEVEL_NONE) {
-				format = TXT_SIDEPANEL_ITEM_ACTIVITY;
-			} else {
-				format = TXT_SIDEPANEL_HEADER;
-			}
-		} else {
-			/* Channels, queries, and other windows - SIMPLE PRIORITY SYSTEM */
-			int current_priority = get_window_current_priority(win);
+		/* Get format for this window */
+		format = get_window_format(win, sort_rec, ctx->left_selected_index);
 
-			switch (current_priority) {
-			case 4: /* PRIORITY 4: Nick mention OR Query messages (magenta) */
-				/* Use QUERY_MSG only for query windows, NICK_MENTION for channel
-				 * mentions */
-				if (win->active && IS_QUERY(win->active)) {
-					format = TXT_SIDEPANEL_ITEM_QUERY_MSG;
-				} else {
-					format = TXT_SIDEPANEL_ITEM_NICK_MENTION;
-				}
-				break;
-			case 3: /* PRIORITY 3: Channel activity (yellow) */
-				format = TXT_SIDEPANEL_ITEM_ACTIVITY;
-				break;
-			case 2: /* PRIORITY 2: Highlights (red) */
-				format = TXT_SIDEPANEL_ITEM_HIGHLIGHT;
-				break;
-			case 1: /* PRIORITY 1: Events (cyan) */
-				format = TXT_SIDEPANEL_ITEM_EVENTS;
-				break;
-			default: /* PRIORITY 0: No activity (white) */
-				format = TXT_SIDEPANEL_ITEM;
-				break;
-			}
-		}
-
-		/* Draw the item with sorted position number and truncated name */
+		/* Build display string */
 		g_snprintf(refnum_str, sizeof(refnum_str), "%d", display_num);
 
 		/* Calculate available width for channel name */
 		/* Format is "$0. $1" so we need space for: number + ". " (3 chars) + name */
 		refnum_width = string_width(refnum_str, -1);
-		name_max_width = MAX(1, ctx->left_w - refnum_width - 3);
+		name_max_width = MAX(1, width - refnum_width - 3);
 
-		/* Truncate display name if needed (same function used for nicks in right panel) */
+		/* Truncate display name if needed */
 		truncated_name = truncate_nick_for_sidepanel(
 			display_name ? display_name : "window", name_max_width);
 
-		term_move(tw, 0, row);
-		draw_str_themed_2params(tw, 0, row, mw->active, format,
-		                        refnum_str, truncated_name);
+		/* Check if this line changed from cache */
+		line_changed = full_redraw ||
+		               row >= cache->count ||
+		               !sp_cache_line_matches(&cache->lines[row], truncated_name,
+		                                       refnum_str, format, win->refnum);
 
-		/* Free allocated memory */
+		if (line_changed) {
+			/* Clear line first with clrtoeol (no full panel clear!) */
+			term_set_color(tw, ATTR_RESET);
+			term_move(tw, 0, row);
+			term_clrtoeol(tw);
+
+			/* Draw the new content */
+			draw_str_themed_2params(tw, 0, row, mw->active, format,
+			                        refnum_str, truncated_name);
+
+			/* Update cache */
+			sp_cache_line_update(&cache->lines[row], truncated_name,
+			                      refnum_str, format, win->refnum);
+			lines_changed++;
+		}
+
 		g_free(truncated_name);
 		row++;
+		new_count++;
 	}
+
+	/* Clear any remaining lines that are no longer needed */
+	if (cache->count > new_count) {
+		int i;
+		for (i = new_count; i < cache->count && i < height; i++) {
+			sp_clear_line(tw, i, width);
+			sp_cache_line_free(&cache->lines[i]);
+			lines_changed++;
+		}
+	}
+
+	/* Update cache metadata */
+	cache->count = new_count;
+	cache->scroll_offset = skip;
+	cache->panel_height = height;
+	cache->panel_width = width;
 
 	/* Clean up */
 	free_sorted_window_list(sort_list);
 
 	/* Only draw border if right panel is also visible */
 	if (ctx->right_tw && ctx->right_h > 0) {
-		draw_border_vertical(tw, ctx->left_w, ctx->left_h, 1);
+		draw_border_vertical(tw, width, height, 1);
 	}
-	irssi_set_dirty();
+
+	/* Only mark dirty if something changed */
+	if (lines_changed > 0) {
+		irssi_set_dirty();
+	}
 }
 
 /* Nick comparison function for case-insensitive sorting - moved to activity module */
@@ -594,30 +777,61 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	TERM_WINDOW *tw;
 	WINDOW_REC *aw;
 	int height;
+	int width;
 	int skip;
 	int index;
 	int row;
+	SP_PANEL_CACHE *cache;
+	gboolean full_redraw;
+	int new_count;
+	int lines_changed = 0;
+
 	if (!ctx)
 		return;
 	tw = ctx->right_tw;
 	if (!tw)
 		return;
-	clear_window_full(tw, ctx->right_w, ctx->right_h);
-	aw = mw->active;
+
 	height = ctx->right_h;
+	width = ctx->right_w;
 	skip = ctx->right_scroll_offset;
+	aw = mw->active;
 	index = 0;
 	row = 0;
+	new_count = 0;
+
+	/* Ensure cache exists */
+	if (!ctx->right_cache) {
+		ctx->right_cache = sp_cache_create();
+	}
+	cache = ctx->right_cache;
+
+	/* Check if we need full redraw (dimensions or scroll changed) */
+	full_redraw = sp_cache_needs_full_redraw(cache, height, width, skip);
+
+	/* Free previous right_order list */
 	if (ctx->right_order) {
 		g_slist_free(ctx->right_order);
 		ctx->right_order = NULL;
 	}
 
-	/* If no channel active, just draw border and return */
+	/* If no channel active, clear panel and draw border */
 	if (!aw || !aw->active || !aw->active->visible_name ||
 	    !IS_CHANNEL(aw->active)) {
-		draw_border_vertical(tw, ctx->right_w, ctx->right_h, 0);
-		irssi_set_dirty();
+		/* Clear any cached lines */
+		if (cache->count > 0) {
+			int i;
+			for (i = 0; i < cache->count && i < height; i++) {
+				sp_clear_line(tw, i, width);
+				sp_cache_line_free(&cache->lines[i]);
+			}
+			cache->count = 0;
+			lines_changed = 1;
+		}
+		draw_border_vertical(tw, width, height, 0);
+		if (lines_changed > 0) {
+			irssi_set_dirty();
+		}
 		return;
 	}
 
@@ -634,12 +848,21 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		const char *nick_prefix;
 		/* Calculate available width for nick display */
 		/* Available width = total panel width - 1 (start position) - 1 (status) - 1 (border margin) */
-		int nick_max_width = MAX(1, ctx->right_w - 3);
+		int nick_max_width = MAX(1, width - 3);
 
 		/* Safety check for server */
 		if (!server) {
 			g_slist_free(nicks);
-			draw_border_vertical(tw, ctx->right_w, ctx->right_h, 0);
+			/* Clear any cached lines */
+			if (cache->count > 0) {
+				int i;
+				for (i = 0; i < cache->count && i < height; i++) {
+					sp_clear_line(tw, i, width);
+					sp_cache_line_free(&cache->lines[i]);
+				}
+				cache->count = 0;
+			}
+			draw_border_vertical(tw, width, height, 0);
 			irssi_set_dirty();
 			return;
 		}
@@ -656,8 +879,11 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		                                      (gpointer) nick_prefix);
 		g_slist_free(nicks);
 
-		/* Render sorted nicks */
+		/* Render sorted nicks with differential rendering */
 		for (cur = sorted_nicks; cur; cur = cur->next) {
+			gboolean line_changed;
+			int nick_hash;
+
 			nick = cur->data;
 			if (!nick || !nick->nick)
 				continue;
@@ -673,11 +899,36 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 			/* Get appropriate format and prefix for this nick */
 			get_nick_format_and_prefix(nick, &format, &prefix_str);
 
-			term_move(tw, 1, row);
 			truncated_nick = truncate_nick_for_sidepanel(nick->nick, nick_max_width);
-			draw_str_themed_2params(tw, 1, row, mw->active, format, prefix_str, truncated_nick);
+
+			/* Use pointer as hash for nick identity (unique per channel) */
+			nick_hash = GPOINTER_TO_INT(nick);
+
+			/* Check if this line changed from cache */
+			line_changed = full_redraw ||
+			               row >= cache->count ||
+			               !sp_cache_line_matches(&cache->lines[row], truncated_nick,
+			                                       prefix_str, format, nick_hash);
+
+			if (line_changed) {
+				/* Clear line first with clrtoeol (no full panel clear!) */
+				term_set_color(tw, ATTR_RESET);
+				term_move(tw, 0, row);
+				term_clrtoeol(tw);
+
+				/* Draw the new content */
+				draw_str_themed_2params(tw, 1, row, mw->active, format,
+				                        prefix_str, truncated_nick);
+
+				/* Update cache */
+				sp_cache_line_update(&cache->lines[row], truncated_nick,
+				                      prefix_str, format, nick_hash);
+				lines_changed++;
+			}
+
 			g_free(truncated_nick);
 			row++;
+			new_count++;
 		}
 
 		/* Reverse to get correct order (we used prepend for performance) */
@@ -685,8 +936,29 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 		g_slist_free(sorted_nicks);
 	}
-	draw_border_vertical(tw, ctx->right_w, ctx->right_h, 0);
-	irssi_set_dirty();
+
+	/* Clear any remaining lines that are no longer needed */
+	if (cache->count > new_count) {
+		int i;
+		for (i = new_count; i < cache->count && i < height; i++) {
+			sp_clear_line(tw, i, width);
+			sp_cache_line_free(&cache->lines[i]);
+			lines_changed++;
+		}
+	}
+
+	/* Update cache metadata */
+	cache->count = new_count;
+	cache->scroll_offset = skip;
+	cache->panel_height = height;
+	cache->panel_width = width;
+
+	draw_border_vertical(tw, width, height, 0);
+
+	/* Only mark dirty if something changed */
+	if (lines_changed > 0) {
+		irssi_set_dirty();
+	}
 }
 
 void redraw_one(MAIN_WINDOW_REC *mw)
@@ -694,6 +966,10 @@ void redraw_one(MAIN_WINDOW_REC *mw)
 	SP_MAINWIN_CTX *ctx = get_ctx(mw, FALSE);
 	if (!ctx)
 		return;
+
+	/* Freeze terminal updates to prevent flicker */
+	term_refresh_freeze();
+
 	position_tw(mw, ctx);
 	draw_left_contents(mw, ctx);
 	/* Only draw right contents if right panel is actually shown */
@@ -702,14 +978,34 @@ void redraw_one(MAIN_WINDOW_REC *mw)
 	}
 	draw_main_window_borders(mw);
 	irssi_set_dirty();
-	term_refresh(NULL);
+
+	/* Thaw and flush all updates at once */
+	term_refresh_thaw();
 }
 
 void redraw_all(void)
 {
 	GSList *t;
-	for (t = mainwindows; t; t = t->next)
-		redraw_one(t->data);
+
+	/* Freeze terminal updates to prevent flicker */
+	term_refresh_freeze();
+
+	for (t = mainwindows; t; t = t->next) {
+		MAIN_WINDOW_REC *mw = t->data;
+		SP_MAINWIN_CTX *ctx = get_ctx(mw, FALSE);
+		if (!ctx)
+			continue;
+		position_tw(mw, ctx);
+		draw_left_contents(mw, ctx);
+		if (ctx->right_tw && ctx->right_h > 0) {
+			draw_right_contents(mw, ctx);
+		}
+		draw_main_window_borders(mw);
+		irssi_set_dirty();
+	}
+
+	/* Thaw and flush all updates at once */
+	term_refresh_thaw();
 }
 
 void redraw_right_panels_only(const char *event_name)
@@ -717,10 +1013,16 @@ void redraw_right_panels_only(const char *event_name)
 	/* Redraw only right panels (nicklists) in all main windows */
 	GSList *t;
 	SP_MAINWIN_CTX *ctx;
+
+	(void) event_name; /* unused */
+
 	/* Safety check: ensure mainwindows is initialized */
 	if (!mainwindows) {
 		return;
 	}
+
+	/* Freeze terminal updates to prevent flicker */
+	term_refresh_freeze();
 
 	for (t = mainwindows; t; t = t->next) {
 		MAIN_WINDOW_REC *mw = t->data;
@@ -743,7 +1045,9 @@ void redraw_right_panels_only(const char *event_name)
 			irssi_set_dirty();
 		}
 	}
-	term_refresh(NULL);
+
+	/* Thaw and flush all updates at once */
+	term_refresh_thaw();
 }
 
 void redraw_left_panels_only(const char *event_name)
@@ -752,10 +1056,15 @@ void redraw_left_panels_only(const char *event_name)
 	GSList *t;
 	SP_MAINWIN_CTX *ctx;
 
+	(void) event_name; /* unused */
+
 	/* Safety check: ensure mainwindows is initialized */
 	if (!mainwindows) {
 		return;
 	}
+
+	/* Freeze terminal updates to prevent flicker */
+	term_refresh_freeze();
 
 	for (t = mainwindows; t; t = t->next) {
 		MAIN_WINDOW_REC *mw = t->data;
@@ -782,7 +1091,9 @@ void redraw_left_panels_only(const char *event_name)
 			irssi_set_dirty();
 		}
 	}
-	term_refresh(NULL);
+
+	/* Thaw and flush all updates at once */
+	term_refresh_thaw();
 }
 
 void redraw_both_panels_only(const char *event_name)
@@ -791,10 +1102,15 @@ void redraw_both_panels_only(const char *event_name)
 	GSList *t;
 	gboolean needs_redraw = FALSE;
 
+	(void) event_name; /* unused */
+
 	/* Safety check: ensure mainwindows is initialized */
 	if (!mainwindows) {
 		return;
 	}
+
+	/* Freeze terminal updates to prevent flicker */
+	term_refresh_freeze();
 
 	for (t = mainwindows; t; t = t->next) {
 		MAIN_WINDOW_REC *mw = t->data;
@@ -835,7 +1151,9 @@ void redraw_both_panels_only(const char *event_name)
 			irssi_set_dirty();
 		}
 	}
-	term_refresh(NULL);
+
+	/* Thaw and flush all updates at once */
+	term_refresh_thaw();
 }
 
 /* Batching system for efficient redraws */

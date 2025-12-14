@@ -61,6 +61,11 @@ void redraw_both_panels_only(const char *event_name);
 /* Batching system */
 void schedule_batched_redraw(const char *event_name);
 
+/* Differential rendering cache management */
+SP_PANEL_CACHE *sp_cache_create(void);
+void sp_cache_clear(SP_PANEL_CACHE *cache);
+void sp_cache_free(SP_PANEL_CACHE *cache);
+
 /* Initialization */
 void sidepanels_render_init(void);
 void sidepanels_render_deinit(void);

@@ -136,6 +136,15 @@ static void destroy_ctx(MAIN_WINDOW_REC *mw)
 		g_slist_free(ctx->right_order);
 		ctx->right_order = NULL;
 	}
+	/* Free differential rendering caches */
+	if (ctx->left_cache) {
+		sp_cache_free(ctx->left_cache);
+		ctx->left_cache = NULL;
+	}
+	if (ctx->right_cache) {
+		sp_cache_free(ctx->right_cache);
+		ctx->right_cache = NULL;
+	}
 	g_hash_table_remove(mw_to_ctx, mw);
 	g_free(ctx);
 }
