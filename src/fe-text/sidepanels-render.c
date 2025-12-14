@@ -151,14 +151,17 @@ static void sp_cache_line_update(SP_LINE_CACHE *line, const char *text,
 	line->valid = TRUE;
 }
 
-/* Clear a single line on screen (fill with spaces + clrtoeol) */
+/* Clear a single line on screen (fill with spaces for tmux compatibility) */
 static void sp_clear_line(TERM_WINDOW *tw, int y, int width)
 {
+	int x;
 	if (!tw)
 		return;
 	term_set_color(tw, ATTR_RESET);
 	term_move(tw, 0, y);
-	term_clrtoeol(tw);
+	/* Use explicit spaces instead of clrtoeol for tmux compatibility */
+	for (x = 0; x < width; x++)
+		term_addch(tw, ' ');
 }
 
 /* Invalidate cache when panel dimensions change */
@@ -697,12 +700,16 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		new_count++;
 	}
 
-	/* Clear any remaining lines that are no longer needed */
-	if (cache->count > new_count) {
+	/* Clear ALL remaining lines below content (not just cached ones) */
+	{
 		int i;
-		for (i = new_count; i < cache->count && i < height; i++) {
+		for (i = new_count; i < height; i++) {
+			/* Free cache entry if it existed */
+			if (i < cache->count) {
+				sp_cache_line_free(&cache->lines[i]);
+			}
+			/* Always clear the line on screen */
 			sp_clear_line(tw, i, width);
-			sp_cache_line_free(&cache->lines[i]);
 			lines_changed++;
 		}
 	}
@@ -937,12 +944,16 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		g_slist_free(sorted_nicks);
 	}
 
-	/* Clear any remaining lines that are no longer needed */
-	if (cache->count > new_count) {
+	/* Clear ALL remaining lines below content (not just cached ones) */
+	{
 		int i;
-		for (i = new_count; i < cache->count && i < height; i++) {
+		for (i = new_count; i < height; i++) {
+			/* Free cache entry if it existed */
+			if (i < cache->count) {
+				sp_cache_line_free(&cache->lines[i]);
+			}
+			/* Always clear the line on screen */
 			sp_clear_line(tw, i, width);
-			sp_cache_line_free(&cache->lines[i]);
 			lines_changed++;
 		}
 	}
