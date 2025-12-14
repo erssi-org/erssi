@@ -84,16 +84,17 @@
 
 ---
 
-## ✨ Latest Release - v1.2.3
+## ✨ Latest Release - v1.2.4
 
-### 🏷️ Complete Rebranding & Privacy
+### 🎨 Flicker-Free Sidepanels
 
-The v1.2.3 release completes user-facing branding and adds privacy-focused first-run:
+The v1.2.4 release introduces differential rendering for smooth, flicker-free sidepanel updates:
 
-- **Message Prefix**: Changed from "Irssi:" to "erssi:" in all user messages
-- **Privacy First-Run**: Displays local account info without auto-setting IRC identity (protects macOS users)
-- **Simplified Install**: Streamlined `install.sh` script without unnecessary file conversion
-- **Activity Fix**: System messages (Day changed, etc.) no longer trigger sidepanel activity
+- **Differential Rendering**: Only changed lines are redrawn instead of entire panel refresh
+- **Line-by-Line Caching**: Stores text, prefix, format, and refnum for intelligent comparison
+- **Terminal Buffering**: Uses term_refresh_freeze/thaw to batch all terminal operations
+- **Smart Cache Invalidation**: Full redraw only when dimensions or scroll offset change
+- **Modern TUI Approach**: Similar rendering strategy to WeeChat and other modern terminal UIs
 
 **See [CHANGELOG.md](CHANGELOG.md) for complete version history and detailed changes.**
 
