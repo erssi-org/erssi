@@ -48,6 +48,7 @@
 extern void sp_logf(const char *fmt, ...);
 extern void update_left_selection_to_active(void);
 extern int get_auto_create_separators(void);
+extern SP_MAINWIN_CTX *get_ctx(MAIN_WINDOW_REC *mw, gboolean create);
 
 /* Helper function to find server separator window */
 static WINDOW_REC *find_server_separator_window(const char *server_tag)
@@ -170,6 +171,8 @@ void sig_server_connected(SERVER_REC *server)
 
 void sig_window_changed(WINDOW_REC *old, WINDOW_REC *new)
 {
+	GSList *t;
+
 	(void) old;
 
 	/* Reset priority when user opens/switches to window */
@@ -178,6 +181,22 @@ void sig_window_changed(WINDOW_REC *old, WINDOW_REC *new)
 		// sp_logf("SIGNAL: window_changed from %d to %d '%s' (USER SWITCHED)",
 		//        old ? old->refnum : -1, new->refnum, item_name);
 		reset_window_priority(new);
+	}
+
+	/* Clear right panel cache for all main windows when switching windows.
+	 * The cache doesn't track which channel it belongs to, so switching
+	 * between channels with same dimensions wouldn't trigger a redraw.
+	 * This ensures the nicklist is properly refreshed on window change. */
+	for (t = mainwindows; t; t = t->next) {
+		MAIN_WINDOW_REC *mw = t->data;
+		SP_MAINWIN_CTX *ctx;
+
+		if (!mw)
+			continue;
+		ctx = get_ctx(mw, FALSE);
+		if (ctx && ctx->right_cache) {
+			sp_cache_clear(ctx->right_cache);
+		}
 	}
 
 	update_left_selection_to_active();

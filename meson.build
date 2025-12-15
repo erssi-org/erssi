@@ -50,6 +50,9 @@ want_otr            = get_option('with-otr') != 'no'
 require_fe_web      = get_option('with-fe-web') == 'yes'
 want_fe_web         = get_option('with-fe-web') != 'no'
 
+require_fe_notcurses = get_option('with-fe-notcurses') == 'yes'
+want_fe_notcurses    = get_option('with-fe-notcurses') != 'no'
+
 want_glib_internal  = get_option('install-glib') != 'no'
 require_glib_internal = get_option('install-glib') == 'force'
 
@@ -524,6 +527,18 @@ if want_fe_web
   endif
 endif
 
+################
+# fe-notcurses #
+################
+
+have_fe_notcurses = false
+if want_fe_notcurses
+  notcurses_dep = dependency('notcurses-core', version : '>=3.0.0', required : require_fe_notcurses, static : want_static_dependency, include_type : 'system')
+  if notcurses_dep.found()
+    have_fe_notcurses = true
+  endif
+endif
+
 ############
 # capsicum #
 ############
@@ -733,6 +748,7 @@ message('Building with Capsicum ........... : ' + have_capsicum.to_string('yes',
 message('Building with utf8proc ........... : ' + have_libutf8proc.to_string('yes', 'no'))
 message('Building with OTR support ........ : ' + have_otr.to_string('yes', 'no'))
 message('Building with FE-WEB support ..... : ' + have_fe_web.to_string('yes', 'no'))
+message('Building with FE-NOTCURSES ...... : ' + have_fe_notcurses.to_string('yes', 'no'))
 message('')
 message('If there are any problems, read the INSTALL file.')
 message('Now type ninja -C ' + meson.current_build_dir() + ' to build Irssi')

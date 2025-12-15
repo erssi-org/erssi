@@ -331,13 +331,13 @@ gboolean gui_mouse_try_parse_key(gunichar key)
 		mouse_state = 0;
 		mouse_len = 0;
 		esc_pending = 0;
-		
+
 		/* Cancel timeout if still active */
 		if (esc_timeout_tag != -1) {
 			g_source_remove(esc_timeout_tag);
 			esc_timeout_tag = -1;
 		}
-		
+
 		/* Create mouse event */
 		memset(&event, 0, sizeof(event));
 		event.x = x;

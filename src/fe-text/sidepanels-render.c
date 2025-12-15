@@ -222,7 +222,8 @@ void draw_border_vertical(TERM_WINDOW *tw, int width, int height, int right_bord
 		return;
 	for (y = 0; y < height; y++) {
 		term_move(tw, x, y);
-		term_addch(tw, '|');
+		/* Use Unicode box drawing character for continuous vertical line */
+		term_addstr(tw, "│");
 	}
 }
 
@@ -723,10 +724,10 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	/* Clean up */
 	free_sorted_window_list(sort_list);
 
-	/* Only draw border if right panel is also visible */
-	if (ctx->right_tw && ctx->right_h > 0) {
-		draw_border_vertical(tw, width, height, 1);
-	}
+	/* Always draw the right border of the left panel for consistent visual separation.
+	 * Previously this was conditional on right panel existence, but that created
+	 * inconsistent UI when auto-hide mode hides the right panel in non-channel windows. */
+	draw_border_vertical(tw, width, height, 1);
 
 	/* Only mark dirty if something changed */
 	if (lines_changed > 0) {
