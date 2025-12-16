@@ -47,6 +47,10 @@
 #include <irssi/src/fe-text/gui-mouse.h>
 #include <irssi/src/fe-text/gui-gestures.h>
 
+#ifdef HAVE_IMAGE_PREVIEW
+#include <irssi/src/fe-notcurses/image-preview.h>
+#endif
+
 #include <signal.h>
 #include <locale.h>
 
@@ -202,6 +206,9 @@ static void textui_finish_init(void)
 	gui_mouse_init();
 	gui_gestures_init();
 	sidepanels_init();
+#ifdef HAVE_IMAGE_PREVIEW
+	image_preview_init();
+#endif
 	/* Temporarily raise the fatal level to abort on config errors. */
 	loglev = critical_fatal_section_begin();
 	statusbar_init();
@@ -286,6 +293,9 @@ static void textui_deinit(void)
 
 	lastlog_deinit();
 	statusbar_deinit();
+#ifdef HAVE_IMAGE_PREVIEW
+	image_preview_deinit();
+#endif
 	sidepanels_deinit();
 	gui_gestures_deinit();
 	gui_mouse_deinit();

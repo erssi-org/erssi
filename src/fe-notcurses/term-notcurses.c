@@ -159,7 +159,12 @@ NC_CONTEXT *nc_context_init(void)
 	             NCOPTION_NO_QUIT_SIGHANDLERS |  /* We handle quit signals via irssi */
 	             NCOPTION_DRAIN_INPUT;           /* We handle input ourselves */
 
+#ifdef HAVE_IMAGE_PREVIEW
+	/* Use full notcurses_init for multimedia/image support */
+	ctx->nc = notcurses_init(&opts, NULL);
+#else
 	ctx->nc = notcurses_core_init(&opts, NULL);
+#endif
 	if (ctx->nc == NULL) {
 		g_free(ctx);
 		return NULL;
@@ -740,7 +745,11 @@ void term_stop(void)
 		             NCOPTION_NO_WINCH_SIGHANDLER |
 		             NCOPTION_NO_QUIT_SIGHANDLERS |
 		             NCOPTION_DRAIN_INPUT;
+#ifdef HAVE_IMAGE_PREVIEW
+		nc_ctx->nc = notcurses_init(&opts, NULL);
+#else
 		nc_ctx->nc = notcurses_core_init(&opts, NULL);
+#endif
 		if (nc_ctx->nc) {
 			nc_ctx->stdplane = notcurses_stdplane(nc_ctx->nc);
 			/* Reset keyboard to traditional mode after reinit */
