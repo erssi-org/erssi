@@ -309,7 +309,10 @@ void term_resize(int width, int height)
 
 void term_resize_final(int width, int height)
 {
-	/* No-op for notcurses */
+	/* Tell notcurses to refresh after resize - this updates stdplane size */
+	if (nc_ctx != NULL && nc_ctx->nc != NULL) {
+		notcurses_refresh(nc_ctx->nc, NULL, NULL);
+	}
 }
 
 int term_has_colors(void)
