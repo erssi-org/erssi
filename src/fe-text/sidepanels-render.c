@@ -1140,19 +1140,18 @@ void redraw_both_panels_only(const char *event_name)
 
 		needs_redraw = FALSE;
 
-		/* Redraw left panel if it exists and is visible */
+		/* Always call position_tw first to create/reposition panels
+		 * based on current geometry */
+		position_tw(mw, ctx);
+
+		/* Draw left panel if it exists and is visible */
 		if (ctx->left_tw && ctx->left_h > 0) {
-			position_tw(mw, ctx);
 			draw_left_contents(mw, ctx);
 			needs_redraw = TRUE;
 		}
 
-		/* Redraw right panel if it exists and is visible */
+		/* Draw right panel if it exists and is visible */
 		if (ctx->right_tw && ctx->right_h > 0) {
-			/* Position already done above if left panel exists */
-			if (!ctx->left_tw || ctx->left_h == 0) {
-				position_tw(mw, ctx);
-			}
 			draw_right_contents(mw, ctx);
 			needs_redraw = TRUE;
 		}

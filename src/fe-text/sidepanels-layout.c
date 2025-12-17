@@ -116,8 +116,10 @@ void position_tw(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	int w;
 	gboolean show_right;
 	WINDOW_REC *aw;
+
 	y = mw->first_line + mw->statusbar_lines_top;
 	h = mw->height - mw->statusbar_lines;
+
 	if (get_sp_enable_left() && ctx->left_w > 0) {
 		/* Left panel is always at x=0, regardless of main window position */
 		x = 0;
@@ -217,6 +219,11 @@ void renumber_windows_by_position(void)
 
 void draw_main_window_borders(MAIN_WINDOW_REC *mw)
 {
+#ifdef USE_NOTCURSES
+	/* Notcurses handles borders differently - skip terminfo border drawing */
+	(void) mw;
+	return;
+#else
 	SP_MAINWIN_CTX *ctx = get_ctx(mw, FALSE);
 	if (!ctx)
 		return;
@@ -238,6 +245,7 @@ void draw_main_window_borders(MAIN_WINDOW_REC *mw)
 			                            mw->first_line + mw->statusbar_lines_top + y);
 		}
 	}
+#endif
 }
 
 void sidepanels_layout_init(void)
