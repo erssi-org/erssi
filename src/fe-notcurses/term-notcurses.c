@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <termios.h>
+#include <time.h>
 
 /* Input function type for character conversion */
 typedef int (*TERM_INPUT_FUNC)(const unsigned char *buffer, int size, unichar *result);
@@ -229,6 +230,17 @@ int term_init(void)
 			"\033[>4;0m"                     /* XTMODKEYS: disable modifyOtherKeys */
 			"\033[>0m";                      /* XTMODKEYS: reset all */
 		write(STDOUT_FILENO, keyboard_reset, sizeof(keyboard_reset) - 1);
+	}
+
+	/* Flush any pending terminal responses from notcurses capability detection.
+	 * When using NCOPTION_DRAIN_INPUT, we handle input ourselves, but notcurses_init()
+	 * may have sent terminal queries (e.g., Kitty graphics queries like Gi=1,a=q;).
+	 * The responses would otherwise end up in our input buffer and leak into display.
+	 * Small delay allows terminal to send responses before we flush. */
+	{
+		struct timespec delay = {0, 50000000};  /* 50ms - enough for terminal response */
+		nanosleep(&delay, NULL);
+		tcflush(STDIN_FILENO, TCIFLUSH);  /* Discard any unread input */
 	}
 
 	/* Grab CONT signal */

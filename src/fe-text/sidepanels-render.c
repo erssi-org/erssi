@@ -220,11 +220,16 @@ void draw_border_vertical(TERM_WINDOW *tw, int width, int height, int right_bord
 	int x = right_border ? width - 1 : 0;
 	if (!tw)
 		return;
+	/* Use blue color to match default theme's window_border = "%B│%N"
+	 * Note: irssi color 1 = blue (maps to ANSI 4), irssi color 4 = red */
+	term_set_color(tw, 1);  /* Blue (irssi color 1) - matches %B in theme */
 	for (y = 0; y < height; y++) {
 		term_move(tw, x, y);
 		/* Use Unicode box drawing character for continuous vertical line */
 		term_addstr(tw, "│");
 	}
+	/* Reset color after drawing border */
+	term_set_color(tw, ATTR_RESET);
 }
 
 /* 24-bit color handling function from textbuffer-view.c */
