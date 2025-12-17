@@ -40,8 +40,10 @@ typedef struct {
 	/* selection and scroll state */
 	int left_selected_index;
 	int left_scroll_offset;
+	int left_total_items;      /* Total items in left panel (for scroll limits) */
 	int right_selected_index;
 	int right_scroll_offset;
+	int right_total_items;     /* Total items in right panel (for scroll limits) */
 	/* cached geometry for hit-test and drawing */
 	int left_x;
 	int left_y;
