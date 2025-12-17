@@ -32,8 +32,25 @@ typedef struct {
 	int y_position;              /* Y position when rendered */
 	gboolean fetch_pending;      /* Fetch in progress */
 	gboolean fetch_failed;       /* Fetch/render failed */
+	gboolean show_on_complete;   /* Show popup when fetch completes (user clicked) */
 	char *error_message;         /* Error description if failed */
 } IMAGE_PREVIEW_REC;
+
+/* Fetch stage for two-stage page URL handling */
+typedef enum {
+	FETCH_STAGE_IMAGE = 0,      /* Direct image fetch (default) */
+	FETCH_STAGE_HTML = 1,       /* Fetching HTML page for og:image */
+	FETCH_STAGE_OG_IMAGE = 2    /* Fetching extracted og:image URL */
+} FetchStage;
+
+/* URL type classification */
+typedef enum {
+	URL_TYPE_DIRECT_IMAGE,   /* Direct .jpg/.png etc */
+	URL_TYPE_PAGE_IMGUR,     /* imgur.com/xxx page */
+	URL_TYPE_PAGE_IMGBB,     /* ibb.co/xxx page */
+	URL_TYPE_PAGE_KERMIT,    /* kermit.pw/xxx */
+	URL_TYPE_PAGE_GENERIC    /* Other pages (try og:image) */
+} ImageUrlType;
 
 /* Image fetch state for async HTTP requests */
 typedef struct _IMAGE_FETCH_REC IMAGE_FETCH_REC;
@@ -51,7 +68,10 @@ void image_preview_debug_print(const char *fmt, ...);
 /* Find image URLs in text, returns GSList of newly allocated strings */
 GSList *image_preview_find_urls(const char *text);
 
-/* Queue an image fetch for the given URL */
+/* Register an image URL for a line (no fetch, just tracking) */
+gboolean image_preview_register_url(const char *url, LINE_REC *line, WINDOW_REC *window);
+
+/* Queue an image fetch for the given URL (starts download immediately) */
 gboolean image_preview_queue_fetch(const char *url, LINE_REC *line, WINDOW_REC *window);
 
 /* Cancel pending fetch for URL */
@@ -83,9 +103,13 @@ void image_cache_print_stats(void);
 void image_fetch_init(void);
 void image_fetch_deinit(void);
 gboolean image_fetch_start(const char *url, const char *cache_path,
-                           LINE_REC *line, WINDOW_REC *window);
+                           LINE_REC *line, WINDOW_REC *window,
+                           gboolean is_page_url);
 void image_fetch_cancel(const char *url);
 void image_fetch_cancel_all(void);
+
+/* URL classification */
+ImageUrlType image_preview_classify_url(const char *url);
 
 /* Rendering */
 struct ncplane *image_render_thumbnail(struct notcurses *nc,
@@ -109,7 +133,7 @@ void image_render_destroy(struct ncplane *plane);
 #define IMAGE_PREVIEW_DEFAULT_MAX_WIDTH   40
 #define IMAGE_PREVIEW_DEFAULT_MAX_HEIGHT  10
 #define IMAGE_PREVIEW_DEFAULT_CACHE_SIZE  "100M"
-#define IMAGE_PREVIEW_DEFAULT_TIMEOUT     "10s"
+#define IMAGE_PREVIEW_DEFAULT_TIMEOUT     "60s"
 #define IMAGE_PREVIEW_DEFAULT_MAX_FILE_SIZE 10  /* MB */
 
 /* Cache directory name under ~/.erssi/ */

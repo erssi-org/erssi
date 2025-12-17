@@ -37,6 +37,52 @@ static struct {
 	int misses;
 } cache_stats = {0};
 
+/* Validate that a file contains an actual image (not HTML or other garbage) */
+static gboolean validate_image_file(const char *path)
+{
+	FILE *fp;
+	unsigned char magic[12];
+	size_t nread;
+
+	fp = fopen(path, "rb");
+	if (fp == NULL)
+		return FALSE;
+
+	nread = fread(magic, 1, sizeof(magic), fp);
+	fclose(fp);
+
+	if (nread < 4)
+		return FALSE;
+
+	/* Check for image magic bytes */
+	/* JPEG: FF D8 FF */
+	if (magic[0] == 0xFF && magic[1] == 0xD8 && magic[2] == 0xFF)
+		return TRUE;
+
+	/* PNG: 89 50 4E 47 (0x89 P N G) */
+	if (magic[0] == 0x89 && magic[1] == 0x50 && magic[2] == 0x4E && magic[3] == 0x47)
+		return TRUE;
+
+	/* GIF: 47 49 46 (G I F) */
+	if (magic[0] == 0x47 && magic[1] == 0x49 && magic[2] == 0x46)
+		return TRUE;
+
+	/* WEBP: RIFF....WEBP (needs 12 bytes) */
+	if (nread >= 12 &&
+	    magic[0] == 0x52 && magic[1] == 0x49 && magic[2] == 0x46 && magic[3] == 0x46 &&
+	    magic[8] == 0x57 && magic[9] == 0x45 && magic[10] == 0x42 && magic[11] == 0x50)
+		return TRUE;
+
+	/* BMP: 42 4D (B M) */
+	if (magic[0] == 0x42 && magic[1] == 0x4D)
+		return TRUE;
+
+	/* Not a recognized image format - probably HTML or corrupted */
+	image_preview_debug_print("CACHE: file %s failed magic validation (first bytes: %02x %02x %02x %02x)",
+	                          path, magic[0], magic[1], magic[2], magic[3]);
+	return FALSE;
+}
+
 /* Ensure cache directory exists */
 static gboolean ensure_cache_dir(void)
 {
@@ -103,12 +149,12 @@ static char *generate_cache_path(const char *url)
 	return path;
 }
 
-/* Check if URL is cached */
+/* Check if URL is cached (and valid) */
 gboolean image_cache_has(const char *url)
 {
 	char *path;
 	struct stat st;
-	gboolean exists;
+	gboolean valid;
 
 	if (url == NULL)
 		return FALSE;
@@ -117,16 +163,24 @@ gboolean image_cache_has(const char *url)
 	if (path == NULL)
 		return FALSE;
 
-	exists = (stat(path, &st) == 0 && S_ISREG(st.st_mode));
-	g_free(path);
-
-	if (exists) {
-		cache_stats.hits++;
+	valid = FALSE;
+	if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+		/* Also validate the file content */
+		if (validate_image_file(path)) {
+			valid = TRUE;
+			cache_stats.hits++;
+		} else {
+			/* Invalid file - remove it */
+			image_preview_debug_print("CACHE: has() removing invalid file: %s", path);
+			unlink(path);
+			cache_stats.misses++;
+		}
 	} else {
 		cache_stats.misses++;
 	}
 
-	return exists;
+	g_free(path);
+	return valid;
 }
 
 /* Get cached file path (or NULL if not cached) */
@@ -143,6 +197,15 @@ char *image_cache_get(const char *url)
 		return NULL;
 
 	if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+		/* Validate that the cached file is actually an image */
+		if (!validate_image_file(path)) {
+			/* Corrupted cache entry (HTML, empty, etc.) - remove it */
+			image_preview_debug_print("CACHE: removing invalid cached file: %s", path);
+			unlink(path);
+			g_free(path);
+			cache_stats.misses++;
+			return NULL;
+		}
 		cache_stats.hits++;
 		return path;
 	}

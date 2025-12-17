@@ -31,9 +31,12 @@
 #include <stdio.h>
 
 /* Compiled regex patterns for URL detection */
-static Regex *url_regex_direct = NULL;    /* Direct image URLs (.jpg, .png, etc.) */
-static Regex *url_regex_imgur = NULL;     /* imgur.com links */
-static Regex *url_regex_imgbb = NULL;     /* imgbb.com links */
+static Regex *url_regex_direct = NULL;        /* Direct image URLs (.jpg, .png, etc.) */
+static Regex *url_regex_imgur_direct = NULL;  /* i.imgur.com direct links */
+static Regex *url_regex_imgbb_direct = NULL;  /* i.ibb.co direct links */
+static Regex *url_regex_imgur_page = NULL;    /* imgur.com page links */
+static Regex *url_regex_imgbb_page = NULL;    /* ibb.co page links */
+static Regex *url_regex_kermit = NULL;        /* kermit.pw links */
 
 /* Hash table: LINE_REC* -> IMAGE_PREVIEW_REC* */
 static GHashTable *image_previews = NULL;
@@ -42,14 +45,21 @@ static GHashTable *image_previews = NULL;
 static gboolean image_preview_debug = FALSE;
 static FILE *debug_file = NULL;
 
+#define IMAGE_PREVIEW_DEBUG_SETTING "image_preview_debug"
+
 /* Popup preview state - for click-to-show preview */
 static struct ncplane *popup_preview_plane = NULL;
 static gboolean popup_preview_showing = FALSE;
+
+/* Forward declarations */
+static void popup_preview_show(const char *image_path);
 
 /* Debug print helper - writes to file to avoid TUI interference */
 void image_preview_debug_print(const char *fmt, ...)
 {
 	va_list args;
+	GDateTime *now;
+	char *timestamp;
 
 	if (!image_preview_debug)
 		return;
@@ -60,23 +70,41 @@ void image_preview_debug_print(const char *fmt, ...)
 		g_free(path);
 		if (debug_file == NULL)
 			return;
+		/* Log header when opening file */
+		now = g_date_time_new_now_local();
+		timestamp = g_date_time_format(now, "%Y-%m-%d %H:%M:%S");
+		fprintf(debug_file, "\n=== Image Preview Debug Log Started %s ===\n", timestamp);
+		g_free(timestamp);
+		g_date_time_unref(now);
 	}
 
+	/* Add timestamp to each line */
+	now = g_date_time_new_now_local();
+	timestamp = g_date_time_format(now, "%H:%M:%S");
+
 	va_start(args, fmt);
-	fprintf(debug_file, "IMG-DEBUG: ");
+	fprintf(debug_file, "[%s] ", timestamp);
 	vfprintf(debug_file, fmt, args);
 	fprintf(debug_file, "\n");
 	fflush(debug_file);
 	va_end(args);
+
+	g_free(timestamp);
+	g_date_time_unref(now);
 }
 
 /* Local shorthand */
 #define debug_print image_preview_debug_print
 
-/* URL regex patterns */
-#define URL_PATTERN_DIRECT  "https?://[^\\s]+\\.(jpg|jpeg|png|gif|webp)(\\?[^\\s]*)?"
-#define URL_PATTERN_IMGUR   "https?://(i\\.)?imgur\\.com/[a-zA-Z0-9]+(\\.(jpg|jpeg|png|gif|webp))?"
-#define URL_PATTERN_IMGBB   "https?://i\\.ibb\\.co/[a-zA-Z0-9]+/[^\\s]+"
+/* URL regex patterns - direct images */
+#define URL_PATTERN_DIRECT       "https?://[^\\s]+\\.(jpg|jpeg|png|gif|webp)(\\?[^\\s]*)?"
+#define URL_PATTERN_IMGUR_DIRECT "https?://i\\.imgur\\.com/[a-zA-Z0-9]+(\\.(jpg|jpeg|png|gif|webp))?"
+#define URL_PATTERN_IMGBB_DIRECT "https?://i\\.ibb\\.co/[a-zA-Z0-9]+/[^\\s]+"
+
+/* URL regex patterns - page URLs (require og:image extraction) */
+#define URL_PATTERN_IMGUR_PAGE   "https?://imgur\\.com/[a-zA-Z0-9]+"
+#define URL_PATTERN_IMGBB_PAGE   "https?://ibb\\.co/[a-zA-Z0-9]+"
+#define URL_PATTERN_KERMIT       "https?://kermit\\.pw/[a-zA-Z0-9]+"
 
 /* Check if image preview is enabled */
 gboolean image_preview_enabled(void)
@@ -105,6 +133,7 @@ static gboolean init_url_patterns(void)
 {
 	GError *error = NULL;
 
+	/* Direct image patterns */
 	url_regex_direct = i_regex_new(URL_PATTERN_DIRECT,
 	                               G_REGEX_CASELESS | G_REGEX_OPTIMIZE,
 	                               0, &error);
@@ -115,21 +144,52 @@ static gboolean init_url_patterns(void)
 	}
 
 	error = NULL;
-	url_regex_imgur = i_regex_new(URL_PATTERN_IMGUR,
-	                              G_REGEX_CASELESS | G_REGEX_OPTIMIZE,
-	                              0, &error);
+	url_regex_imgur_direct = i_regex_new(URL_PATTERN_IMGUR_DIRECT,
+	                                     G_REGEX_CASELESS | G_REGEX_OPTIMIZE,
+	                                     0, &error);
 	if (error != NULL) {
-		g_warning("image-preview: Failed to compile imgur regex: %s", error->message);
+		g_warning("image-preview: Failed to compile imgur direct regex: %s", error->message);
 		g_error_free(error);
 		return FALSE;
 	}
 
 	error = NULL;
-	url_regex_imgbb = i_regex_new(URL_PATTERN_IMGBB,
-	                              G_REGEX_CASELESS | G_REGEX_OPTIMIZE,
-	                              0, &error);
+	url_regex_imgbb_direct = i_regex_new(URL_PATTERN_IMGBB_DIRECT,
+	                                     G_REGEX_CASELESS | G_REGEX_OPTIMIZE,
+	                                     0, &error);
 	if (error != NULL) {
-		g_warning("image-preview: Failed to compile imgbb regex: %s", error->message);
+		g_warning("image-preview: Failed to compile imgbb direct regex: %s", error->message);
+		g_error_free(error);
+		return FALSE;
+	}
+
+	/* Page URL patterns (require og:image extraction) */
+	error = NULL;
+	url_regex_imgur_page = i_regex_new(URL_PATTERN_IMGUR_PAGE,
+	                                   G_REGEX_CASELESS | G_REGEX_OPTIMIZE,
+	                                   0, &error);
+	if (error != NULL) {
+		g_warning("image-preview: Failed to compile imgur page regex: %s", error->message);
+		g_error_free(error);
+		return FALSE;
+	}
+
+	error = NULL;
+	url_regex_imgbb_page = i_regex_new(URL_PATTERN_IMGBB_PAGE,
+	                                   G_REGEX_CASELESS | G_REGEX_OPTIMIZE,
+	                                   0, &error);
+	if (error != NULL) {
+		g_warning("image-preview: Failed to compile imgbb page regex: %s", error->message);
+		g_error_free(error);
+		return FALSE;
+	}
+
+	error = NULL;
+	url_regex_kermit = i_regex_new(URL_PATTERN_KERMIT,
+	                               G_REGEX_CASELESS | G_REGEX_OPTIMIZE,
+	                               0, &error);
+	if (error != NULL) {
+		g_warning("image-preview: Failed to compile kermit regex: %s", error->message);
 		g_error_free(error);
 		return FALSE;
 	}
@@ -144,13 +204,25 @@ static void deinit_url_patterns(void)
 		i_regex_unref(url_regex_direct);
 		url_regex_direct = NULL;
 	}
-	if (url_regex_imgur != NULL) {
-		i_regex_unref(url_regex_imgur);
-		url_regex_imgur = NULL;
+	if (url_regex_imgur_direct != NULL) {
+		i_regex_unref(url_regex_imgur_direct);
+		url_regex_imgur_direct = NULL;
 	}
-	if (url_regex_imgbb != NULL) {
-		i_regex_unref(url_regex_imgbb);
-		url_regex_imgbb = NULL;
+	if (url_regex_imgbb_direct != NULL) {
+		i_regex_unref(url_regex_imgbb_direct);
+		url_regex_imgbb_direct = NULL;
+	}
+	if (url_regex_imgur_page != NULL) {
+		i_regex_unref(url_regex_imgur_page);
+		url_regex_imgur_page = NULL;
+	}
+	if (url_regex_imgbb_page != NULL) {
+		i_regex_unref(url_regex_imgbb_page);
+		url_regex_imgbb_page = NULL;
+	}
+	if (url_regex_kermit != NULL) {
+		i_regex_unref(url_regex_kermit);
+		url_regex_kermit = NULL;
 	}
 }
 
@@ -217,12 +289,60 @@ GSList *image_preview_find_urls(const char *text)
 	if (text == NULL || *text == '\0')
 		return NULL;
 
-	/* Check each pattern */
+	/* Check direct image patterns first (higher priority) */
 	urls = find_urls_with_pattern(text, url_regex_direct, urls);
-	urls = find_urls_with_pattern(text, url_regex_imgur, urls);
-	urls = find_urls_with_pattern(text, url_regex_imgbb, urls);
+	urls = find_urls_with_pattern(text, url_regex_imgur_direct, urls);
+	urls = find_urls_with_pattern(text, url_regex_imgbb_direct, urls);
+
+	/* Check page URL patterns (require og:image extraction) */
+	urls = find_urls_with_pattern(text, url_regex_imgur_page, urls);
+	urls = find_urls_with_pattern(text, url_regex_imgbb_page, urls);
+	urls = find_urls_with_pattern(text, url_regex_kermit, urls);
 
 	return g_slist_reverse(urls);
+}
+
+/* Classify a URL to determine if it's a direct image or page URL */
+ImageUrlType image_preview_classify_url(const char *url)
+{
+	if (url == NULL) {
+		debug_print("classify_url: NULL url");
+		return URL_TYPE_DIRECT_IMAGE;
+	}
+
+	debug_print("classify_url: checking '%s'", url);
+
+	/* Check direct image patterns first */
+	if (i_regex_match(url_regex_direct, url, 0, NULL)) {
+		debug_print("classify_url: MATCHED direct image pattern (.jpg/.png/etc)");
+		return URL_TYPE_DIRECT_IMAGE;
+	}
+	if (i_regex_match(url_regex_imgur_direct, url, 0, NULL)) {
+		debug_print("classify_url: MATCHED i.imgur.com direct");
+		return URL_TYPE_DIRECT_IMAGE;
+	}
+	if (i_regex_match(url_regex_imgbb_direct, url, 0, NULL)) {
+		debug_print("classify_url: MATCHED i.ibb.co direct");
+		return URL_TYPE_DIRECT_IMAGE;
+	}
+
+	/* Check page URL patterns */
+	if (i_regex_match(url_regex_imgur_page, url, 0, NULL)) {
+		debug_print("classify_url: MATCHED imgur.com PAGE - needs og:image extraction");
+		return URL_TYPE_PAGE_IMGUR;
+	}
+	if (i_regex_match(url_regex_imgbb_page, url, 0, NULL)) {
+		debug_print("classify_url: MATCHED ibb.co PAGE - needs og:image extraction");
+		return URL_TYPE_PAGE_IMGBB;
+	}
+	if (i_regex_match(url_regex_kermit, url, 0, NULL)) {
+		debug_print("classify_url: MATCHED kermit.pw PAGE - needs og:image extraction");
+		return URL_TYPE_PAGE_KERMIT;
+	}
+
+	/* Default to direct image (will fail if not an image) */
+	debug_print("classify_url: no match, defaulting to direct image");
+	return URL_TYPE_DIRECT_IMAGE;
 }
 
 /* Get preview record for a line */
@@ -234,11 +354,70 @@ IMAGE_PREVIEW_REC *image_preview_get(LINE_REC *line)
 	return g_hash_table_lookup(image_previews, line);
 }
 
-/* Queue an image fetch */
+/* Register URL for a line without starting fetch (lazy download on click) */
+gboolean image_preview_register_url(const char *url, LINE_REC *line, WINDOW_REC *window)
+{
+	IMAGE_PREVIEW_REC *rec;
+	char *cache_path;
+
+	debug_print("register_url: url=%s", url);
+
+	if (!image_preview_enabled()) {
+		debug_print("register_url: preview disabled");
+		return FALSE;
+	}
+
+	if (url == NULL || line == NULL) {
+		debug_print("register_url: NULL params");
+		return FALSE;
+	}
+
+	/* Check if we already have a preview for this line */
+	rec = image_preview_get(line);
+	if (rec != NULL) {
+		debug_print("register_url: already registered for this line");
+		return FALSE;
+	}
+
+	/* Check if cached - if so, mark as ready but don't show popup yet */
+	cache_path = image_cache_get(url);
+	if (cache_path != NULL) {
+		debug_print("register_url: CACHED at %s (ready for instant popup)", cache_path);
+		rec = g_new0(IMAGE_PREVIEW_REC, 1);
+		rec->line = line;
+		rec->window = window;
+		rec->url = g_strdup(url);
+		rec->cache_path = cache_path;
+		rec->fetch_pending = FALSE;
+		rec->fetch_failed = FALSE;
+		rec->show_on_complete = FALSE;
+
+		g_hash_table_insert(image_previews, line, rec);
+		return TRUE;
+	}
+
+	/* Not cached - just register URL, don't start fetch yet */
+	debug_print("register_url: not cached, will fetch on click");
+	rec = g_new0(IMAGE_PREVIEW_REC, 1);
+	rec->line = line;
+	rec->window = window;
+	rec->url = g_strdup(url);
+	rec->cache_path = NULL;  /* No cache path yet */
+	rec->fetch_pending = FALSE;
+	rec->fetch_failed = FALSE;
+	rec->show_on_complete = FALSE;
+
+	g_hash_table_insert(image_previews, line, rec);
+	return TRUE;
+}
+
+/* Queue an image fetch - starts download immediately */
 gboolean image_preview_queue_fetch(const char *url, LINE_REC *line, WINDOW_REC *window)
 {
 	IMAGE_PREVIEW_REC *rec;
 	char *cache_path;
+	ImageUrlType url_type;
+	gboolean is_page_url;
 
 	debug_print("queue_fetch: url=%s", url);
 
@@ -252,40 +431,52 @@ gboolean image_preview_queue_fetch(const char *url, LINE_REC *line, WINDOW_REC *
 		return FALSE;
 	}
 
+	/* Classify the URL to determine fetch strategy */
+	url_type = image_preview_classify_url(url);
+	is_page_url = (url_type != URL_TYPE_DIRECT_IMAGE);
+	debug_print("queue_fetch: url_type=%d is_page_url=%d", url_type, is_page_url);
+
 	/* Check if we already have a preview for this line */
 	rec = image_preview_get(line);
 	if (rec != NULL) {
-		debug_print("queue_fetch: already processing this line");
-		return FALSE;
-	}
-
-	/* Check if cached */
-	cache_path = image_cache_get(url);
-	if (cache_path != NULL) {
-		/* Already cached - create preview record and mark ready */
-		debug_print("queue_fetch: CACHED at %s", cache_path);
+		/* Already registered - check if we need to start fetch */
+		if (rec->fetch_pending) {
+			debug_print("queue_fetch: already fetching");
+			return FALSE;
+		}
+		if (rec->cache_path != NULL && !rec->fetch_failed) {
+			/* Already cached and ready */
+			debug_print("queue_fetch: already cached at %s", rec->cache_path);
+			signal_emit("image preview ready", 2, line, window);
+			return TRUE;
+		}
+		if (rec->fetch_failed) {
+			debug_print("queue_fetch: previous fetch failed, not retrying");
+			return FALSE;
+		}
+		/* Not fetched yet - generate cache path and start fetch */
+	} else {
+		/* No record yet - create one */
 		rec = g_new0(IMAGE_PREVIEW_REC, 1);
 		rec->line = line;
 		rec->window = window;
 		rec->url = g_strdup(url);
+		g_hash_table_insert(image_previews, line, rec);
+	}
+
+	/* Check if cached (shouldn't happen if called from register, but be safe) */
+	cache_path = image_cache_get(url);
+	if (cache_path != NULL) {
+		debug_print("queue_fetch: CACHED at %s", cache_path);
 		rec->cache_path = cache_path;
 		rec->fetch_pending = FALSE;
 		rec->fetch_failed = FALSE;
-
-		g_hash_table_insert(image_previews, line, rec);
-
-		/* Trigger render for cached image */
-		debug_print("queue_fetch: emitting 'image preview ready' for cached image");
 		signal_emit("image preview ready", 2, line, window);
 		return TRUE;
 	}
 
-	debug_print("queue_fetch: not cached, need to fetch");
-
-	/* Need to fetch - generate cache path */
-	cache_path = NULL;
-	if (cache_path == NULL) {
-		/* Generate new cache path */
+	/* Generate cache path if not set */
+	if (rec->cache_path == NULL) {
 		GChecksum *checksum;
 		const char *hash;
 		const char *ext;
@@ -295,32 +486,30 @@ gboolean image_preview_queue_fetch(const char *url, LINE_REC *line, WINDOW_REC *
 		g_checksum_update(checksum, (guchar *)url, strlen(url));
 		hash = g_checksum_get_string(checksum);
 
-		/* Extract extension from URL */
-		ext = strrchr(url, '.');
-		if (ext == NULL || strlen(ext) > 6 || strchr(ext, '/') != NULL) {
+		/* For page URLs, use .img since we don't know the final image extension yet.
+		 * For direct URLs, try to extract extension from URL. */
+		if (is_page_url) {
 			ext = ".img";
+		} else {
+			ext = strrchr(url, '.');
+			if (ext == NULL || strlen(ext) > 6 || strchr(ext, '/') != NULL) {
+				ext = ".img";
+			}
 		}
 
 		cache_dir = g_strdup_printf("%s/%s", get_irssi_dir(), IMAGE_CACHE_DIR);
-		cache_path = g_strdup_printf("%s/%s%s", cache_dir, hash, ext);
+		rec->cache_path = g_strdup_printf("%s/%s%s", cache_dir, hash, ext);
 		g_free(cache_dir);
 		g_checksum_free(checksum);
 	}
 
-	/* Create preview record */
-	rec = g_new0(IMAGE_PREVIEW_REC, 1);
-	rec->line = line;
-	rec->window = window;
-	rec->url = g_strdup(url);
-	rec->cache_path = cache_path;
 	rec->fetch_pending = TRUE;
 	rec->fetch_failed = FALSE;
 
-	g_hash_table_insert(image_previews, line, rec);
-
 	/* Start async fetch */
-	debug_print("queue_fetch: calling image_fetch_start with cache_path=%s", cache_path);
-	if (!image_fetch_start(url, cache_path, line, window)) {
+	debug_print("queue_fetch: calling image_fetch_start with cache_path=%s is_page=%d",
+	            rec->cache_path, is_page_url);
+	if (!image_fetch_start(url, rec->cache_path, line, window, is_page_url)) {
 		debug_print("queue_fetch: image_fetch_start FAILED");
 		rec->fetch_pending = FALSE;
 		rec->fetch_failed = TRUE;
@@ -420,11 +609,11 @@ static void sig_gui_print_text_finished(WINDOW_REC *window, void *dest)
 
 	debug_print("found URL: %s", (char *)urls->data);
 
-	/* Queue fetch for first URL only (to avoid spam) */
-	if (image_preview_queue_fetch(urls->data, line, window)) {
-		debug_print("queued fetch OK");
+	/* Register URL for first match only - download will start on click */
+	if (image_preview_register_url(urls->data, line, window)) {
+		debug_print("registered URL OK (will download on click)");
 	} else {
-		debug_print("queue fetch FAILED");
+		debug_print("register URL FAILED");
 	}
 
 	g_slist_free_full(urls, g_free);
@@ -437,7 +626,7 @@ static void sig_window_changed(WINDOW_REC *window)
 	image_preview_clear_planes();
 }
 
-/* Signal: image preview ready - render the image */
+/* Signal: image preview ready - called when fetch completes */
 static void sig_image_preview_ready(LINE_REC *line, WINDOW_REC *window)
 {
 	GUI_WINDOW_REC *gui;
@@ -466,10 +655,15 @@ static void sig_image_preview_ready(LINE_REC *line, WINDOW_REC *window)
 		return;
 	}
 
-	debug_print("sig_image_preview_ready: cached %s (click to preview)", preview->cache_path);
+	debug_print("sig_image_preview_ready: cached %s, show_on_complete=%d",
+	            preview->cache_path, preview->show_on_complete);
 
-	/* Auto-preview disabled - click-to-preview only */
-	/* image_preview_render_view(gui->view, window); */
+	/* If user clicked before fetch completed, show popup now */
+	if (preview->show_on_complete) {
+		debug_print("sig_image_preview_ready: showing popup (user was waiting)");
+		preview->show_on_complete = FALSE;  /* Reset flag */
+		popup_preview_show(preview->cache_path);
+	}
 }
 
 /* Dismiss popup preview */
@@ -811,24 +1005,59 @@ static gboolean image_preview_mouse_handler(const GuiMouseEvent *event, gpointer
 		return FALSE;
 	}
 
-	/* Check if this line has an image preview */
+	/* Check if this line has an image preview registered */
 	preview = image_preview_get(line);
 	if (preview == NULL) {
-		debug_print("CLICK: line has no preview");
+		debug_print("CLICK: line has no preview registered");
 		return FALSE;
 	}
 
-	if (preview->cache_path == NULL) {
-		debug_print("CLICK: preview has no cache_path");
+	/* Case 1: Already cached - show popup immediately */
+	if (preview->cache_path != NULL && !preview->fetch_pending && !preview->fetch_failed) {
+		debug_print("CLICK: cached, showing popup for %s", preview->cache_path);
+		popup_preview_show(preview->cache_path);
+		return TRUE;  /* Consume the click */
+	}
+
+	/* Case 2: Fetch already in progress - set flag to show when done */
+	if (preview->fetch_pending) {
+		debug_print("CLICK: fetch in progress, will show when complete");
+		preview->show_on_complete = TRUE;
+		return TRUE;  /* Consume the click */
+	}
+
+	/* Case 3: Previous fetch failed - don't retry */
+	if (preview->fetch_failed) {
+		debug_print("CLICK: fetch previously failed: %s",
+		            preview->error_message ? preview->error_message : "unknown error");
 		return FALSE;
 	}
 
-	debug_print("CLICK: found preview, showing popup for %s", preview->cache_path);
+	/* Case 4: Not fetched yet - start fetch now and show when complete */
+	debug_print("CLICK: starting fetch for %s", preview->url);
+	preview->show_on_complete = TRUE;  /* Show popup when fetch completes */
 
-	/* Show the popup preview */
-	popup_preview_show(preview->cache_path);
+	if (!image_preview_queue_fetch(preview->url, line, window)) {
+		debug_print("CLICK: queue_fetch failed");
+		preview->show_on_complete = FALSE;
+		return FALSE;
+	}
 
+	debug_print("CLICK: fetch started, will show popup when complete");
 	return TRUE;  /* Consume the click */
+}
+
+/* Signal: settings changed - reload debug flag */
+static void sig_setup_changed(void)
+{
+	gboolean old_debug = image_preview_debug;
+	image_preview_debug = settings_get_bool(IMAGE_PREVIEW_DEBUG_SETTING);
+
+	if (image_preview_debug && !old_debug) {
+		/* Debug just enabled - open file and log */
+		debug_print("DEBUG ENABLED - Phase 2 page URL support active");
+		debug_print("Supported page URLs: imgur.com/xxx, ibb.co/xxx, kermit.pw/xxx");
+	}
 }
 
 /* Key press handler - dismiss popup on non-escape keys */
@@ -907,6 +1136,10 @@ void image_preview_init(void)
 	                  IMAGE_PREVIEW_DEFAULT_TIMEOUT);
 	settings_add_int("misc", IMAGE_PREVIEW_MAX_FILE_SIZE,
 	                 IMAGE_PREVIEW_DEFAULT_MAX_FILE_SIZE);
+	settings_add_bool("lookandfeel", IMAGE_PREVIEW_DEBUG_SETTING, FALSE);
+
+	/* Load debug flag from settings */
+	image_preview_debug = settings_get_bool(IMAGE_PREVIEW_DEBUG_SETTING);
 
 	/* Initialize URL patterns */
 	if (!init_url_patterns()) {
@@ -926,6 +1159,7 @@ void image_preview_init(void)
 	signal_add("gui print text finished", (SIGNAL_FUNC)sig_gui_print_text_finished);
 	signal_add("window changed", (SIGNAL_FUNC)sig_window_changed);
 	signal_add("image preview ready", (SIGNAL_FUNC)sig_image_preview_ready);
+	signal_add("setup changed", (SIGNAL_FUNC)sig_setup_changed);
 
 	/* Register key handler for popup dismiss (first priority) */
 	signal_add_first("gui key pressed", (SIGNAL_FUNC)sig_key_pressed_preview);
@@ -951,6 +1185,7 @@ void image_preview_deinit(void)
 
 	/* Unregister signals (reverse order of registration) */
 	signal_remove("gui key pressed", (SIGNAL_FUNC)sig_key_pressed_preview);
+	signal_remove("setup changed", (SIGNAL_FUNC)sig_setup_changed);
 	signal_remove("image preview ready", (SIGNAL_FUNC)sig_image_preview_ready);
 	signal_remove("window changed", (SIGNAL_FUNC)sig_window_changed);
 	signal_remove("gui print text finished", (SIGNAL_FUNC)sig_gui_print_text_finished);
