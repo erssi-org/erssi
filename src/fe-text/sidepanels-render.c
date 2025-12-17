@@ -611,6 +611,11 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	gboolean full_redraw;
 	int new_count;
 	int lines_changed = 0;
+	int total_items;
+	int max_scroll;
+	int visible_height;
+	gboolean has_more_above;
+	gboolean has_more_below;
 
 	if (!ctx)
 		return;
@@ -620,7 +625,29 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 	height = ctx->left_h;
 	width = ctx->left_w;
+
+	/* Get sorted list using shared function */
+	sort_list = build_sorted_window_list();
+
+	/* Count total items first */
+	total_items = g_slist_length(sort_list);
+	ctx->left_total_items = total_items;
+
+	/* Calculate visible area (reserve rows for indicators if needed) */
+	visible_height = height;
+
+	/* Calculate max scroll offset - at least one item must be visible */
+	max_scroll = MAX(0, total_items - 1);
+
+	/* Clamp scroll offset */
+	if (ctx->left_scroll_offset > max_scroll)
+		ctx->left_scroll_offset = max_scroll;
+
 	skip = ctx->left_scroll_offset;
+
+	/* Check if we have more content above/below */
+	has_more_above = (skip > 0);
+	has_more_below = (total_items > skip + visible_height);
 
 	/* Ensure cache exists */
 	if (!ctx->left_cache) {
@@ -630,9 +657,6 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 	/* Check if we need full redraw (dimensions or scroll changed) */
 	full_redraw = sp_cache_needs_full_redraw(cache, height, width, skip);
-
-	/* Get sorted list using shared function */
-	sort_list = build_sorted_window_list();
 
 	/* Count visible items and build new state */
 	row = 0;
@@ -728,6 +752,22 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		draw_border_vertical(tw, width, height, 1);
 	}
 
+	/* Draw scroll indicators (bright cyan = color 6 + bold) */
+	if (has_more_above && height > 0) {
+		/* Show "^" at top-right corner to indicate more content above */
+		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
+		term_move(tw, width - 2, 0);
+		term_addch(tw, '^');
+		lines_changed++;
+	}
+	if (has_more_below && height > 1) {
+		/* Show "v" at bottom-right corner to indicate more content below */
+		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
+		term_move(tw, width - 2, height - 1);
+		term_addch(tw, 'v');
+		lines_changed++;
+	}
+
 	/* Only mark dirty if something changed */
 	if (lines_changed > 0) {
 		irssi_set_dirty();
@@ -785,13 +825,17 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	WINDOW_REC *aw;
 	int height;
 	int width;
-	int skip;
+	int skip = 0;
 	int index;
 	int row;
-	SP_PANEL_CACHE *cache;
+	SP_PANEL_CACHE *cache = NULL;
 	gboolean full_redraw;
 	int new_count;
 	int lines_changed = 0;
+	int total_items;
+	int max_scroll;
+	gboolean has_more_above = FALSE;
+	gboolean has_more_below = FALSE;
 
 	if (!ctx)
 		return;
@@ -801,17 +845,25 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 	height = ctx->right_h;
 	width = ctx->right_w;
-	skip = ctx->right_scroll_offset;
 	aw = mw->active;
 	index = 0;
 	row = 0;
 	new_count = 0;
+	total_items = 0;
 
 	/* Ensure cache exists */
 	if (!ctx->right_cache) {
 		ctx->right_cache = sp_cache_create();
 	}
 	cache = ctx->right_cache;
+
+	/* DEBUG: Log what we see when entering draw_right_contents */
+	sp_logf("DEBUG draw_right_contents: aw=%p, aw->active=%p, name='%s', IS_CHANNEL=%d, cache->count=%d",
+	        (void*)aw,
+	        aw ? (void*)aw->active : NULL,
+	        aw && aw->active ? aw->active->visible_name : "NULL",
+	        aw && aw->active ? IS_CHANNEL(aw->active) : -1,
+	        cache->count);
 
 	/* Check if we need full redraw (dimensions or scroll changed) */
 	full_redraw = sp_cache_needs_full_redraw(cache, height, width, skip);
@@ -825,6 +877,9 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	/* If no channel active, clear panel and draw border */
 	if (!aw || !aw->active || !aw->active->visible_name ||
 	    !IS_CHANNEL(aw->active)) {
+		/* No channel = no nicks */
+		ctx->right_total_items = 0;
+		ctx->right_scroll_offset = 0;
 		/* Clear any cached lines */
 		if (cache->count > 0) {
 			int i;
@@ -885,6 +940,34 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		                                      (GCompareDataFunc) nick_display_compare_with_server,
 		                                      (gpointer) nick_prefix);
 		g_slist_free(nicks);
+
+		/* Count total nicks and clamp scroll offset */
+		total_items = g_slist_length(sorted_nicks);
+		ctx->right_total_items = total_items;
+
+		/* DEBUG: Log nick count and cache state */
+		sp_logf("DEBUG draw_right CHANNEL: total_nicks=%d, cache->count=%d, full_redraw=%d, height=%d",
+		        total_items, cache->count, full_redraw, height);
+
+		/* Calculate max scroll offset - at least one item must be visible */
+		max_scroll = MAX(0, total_items - 1);
+
+		/* Clamp scroll offset */
+		if (ctx->right_scroll_offset > max_scroll)
+			ctx->right_scroll_offset = max_scroll;
+
+		skip = ctx->right_scroll_offset;
+
+		/* Force full redraw if cache was cleared (e.g., after switching from non-channel window)
+		 * This fixes the bug where nicklist stays empty when returning from DCC chat */
+		if (cache->count == 0 && total_items > 0)
+			full_redraw = TRUE;
+
+		sp_logf("DEBUG draw_right AFTER: full_redraw=%d, skip=%d", full_redraw, skip);
+
+		/* Check if we have more content above/below */
+		has_more_above = (skip > 0);
+		has_more_below = (total_items > skip + height);
 
 		/* Render sorted nicks with differential rendering */
 		for (cur = sorted_nicks; cur; cur = cur->next) {
@@ -965,6 +1048,22 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	cache->panel_width = width;
 
 	draw_border_vertical(tw, width, height, 0);
+
+	/* Draw scroll indicators (bright cyan = color 6 + bold) */
+	if (has_more_above && height > 0) {
+		/* Show "^" at top-left (after border) to indicate more content above */
+		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
+		term_move(tw, 1, 0);
+		term_addch(tw, '^');
+		lines_changed++;
+	}
+	if (has_more_below && height > 1) {
+		/* Show "v" at bottom-left (after border) to indicate more content below */
+		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
+		term_move(tw, 1, height - 1);
+		term_addch(tw, 'v');
+		lines_changed++;
+	}
 
 	/* Only mark dirty if something changed */
 	if (lines_changed > 0) {
@@ -1048,9 +1147,12 @@ void redraw_right_panels_only(const char *event_name)
 			continue;
 		}
 
-		/* Only redraw right panel if it exists and is visible */
+		/* ALWAYS call position_tw first - it may create/destroy right panel
+		 * based on current window type (channel vs DCC/query) */
+		position_tw(mw, ctx);
+
+		/* Now check panel state AFTER position_tw has updated it */
 		if (ctx->right_tw && ctx->right_h > 0) {
-			position_tw(mw, ctx);
 			draw_right_contents(mw, ctx);
 			draw_main_window_borders(mw);
 			irssi_set_dirty();
@@ -1139,19 +1241,18 @@ void redraw_both_panels_only(const char *event_name)
 
 		needs_redraw = FALSE;
 
-		/* Redraw left panel if it exists and is visible */
+		/* ALWAYS call position_tw first - it may create/destroy panels based on
+		 * current window type (channel vs DCC/query). This fixes the bug where
+		 * nicklist stays empty when returning from DCC chat window. */
+		position_tw(mw, ctx);
+
+		/* Now check panel states AFTER position_tw has updated them */
 		if (ctx->left_tw && ctx->left_h > 0) {
-			position_tw(mw, ctx);
 			draw_left_contents(mw, ctx);
 			needs_redraw = TRUE;
 		}
 
-		/* Redraw right panel if it exists and is visible */
 		if (ctx->right_tw && ctx->right_h > 0) {
-			/* Position already done above if left panel exists */
-			if (!ctx->left_tw || ctx->left_h == 0) {
-				position_tw(mw, ctx);
-			}
 			draw_right_contents(mw, ctx);
 			needs_redraw = TRUE;
 		}

@@ -49,6 +49,7 @@
 extern void sp_logf(const char *fmt, ...);
 extern SP_MAINWIN_CTX *get_ctx(MAIN_WINDOW_REC *mw, gboolean create);
 extern void clear_window_full(TERM_WINDOW *tw, int width, int height);
+extern void sp_cache_clear(SP_PANEL_CACHE *cache);
 /* Settings are accessed through functions from sidepanels.h */
 
 void apply_reservations_all(void)
@@ -158,6 +159,15 @@ void position_tw(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		show_right = (aw && aw->active && IS_CHANNEL(aw->active));
 	}
 
+	/* DEBUG: Log position_tw auto-hide decision */
+	sp_logf("DEBUG position_tw: aw=%p, aw->active=%p, name='%s', IS_CHANNEL=%d, show_right=%d, ctx->right_tw=%p",
+	        (void*)aw,
+	        aw ? (void*)aw->active : NULL,
+	        aw && aw->active ? aw->active->visible_name : "NULL",
+	        aw && aw->active ? IS_CHANNEL(aw->active) : -1,
+	        show_right,
+	        (void*)ctx->right_tw);
+
 	if (show_right) {
 		w = ctx->right_w;
 		if (ctx->right_tw) {
@@ -183,6 +193,12 @@ void position_tw(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		term_window_destroy(ctx->right_tw);
 		ctx->right_tw = NULL;
 		ctx->right_h = 0;
+		/* CRITICAL: Clear the cache when panel is destroyed!
+		 * Otherwise, when returning to a channel, the cache has stale data
+		 * and differential rendering doesn't redraw the nicklist. */
+		if (ctx->right_cache) {
+			sp_cache_clear(ctx->right_cache);
+		}
 		/* Free reserved space - this expands main window */
 		mainwindows_reserve_columns(0, -ctx->right_w);
 		/* Force complete recreation of mainwindows to clear artifacts */
