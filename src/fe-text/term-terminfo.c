@@ -261,6 +261,14 @@ void term_beep(void)
         terminfo_beep(current_term);
 }
 
+/* Horizontal separator for statusbar (notcurses only, stub for terminfo) */
+void term_draw_statusbar_separator(int y)
+{
+	/* Terminfo backend uses scroll regions for protection,
+	 * so no explicit separator line is needed */
+	(void) y;
+}
+
 /* Create a new window in terminal */
 TERM_WINDOW *term_window_create(int x, int y, int width, int height)
 {

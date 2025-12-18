@@ -358,6 +358,29 @@ void term_beep(void)
 		fprintf(stderr, "\a");
 }
 
+void term_draw_statusbar_separator(int y)
+{
+	int x;
+
+	if (nc_ctx == NULL || nc_ctx->stdplane == NULL)
+		return;
+
+	if (y < 0 || y >= term_height)
+		return;
+
+	/* Set blue color to match sidepanel borders (irssi color 1 = blue = ANSI 4 = RGB 0,0,170) */
+	ncplane_set_fg_rgb8(nc_ctx->stdplane, 0, 0, 170);
+
+	/* Draw horizontal line using Unicode box drawing character */
+	ncplane_cursor_move_yx(nc_ctx->stdplane, y, 0);
+	for (x = 0; x < term_width; x++) {
+		ncplane_putegc(nc_ctx->stdplane, "─", NULL);  /* U+2500 horizontal line */
+	}
+
+	/* Reset to default colors */
+	ncplane_set_fg_default(nc_ctx->stdplane);
+}
+
 TERM_WINDOW *term_window_create(int x, int y, int width, int height)
 {
 	TERM_WINDOW *window;

@@ -94,6 +94,9 @@ void term_stop(void);
 void term_set_appkey_mode(int enable);
 void term_set_bracketed_paste_mode(int enable);
 
+/* Draw a horizontal separator line at specified y position (for notcurses) */
+void term_draw_statusbar_separator(int y);
+
 /* keyboard input handling */
 void term_set_input_type(int type);
 void term_gets(GArray *buffer, int *line_count);

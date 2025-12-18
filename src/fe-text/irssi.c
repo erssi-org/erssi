@@ -142,10 +142,21 @@ static void dirty_check(void)
 		mainwindows_redraw();
 		redraw_both_panels_only("screen_clear"); /* Redraw only sidepanels after full screen clear */
 		statusbar_redraw(NULL, TRUE);
+
+		/* Draw horizontal separator above statusbar for notcurses
+		 * (terminfo uses scroll regions for protection) */
+		if (screen_reserved_bottom > 0) {
+			term_draw_statusbar_separator(term_height - screen_reserved_bottom - 1);
+		}
 	}
 
 	mainwindows_redraw_dirty();
 	statusbar_redraw_dirty();
+
+	/* Redraw statusbar separator during dirty updates as well */
+	if (screen_reserved_bottom > 0) {
+		term_draw_statusbar_separator(term_height - screen_reserved_bottom - 1);
+	}
 
 	/* Thaw and flush all buffered output in one operation */
 	term_refresh_thaw();
