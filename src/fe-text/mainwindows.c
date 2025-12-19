@@ -29,6 +29,7 @@
 
 #include <irssi/src/fe-text/term.h>
 #include <irssi/src/fe-text/gui-windows.h>
+#include <irssi/src/fe-text/resize-debug.h>
 
 #define NEW_WINDOW_SIZE (WINDOW_MIN_SIZE + 1)
 
@@ -805,17 +806,30 @@ void mainwindows_resize(int width, int height)
 {
 	int xdiff, ydiff;
 
+	resize_debug_start_sequence();
+	resize_debug_dimensions("MW_RESIZE_START", screen_width, screen_height, width, height);
+
 	xdiff = width - screen_width;
 	ydiff = height - screen_height;
 	screen_width = width;
 	screen_height = height;
 
-	/* Collapse mode: allow resize down to 1x1 and avoid destructive layout. */
+	resize_debug_log("MW_RESIZE", "xdiff=%d, ydiff=%d, reserved: top=%d bot=%d left=%d right=%d",
+	                 xdiff, ydiff, screen_reserved_top, screen_reserved_bottom,
+	                 screen_reserved_left, screen_reserved_right);
+
+	/* Collapse mode: allow resize down to 1x1 and avoid destructive layout.
+	 * Also enter collapsed mode when available space < MIN_MAIN_WINDOW_WIDTH
+	 * to prevent hangs during the xdiff < 0 resize logic. */
+	#define MW_MIN_AVAIL_WIDTH 20  /* Must match MIN_MAIN_WINDOW_WIDTH in sidepanels-layout.c */
 	{
 		int avail_w = screen_width - screen_reserved_left - screen_reserved_right;
 		int avail_h = screen_height - screen_reserved_top - screen_reserved_bottom;
-		if (avail_w <= 1 || avail_h <= 1) {
+		resize_debug_log("MW_RESIZE", "available: w=%d, h=%d", avail_w, avail_h);
+
+		if (avail_w < MW_MIN_AVAIL_WIDTH || avail_h <= 1) {
 			GSList *tmp;
+			resize_debug_log("MW_RESIZE", "ENTERING COLLAPSED MODE (too small)");
 			if (!screen_collapsed)
 				screen_collapsed = 1;
 			for (tmp = mainwindows; tmp != NULL; tmp = tmp->next) {
@@ -831,16 +845,72 @@ void mainwindows_resize(int width, int height)
 			}
 			signal_emit("terminal resized", 0);
 			irssi_redraw();
+			resize_debug_log("MW_RESIZE", "collapsed mode - returning early");
+			resize_debug_end_sequence();
 			return;
 		} else if (screen_collapsed) {
-			/* Recover from collapsed state: reflow horizontally. */
+			/* Recover from collapsed state: restore both width and height.
+			 * Windows were set to 1x1 during collapse, now restore proper geometry. */
 			MAIN_WINDOW_REC *win;
+			int avail_height = avail_h;
+			int num_windows = 0;
+			int height_per_window, extra_height;
+			int current_line;
+			GSList *tmp;
+
+			resize_debug_log("MW_RESIZE", "RECOVERING FROM COLLAPSED MODE, avail_h=%d", avail_h);
 			screen_collapsed = 0;
+
+			/* Count windows */
+			for (tmp = mainwindows; tmp != NULL; tmp = tmp->next) {
+				num_windows++;
+			}
+			if (num_windows == 0)
+				num_windows = 1;
+
+			/* Distribute height evenly among windows */
+			height_per_window = avail_height / num_windows;
+			extra_height = avail_height % num_windows;
+
+			resize_debug_log("MW_RESIZE", "RECOVERY: %d windows, %d height each, %d extra",
+			                 num_windows, height_per_window, extra_height);
+
+			/* Restore window geometry */
+			current_line = screen_reserved_top;
+			for (tmp = mainwindows; tmp != NULL; tmp = tmp->next) {
+				MAIN_WINDOW_REC *rec = tmp->data;
+				int win_height = height_per_window;
+				if (extra_height > 0) {
+					win_height++;
+					extra_height--;
+				}
+				rec->first_line = current_line;
+				rec->last_line = current_line + win_height - 1;
+				rec->height = win_height;
+				rec->first_column = screen_reserved_left;
+				rec->last_column = screen_width - 1 - screen_reserved_right;
+				rec->width = rec->last_column - rec->first_column + 1;
+				rec->size_dirty = TRUE;
+				rec->dirty = TRUE;
+				current_line += win_height;
+				resize_debug_log("MW_RESIZE", "RECOVERY: window at lines %d-%d, cols %d-%d",
+				                 rec->first_line, rec->last_line,
+				                 rec->first_column, rec->last_column);
+			}
+
+			/* Reflow horizontal layout */
 			for (win = mainwindows_find_lower(NULL); win != NULL;
 			     win = mainwindows_find_lower(win)) {
 				mainwindows_rresize_line(0, win);
 			}
 			irssi_set_dirty();
+
+			/* Skip normal ydiff/xdiff processing since we just rebuilt everything */
+			signal_emit("terminal resized", 0);
+			irssi_redraw();
+			resize_debug_log("MW_RESIZE", "RECOVERY complete");
+			resize_debug_end_sequence();
+			return;
 		}
 	}
 
@@ -912,9 +982,13 @@ void mainwindows_resize(int width, int height)
 		window_set_active(active_mainwin->active);
 	}
 
+	resize_debug_log("MW_RESIZE", "emitting 'terminal resized' signal");
 	signal_emit("terminal resized", 0);
 
+	resize_debug_log("MW_RESIZE", "calling irssi_redraw()");
 	irssi_redraw();
+
+	resize_debug_end_sequence();
 }
 
 int mainwindows_reserve_lines(int top, int bottom)
@@ -954,6 +1028,9 @@ int mainwindows_reserve_lines(int top, int bottom)
 		}
 		g_slist_free(list);
 	}
+
+	/* Notify terminal backend about reserved lines for plane layout */
+	term_set_reserved_lines(screen_reserved_top, screen_reserved_bottom);
 
 	return ret;
 }
