@@ -72,6 +72,8 @@ int term_get_size(int *width, int *height)
 void term_resize_dirty(void)
 {
         int width, height;
+	int old_width = term_width;
+	int old_height = term_height;
 
 	if (!resize_dirty)
 		return;
@@ -80,6 +82,11 @@ void term_resize_dirty(void)
 
 	if (!term_get_size(&width, &height))
 		width = height = -1;
+
+	/* Skip resize if character dimensions unchanged (Ghostty sends SIGWINCH
+	 * for pixel-only changes which would clear sidepanel caches without redraw) */
+	if (width == old_width && height == old_height)
+		return;
 
 	term_resize(width, height);
 	mainwindows_resize(term_width, term_height);
