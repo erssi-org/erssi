@@ -9,7 +9,7 @@
 
 #define MAIN_WINDOW_TEXT_HEIGHT(window) ((window)->height - (window)->statusbar_lines)
 
-#define MAIN_WINDOW_TEXT_WIDTH(window) ((window)->width - (window)->statusbar_columns)
+#define MAIN_WINDOW_TEXT_WIDTH(window) ((window)->width - (window)->statusbar_columns - 1)
 
 typedef struct {
 	WINDOW_REC *active;

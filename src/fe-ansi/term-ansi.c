@@ -949,6 +949,11 @@ void term_window_scroll(TERM_WINDOW *window, int count)
 {
 	int y;
 
+	/* VT100 scroll regions affect entire rows - only safe when window
+	 * spans full terminal width. Otherwise sidepanels get corrupted. */
+	if (window->x != 0 || window->width != term_width)
+		return;
+
 	ansi_scroll(ansi_term, window->y, window->y + window->height - 1, count);
 	term_move_reset(ansi_term->vcx, ansi_term->vcy);
 
@@ -1181,10 +1186,10 @@ void term_clrtoeol(TERM_WINDOW *window)
 	}
 
 	if (window->x + window->width < term_width) {
-		/* Vertical split - fill with spaces */
+		/* Vertical split - fill with spaces to window boundary only */
 		if (term->vcx != term->crealx || term->vcy != term->crealy || term->cforcemove)
 			term_move_real();
-		ansi_repeat(term, ' ', window->x + window->width - term->vcx + 1);
+		ansi_repeat(term, ' ', window->x + window->width - term->vcx);
 		ansi_move(term, term->vcx, term->vcy);
 		term->lines_empty[term->vcy] = FALSE;
 	} else {
