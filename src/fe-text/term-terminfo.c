@@ -25,6 +25,7 @@
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/fe-text/gui-printtext.h>
 #include <irssi/src/core/utf8.h>
+#include <irssi/src/fe-text/resize-debug.h>
 
 #include <signal.h>
 #include <termios.h>
@@ -269,6 +270,14 @@ void term_draw_statusbar_separator(int y)
 	(void) y;
 }
 
+/* Reserved lines notification (notcurses only, stub for terminfo) */
+void term_set_reserved_lines(int top, int bottom)
+{
+	/* Terminfo backend doesn't need explicit plane management */
+	(void) top;
+	(void) bottom;
+}
+
 /* Create a new window in terminal */
 TERM_WINDOW *term_window_create(int x, int y, int width, int height)
 {
@@ -295,6 +304,43 @@ void term_window_move(TERM_WINDOW *window, int x, int y,
 	window->y = y;
 	window->width = width;
         window->height = height;
+}
+
+/*
+ * Dedicated window creation - terminfo fallbacks.
+ * These just calculate coordinates and call term_window_create().
+ */
+TERM_WINDOW *term_window_create_statusbar(int height)
+{
+	/* Statusbar at bottom, full width */
+	return term_window_create(0, term_height - height, term_width, height);
+}
+
+void term_window_destroy_statusbar(TERM_WINDOW *window)
+{
+	term_window_destroy(window);
+}
+
+TERM_WINDOW *term_window_create_left_panel(int width)
+{
+	/* Left panel at left edge - caller handles y/height via move */
+	return term_window_create(0, 0, width, term_height);
+}
+
+void term_window_destroy_left_panel(TERM_WINDOW *window)
+{
+	term_window_destroy(window);
+}
+
+TERM_WINDOW *term_window_create_right_panel(int width)
+{
+	/* Right panel at right edge - caller handles positioning */
+	return term_window_create(term_width - width, 0, width, term_height);
+}
+
+void term_window_destroy_right_panel(TERM_WINDOW *window)
+{
+	term_window_destroy(window);
 }
 
 /* Clear window */

@@ -67,6 +67,20 @@ void term_window_destroy(TERM_WINDOW *window);
 /* Move/resize window */
 void term_window_move(TERM_WINDOW *window, int x, int y,
 		      int width, int height);
+
+/*
+ * Dedicated window creation for specific UI regions.
+ * For notcurses: creates dedicated ncplanes with proper layout.
+ * For terminfo: falls back to term_window_create().
+ */
+TERM_WINDOW *term_window_create_statusbar(int height);
+void term_window_destroy_statusbar(TERM_WINDOW *window);
+
+TERM_WINDOW *term_window_create_left_panel(int width);
+void term_window_destroy_left_panel(TERM_WINDOW *window);
+
+TERM_WINDOW *term_window_create_right_panel(int width);
+void term_window_destroy_right_panel(TERM_WINDOW *window);
 /* Clear window */
 void term_window_clear(TERM_WINDOW *window);
 /* Scroll window up/down */
@@ -96,6 +110,12 @@ void term_set_bracketed_paste_mode(int enable);
 
 /* Draw a horizontal separator line at specified y position (for notcurses) */
 void term_draw_statusbar_separator(int y);
+
+/* Notify backend about reserved lines for statusbar layout.
+ * For notcurses: creates/updates topic and statusbar planes.
+ * For terminfo: no-op.
+ */
+void term_set_reserved_lines(int top, int bottom);
 
 /* keyboard input handling */
 void term_set_input_type(int type);

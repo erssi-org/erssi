@@ -15,8 +15,8 @@ endif
 if have_fe_web
   subdir('fe-web')
 endif
-if have_fe_notcurses
-  subdir('fe-notcurses')
+if have_fe_ansi
+  subdir('fe-ansi')
 endif
 if want_bot
   subdir('fe-none')

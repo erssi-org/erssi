@@ -33,6 +33,7 @@ executable('erssi',
     'textbuffer-formats.c',
     'textbuffer-view.c',
     'textbuffer.c',
+    'resize-debug.c',
   )
   + [
     irssi_version_h,
@@ -75,6 +76,7 @@ install_headers(
     'textbuffer-formats.h',
     'textbuffer-view.h',
     'textbuffer.h',
+    'resize-debug.h',
   ),
   subdir : incdir / 'src' / 'fe-text')
 

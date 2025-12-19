@@ -53,6 +53,9 @@ want_fe_web         = get_option('with-fe-web') != 'no'
 require_fe_notcurses = get_option('with-fe-notcurses') == 'yes'
 want_fe_notcurses    = get_option('with-fe-notcurses') != 'no'
 
+require_fe_ansi      = get_option('with-fe-ansi') == 'yes'
+want_fe_ansi         = get_option('with-fe-ansi') != 'no'
+
 want_glib_internal  = get_option('install-glib') != 'no'
 require_glib_internal = get_option('install-glib') == 'force'
 
@@ -566,6 +569,18 @@ if want_image_preview and have_fe_notcurses
   endif
 endif
 
+###########
+# fe-ansi #
+###########
+
+have_fe_ansi = false
+chafa_dep = dependency('', required : false)
+if want_fe_ansi
+  # Chafa is optional - for image rendering in ANSI terminal
+  chafa_dep = dependency('chafa', version : '>=1.12.0', required : false, static : want_static_dependency, include_type : 'system')
+  have_fe_ansi = true
+endif
+
 ############
 # capsicum #
 ############
@@ -776,6 +791,7 @@ message('Building with utf8proc ........... : ' + have_libutf8proc.to_string('ye
 message('Building with OTR support ........ : ' + have_otr.to_string('yes', 'no'))
 message('Building with FE-WEB support ..... : ' + have_fe_web.to_string('yes', 'no'))
 message('Building with FE-NOTCURSES ...... : ' + have_fe_notcurses.to_string('yes', 'no'))
+message('Building with FE-ANSI (Chafa) ... : ' + have_fe_ansi.to_string('yes', 'no') + (have_fe_ansi and chafa_dep.found() ? ' (with Chafa)' : ''))
 message('Building with IMAGE-PREVIEW ..... : ' + have_image_preview.to_string('yes', 'no'))
 message('')
 message('If there are any problems, read the INSTALL file.')
