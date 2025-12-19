@@ -819,6 +819,14 @@ void term_resize_dirty(void)
 		width = height = -1;
 
 	resize_debug_dimensions("TERM_RESIZE", old_width, old_height, width, height);
+
+	/* Skip resize if character dimensions unchanged (Ghostty sends SIGWINCH
+	 * for pixel-only changes which would clear sidepanel caches without redraw) */
+	if (width == old_width && height == old_height) {
+		resize_debug_log("TERM_RESIZE", "dimensions unchanged, skipping resize");
+		return;
+	}
+
 	resize_debug_log("TERM_RESIZE", "calling term_resize(%d, %d)", width, height);
 
 	term_resize(width, height);
