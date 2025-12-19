@@ -318,6 +318,11 @@ void term_window_scroll(TERM_WINDOW *window, int count)
 {
 	int y;
 
+	/* VT100 scroll regions affect entire rows - only safe when window
+	 * spans full terminal width. Otherwise sidepanels get corrupted. */
+	if (window->x != 0 || window->width != term_width)
+		return;
+
 	terminfo_scroll(window->y, window->y+window->height-1, count);
         term_move_reset(vcx, vcy);
 
@@ -576,7 +581,7 @@ void term_clrtoeol(TERM_WINDOW *window)
 	if (window->x + window->width < term_width) {
 		/* we need to fill a vertical split */
 		if (vcmove) term_move_real();
-		terminfo_repeat(' ', window->x + window->width - vcx + 1);
+		terminfo_repeat(' ', window->x + window->width - vcx);
 		terminfo_move(vcx, vcy);
 		term_lines_empty[vcy] = FALSE;
 	} else {
