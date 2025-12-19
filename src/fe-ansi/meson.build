@@ -35,10 +35,29 @@ fe_text_shared_sources = files(
 )
 
 fe_ansi_dep = []
+fe_ansi_libs = [
+  libconfig_a,
+  libcore_a,
+  libfe_common_core_a,
+]
+fe_ansi_c_args = [
+  def_themesdir,
+  def_datadir,
+  '-DUSE_ANSI_BACKEND',
+]
+fe_ansi_inc = [rootinc]
 
 # Add Chafa dependency if available
 if chafa_dep.found()
   fe_ansi_dep += chafa_dep
+endif
+
+# Add image-preview module if available
+if have_image_preview
+  fe_ansi_libs += libimage_preview
+  fe_ansi_dep += [curl_dep, image_preview_chafa_dep]
+  fe_ansi_c_args += '-DHAVE_IMAGE_PREVIEW=1'
+  fe_ansi_inc += image_preview_inc
 endif
 
 executable('erssi-ansi',
@@ -47,19 +66,11 @@ executable('erssi-ansi',
     default_config_h,
     default_theme_h,
   ],
-  include_directories : rootinc,
+  include_directories : fe_ansi_inc,
   implicit_include_directories : false,
   export_dynamic : true,
-  c_args : [
-    def_themesdir,
-    def_datadir,
-    '-DUSE_ANSI_BACKEND',
-  ],
-  link_with : [
-    libconfig_a,
-    libcore_a,
-    libfe_common_core_a,
-  ],
+  c_args : fe_ansi_c_args,
+  link_with : fe_ansi_libs,
   install : true,
   dependencies : dep + fe_ansi_dep,
 )

@@ -15,6 +15,9 @@ endif
 if have_fe_web
   subdir('fe-web')
 endif
+if have_image_preview
+  subdir('image-preview')
+endif
 if have_fe_ansi
   subdir('fe-ansi')
 endif

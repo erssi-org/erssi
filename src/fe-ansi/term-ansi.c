@@ -571,17 +571,6 @@ void term_common_init(void)
 	settings_add_bool("lookandfeel", "term_force_colors", FALSE);
 	settings_add_bool("lookandfeel", "mirc_blink_fix", FALSE);
 
-	/* Stub settings for image_preview (from fe-notcurses) - not functional
-	 * in fe-ansi but registered to avoid "unknown settings" warning */
-	settings_add_bool("lookandfeel", "image_preview", FALSE);
-	settings_add_int("lookandfeel", "image_preview_max_width", 40);
-	settings_add_int("lookandfeel", "image_preview_max_height", 10);
-	settings_add_str("lookandfeel", "image_preview_blitter", "auto");
-	settings_add_size("lookandfeel", "image_preview_cache_size", "100M");
-	settings_add_time("lookandfeel", "image_preview_timeout", "10s");
-	settings_add_size("lookandfeel", "image_preview_max_file_size", "10M");
-	settings_add_bool("lookandfeel", "image_preview_debug", FALSE);
-
 	force_colors = FALSE;
 	term_use_colors = term_has_colors() && settings_get_bool("colors");
 	settings_add_bool("lookandfeel", "colors_ansi_24bit", FALSE);

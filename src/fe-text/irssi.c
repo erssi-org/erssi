@@ -49,7 +49,7 @@
 #include <irssi/src/fe-text/resize-debug.h>
 
 #ifdef HAVE_IMAGE_PREVIEW
-#include <irssi/src/fe-notcurses/image-preview.h>
+#include <irssi/src/image-preview/image-preview.h>
 #endif
 
 #include <signal.h>
@@ -237,8 +237,8 @@ static void textui_finish_init(void)
 	statusbar_init();
 	critical_fatal_section_end(loglev);
 
-	settings_check();
 	resize_debug_init();
+	settings_check();
 
 	module_register("core", "fe-text");
 

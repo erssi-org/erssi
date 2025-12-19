@@ -562,9 +562,12 @@ want_image_preview    = get_option('with-image-preview') != 'no'
 
 have_image_preview = false
 curl_dep = dependency('', required : false)
-if want_image_preview and have_fe_notcurses
+image_preview_chafa_dep = dependency('', required : false)
+if want_image_preview
+  # image-preview requires libcurl for fetching and chafa for rendering
   curl_dep = dependency('libcurl', version : '>=7.60.0', required : require_image_preview, static : want_static_dependency, include_type : 'system')
-  if curl_dep.found()
+  image_preview_chafa_dep = dependency('chafa', version : '>=1.12.0', required : require_image_preview, static : want_static_dependency, include_type : 'system')
+  if curl_dep.found() and image_preview_chafa_dep.found()
     have_image_preview = true
   endif
 endif
