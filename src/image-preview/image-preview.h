@@ -116,6 +116,7 @@ GString *image_render_chafa(const char *image_path,
                             int *out_rows);
 void image_render_popup(const char *image_path, int x, int y);
 void image_render_popup_close(void);
+void image_render_clear_graphics(void);
 
 /* Settings names */
 #define IMAGE_PREVIEW_SETTING           "image_preview"

@@ -11,6 +11,8 @@
 
 #include "module.h"
 #include "image-preview.h"
+#include "src/fe-text/mainwindows.h"
+#include "src/fe-text/term.h"
 
 #include <irssi/src/core/settings.h>
 
@@ -626,6 +628,50 @@ void image_render_popup(const char *image_path, int x, int y)
 	                          x, y, max_width, rows);
 
 	/* Output will be written by the frontend's refresh cycle */
+}
+
+/*
+ * Clear graphics from screen based on terminal protocol:
+ *
+ * Kitty (Ghostty, Kitty, WezTerm): Graphics are rendered in a separate layer
+ * on top of text. Send ESC_Ga=d to delete all images - text underneath is
+ * preserved and becomes visible immediately. No redraw needed.
+ *
+ * iTerm2/Sixel/Symbols: Graphics replace text in the terminal buffer (though
+ * text remains selectable underneath in iTerm2). No terminal command exists
+ * to "delete" images - instead, redraw the mainwindow area to overwrite the
+ * image with original text content.
+ */
+void image_render_clear_graphics(void)
+{
+#ifdef HAVE_CHAFA
+	ChafaPixelMode pixel_mode;
+	const char *tmux_start = "";
+	const char *tmux_end = "";
+	const char *env_tmux;
+
+	pixel_mode = parse_blitter_setting();
+
+	/* Check for tmux passthrough */
+	env_tmux = g_getenv("TMUX");
+	if (env_tmux && *env_tmux) {
+		tmux_start = "\033Ptmux;\033";
+		tmux_end = "\033\\";
+	}
+
+	if (pixel_mode == CHAFA_PIXEL_MODE_KITTY) {
+		/* Kitty graphics protocol: delete all images from graphics layer.
+		 * ESC _ G a=d ESC \  (a=d = action:delete, no args = all images) */
+		image_preview_debug_print("CLEAR: Kitty - sending delete-all sequence");
+		fprintf(stdout, "%s\033_Ga=d\033\\%s", tmux_start, tmux_end);
+		fflush(stdout);
+	} else {
+		/* iTerm2/Sixel/Symbols: redraw mainwindow to overwrite image with text.
+		 * Only mainwindow needs redraw since popup is displayed within it. */
+		image_preview_debug_print("CLEAR: Non-Kitty (%d) - redrawing mainwindow", pixel_mode);
+		mainwindows_redraw();
+	}
+#endif
 }
 
 /*

@@ -100,9 +100,9 @@ void image_preview_debug_print(const char *fmt, ...)
 #define URL_PATTERN_IMGBB_DIRECT "https?://i\\.ibb\\.co/[a-zA-Z0-9]+/[^\\s]+"
 
 /* URL regex patterns - page URLs (require og:image extraction) */
-#define URL_PATTERN_IMGUR_PAGE   "https?://imgur\\.com/[a-zA-Z0-9]+"
-#define URL_PATTERN_IMGBB_PAGE   "https?://ibb\\.co/[a-zA-Z0-9]+"
-#define URL_PATTERN_KERMIT       "https?://kermit\\.pw/[a-zA-Z0-9]+"
+#define URL_PATTERN_IMGUR_PAGE   "https?://imgur\\.com/[a-zA-Z0-9_-]+"
+#define URL_PATTERN_IMGBB_PAGE   "https?://ibb\\.co/[a-zA-Z0-9_-]+"
+#define URL_PATTERN_KERMIT       "https?://kermit\\.pw/[a-zA-Z0-9_-]+"
 
 /* Check if image preview is enabled */
 gboolean image_preview_enabled(void)
@@ -641,8 +641,11 @@ static void popup_preview_dismiss(void)
 		popup_content = NULL;
 	}
 
-	/* Redraw to clear the popup area */
-	irssi_redraw();
+	/* Clear the popup from screen:
+	 * - Kitty: sends delete-all sequence (graphics are in separate layer)
+	 * - iTerm2/Sixel: redraws mainwindow to overwrite image with text
+	 * Sidepanels are not touched since popup only covers mainwindow area. */
+	image_render_clear_graphics();
 }
 
 /* Show centered popup preview for an image */
@@ -889,6 +892,21 @@ static void sig_key_pressed_preview(gpointer keyp)
 	}
 }
 
+/* Signal: line removed from textbuffer - cleanup hash table */
+static void sig_textbuffer_line_removed(TEXT_BUFFER_VIEW_REC *view,
+                                        LINE_REC *line, LINE_REC *prev_line)
+{
+	(void)view;
+	(void)prev_line;
+
+	if (image_previews == NULL || line == NULL)
+		return;
+
+	if (g_hash_table_remove(image_previews, line)) {
+		debug_print("LINE_REMOVED: cleaned up preview for line %p", line);
+	}
+}
+
 /* Command: /IMAGE */
 static void cmd_image(const char *data, SERVER_REC *server, void *item)
 {
@@ -967,6 +985,7 @@ void image_preview_init(void)
 	signal_add("image preview ready", (SIGNAL_FUNC)sig_image_preview_ready);
 	signal_add("setup changed", (SIGNAL_FUNC)sig_setup_changed);
 	signal_add_first("gui key pressed", (SIGNAL_FUNC)sig_key_pressed_preview);
+	signal_add("gui textbuffer line removed", (SIGNAL_FUNC)sig_textbuffer_line_removed);
 
 	gui_mouse_add_handler(image_preview_mouse_handler, NULL);
 
@@ -984,6 +1003,7 @@ void image_preview_deinit(void)
 
 	command_unbind("image", (SIGNAL_FUNC)cmd_image);
 
+	signal_remove("gui textbuffer line removed", (SIGNAL_FUNC)sig_textbuffer_line_removed);
 	signal_remove("gui key pressed", (SIGNAL_FUNC)sig_key_pressed_preview);
 	signal_remove("setup changed", (SIGNAL_FUNC)sig_setup_changed);
 	signal_remove("image preview ready", (SIGNAL_FUNC)sig_image_preview_ready);
