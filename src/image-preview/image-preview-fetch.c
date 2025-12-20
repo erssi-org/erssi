@@ -540,7 +540,8 @@ static void image_fetch_start_stage2(IMAGE_FETCH_REC *fetch, const char *og_imag
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_PRIVATE, fetch);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_MAXREDIRS, 5L);
-	curl_easy_setopt(fetch->curl_handle, CURLOPT_USERAGENT, "erssi-nc/1.0");
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_USERAGENT,
+	                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15");
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_NOSIGNAL, 1L);
 
 	/* Set timeout */
@@ -656,7 +657,8 @@ gboolean image_fetch_start(const char *url, const char *cache_path,
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_PRIVATE, fetch);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_MAXREDIRS, 5L);
-	curl_easy_setopt(fetch->curl_handle, CURLOPT_USERAGENT, "erssi-nc/1.0");
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_USERAGENT,
+	                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15");
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_NOSIGNAL, 1L);
 
 	/* Set timeout */
