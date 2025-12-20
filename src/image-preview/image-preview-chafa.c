@@ -327,27 +327,6 @@ static ChafaPixelMode detect_pixel_mode(void)
 	return CHAFA_PIXEL_MODE_SYMBOLS;
 }
 
-/* Detect passthrough mode for tmux/screen */
-static ChafaPassthrough detect_passthrough(void)
-{
-	const char *env_tmux, *env_sty;
-
-	env_tmux = g_getenv("TMUX");
-	env_sty = g_getenv("STY");
-
-	if (env_tmux && *env_tmux) {
-		image_preview_debug_print("CHAFA: tmux detected, enabling passthrough");
-		return CHAFA_PASSTHROUGH_TMUX;
-	}
-
-	if (env_sty && *env_sty) {
-		image_preview_debug_print("CHAFA: screen detected, enabling passthrough");
-		return CHAFA_PASSTHROUGH_SCREEN;
-	}
-
-	return CHAFA_PASSTHROUGH_NONE;
-}
-
 /* Parse blitter setting */
 static ChafaPixelMode parse_blitter_setting(void)
 {
