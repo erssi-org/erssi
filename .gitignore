@@ -113,3 +113,8 @@ memory.db-shm
 memory.db-wal
 SIDEPANEL-SELECTIVE-REDRAW.md
 CLAUDE.md
+image-preview-debug.log
+image.png
+notcurses-rebuild.md
+prompt.md
+RESIZE_ANALYSIS.md

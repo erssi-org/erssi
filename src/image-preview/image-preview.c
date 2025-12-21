@@ -435,9 +435,18 @@ gboolean image_preview_queue_fetch(const char *url, LINE_REC *line, WINDOW_REC *
 			return FALSE;
 		}
 		if (rec->cache_path != NULL && !rec->fetch_failed) {
-			debug_print("queue_fetch: already cached at %s", rec->cache_path);
-			signal_emit("image preview ready", 2, line, window);
-			return TRUE;
+			/* Verify cache file still exists */
+			if (access(rec->cache_path, R_OK) == 0) {
+				debug_print("queue_fetch: already cached at %s", rec->cache_path);
+				signal_emit("image preview ready", 2, line, window);
+				return TRUE;
+			} else {
+				/* Cache file disappeared - reset for fresh fetch */
+				debug_print("queue_fetch: cache file missing, will re-fetch");
+				g_free(rec->cache_path);
+				rec->cache_path = NULL;
+				rec->retry_count = 0;
+			}
 		}
 		if (rec->fetch_failed) {
 			debug_print("queue_fetch: previous fetch failed");
@@ -453,12 +462,19 @@ gboolean image_preview_queue_fetch(const char *url, LINE_REC *line, WINDOW_REC *
 
 	cache_path = image_cache_get(url);
 	if (cache_path != NULL) {
-		debug_print("queue_fetch: CACHED at %s", cache_path);
-		rec->cache_path = cache_path;
-		rec->fetch_pending = FALSE;
-		rec->fetch_failed = FALSE;
-		signal_emit("image preview ready", 2, line, window);
-		return TRUE;
+		/* Double-check file exists (image_cache_get validates magic bytes) */
+		if (access(cache_path, R_OK) == 0) {
+			debug_print("queue_fetch: CACHED at %s", cache_path);
+			rec->cache_path = cache_path;
+			rec->fetch_pending = FALSE;
+			rec->fetch_failed = FALSE;
+			signal_emit("image preview ready", 2, line, window);
+			return TRUE;
+		} else {
+			debug_print("queue_fetch: cache_get returned path but file missing: %s", cache_path);
+			g_free(cache_path);
+			/* Continue to fetch */
+		}
 	}
 
 	if (rec->cache_path == NULL) {
@@ -777,7 +793,25 @@ static void popup_preview_show_for_line(const char *image_path, LINE_REC *line)
 	/* Render using Chafa */
 	popup_content = image_render_chafa(image_path, max_width, max_height, &rows);
 	if (popup_content == NULL) {
-		debug_print("POPUP: failed to render image");
+		debug_print("POPUP: failed to render image - invalidating cache");
+
+		/* Render failed - cache file is likely corrupt or incomplete */
+		/* Delete the bad cache file and reset preview state */
+		if (line != NULL) {
+			preview = image_preview_get(line);
+			if (preview != NULL && preview->cache_path != NULL) {
+				debug_print("POPUP: deleting corrupt cache file: %s", preview->cache_path);
+				unlink(preview->cache_path);
+				g_free(preview->cache_path);
+				preview->cache_path = NULL;
+				/* Reset state so next click can retry */
+				preview->fetch_pending = FALSE;
+				preview->fetch_failed = FALSE;
+				preview->retry_count = 0;
+				g_free(preview->error_message);
+				preview->error_message = NULL;
+			}
+		}
 		return;
 	}
 
@@ -994,13 +1028,23 @@ static gboolean image_preview_mouse_handler(const GuiMouseEvent *event, gpointer
 	/* Check if we already have a preview record for this line */
 	preview = image_preview_get(line);
 
-	/* Case 1: Already cached - show popup immediately */
+	/* Case 1: Already cached - verify file exists then show popup */
 	if (preview != NULL && preview->cache_path != NULL &&
 	    !preview->fetch_pending && !preview->fetch_failed) {
-		debug_print("CLICK: cached, showing popup for %s", preview->cache_path);
-		g_free(url);
-		popup_preview_show_for_line(preview->cache_path, line);
-		return TRUE;
+		/* Verify cache file still exists and is valid */
+		if (access(preview->cache_path, R_OK) == 0) {
+			debug_print("CLICK: cached, showing popup for %s", preview->cache_path);
+			g_free(url);
+			popup_preview_show_for_line(preview->cache_path, line);
+			return TRUE;
+		} else {
+			/* Cache file disappeared - reset and fall through to fetch */
+			debug_print("CLICK: cache file missing: %s - will re-fetch", preview->cache_path);
+			g_free(preview->cache_path);
+			preview->cache_path = NULL;
+			preview->retry_count = 0;
+			/* Fall through to Case 3 */
+		}
 	}
 
 	/* Case 2: Fetch in progress - but check if it's actually stuck */

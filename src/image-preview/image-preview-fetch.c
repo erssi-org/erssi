@@ -32,6 +32,7 @@ struct _IMAGE_FETCH_REC {
 	WINDOW_REC *window;      /* Target window */
 	gint64 start_time;       /* Start timestamp for timeout */
 	gint64 content_length;   /* Content-Length from response */
+	gint64 received_bytes;   /* Actual bytes received for image data */
 	gboolean cancelled;      /* Cancellation flag */
 
 	/* Two-stage fetch support for page URLs */
@@ -207,11 +208,12 @@ static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *userdat
 
 	written = fwrite(ptr, size, nmemb, fetch->fp);
 	total_bytes_written += written;
+	fetch->received_bytes += written;  /* Track per-fetch */
 
 	/* Log every ~100KB */
 	if (total_bytes_written - last_log > 100000) {
-		image_preview_debug_print("FETCH: write_callback stage=%d written=%zu total=%" G_GINT64_FORMAT,
-		                          fetch->stage, written, total_bytes_written);
+		image_preview_debug_print("FETCH: write_callback stage=%d written=%zu total=%" G_GINT64_FORMAT " received=%" G_GINT64_FORMAT,
+		                          fetch->stage, written, total_bytes_written, fetch->received_bytes);
 		last_log = total_bytes_written;
 	}
 
@@ -407,28 +409,46 @@ static gboolean curl_process(gpointer data)
 	int msgs_left;
 	static int call_count = 0;
 	int numfds;
+	int max_loops = 10;  /* Prevent infinite loops */
 
 	if (curl_multi == NULL)
 		return FALSE;
 
 	call_count++;
 
-	/* Use curl_multi_poll to wait for activity (up to 1ms) - much more efficient */
-	mc = curl_multi_poll(curl_multi, NULL, 0, 1, &numfds);
-	if (mc != CURLM_OK) {
-		image_preview_debug_print("FETCH: curl_multi_poll failed: %s",
-		                          curl_multi_strerror(mc));
-	}
-
-	/* Perform transfers */
+	/* First perform to drive any pending work */
 	mc = curl_multi_perform(curl_multi, &still_running);
 	if (mc != CURLM_OK) {
 		image_preview_debug_print("FETCH: curl_multi_perform failed: %s",
 		                          curl_multi_strerror(mc));
 	}
 
+	/* Keep polling and performing while there's activity */
+	while (still_running > 0 && max_loops-- > 0) {
+		/* Wait for activity (up to 50ms) - gives curl time to receive data */
+		mc = curl_multi_poll(curl_multi, NULL, 0, 50, &numfds);
+		if (mc != CURLM_OK) {
+			image_preview_debug_print("FETCH: curl_multi_poll failed: %s",
+			                          curl_multi_strerror(mc));
+			break;
+		}
+
+		/* If no file descriptors had activity and no timeout, break */
+		if (numfds == 0) {
+			/* Still do one more perform in case data arrived */
+			mc = curl_multi_perform(curl_multi, &still_running);
+			break;
+		}
+
+		/* Perform transfers after poll detected activity */
+		mc = curl_multi_perform(curl_multi, &still_running);
+		if (mc != CURLM_OK) {
+			break;
+		}
+	}
+
 	/* Log periodically to confirm timer is running */
-	if (call_count % 500 == 0 && still_running > 0) {
+	if (call_count % 100 == 0 && still_running > 0) {
 		image_preview_debug_print("FETCH: timer tick #%d, still_running=%d", call_count, still_running);
 	}
 
@@ -493,8 +513,45 @@ static gboolean curl_process(gpointer data)
 	/* Final check after processing any remaining messages */
 	mc = curl_multi_perform(curl_multi, &still_running);
 
+	/* Third check for completion messages - covers edge case where
+	 * stage 2 data arrived between perform calls */
+	while ((msg = curl_multi_info_read(curl_multi, &msgs_left)) != NULL) {
+		if (msg->msg == CURLMSG_DONE) {
+			CURL *easy = msg->easy_handle;
+			CURLcode result = msg->data.result;
+			IMAGE_FETCH_REC *fetch = NULL;
+
+			curl_easy_getinfo(easy, CURLINFO_PRIVATE, &fetch);
+
+			image_preview_debug_print("FETCH: (final-check) transfer done, result=%d (%s)",
+			                          result, curl_easy_strerror(result));
+
+			if (fetch != NULL) {
+				if (result == CURLE_OK && !fetch->cancelled) {
+					fetch_complete(fetch, TRUE, NULL);
+				} else if (fetch->cancelled) {
+					fetch_complete(fetch, FALSE, "Cancelled or file too large");
+				} else {
+					fetch_complete(fetch, FALSE, curl_easy_strerror(result));
+				}
+			}
+		}
+	}
+
+	/* Re-check still_running after processing any final messages */
+	curl_multi_perform(curl_multi, &still_running);
+
 	/* Continue if there are active transfers */
 	if (still_running > 0) {
+		return TRUE;
+	}
+
+	/* Also continue if we have active fetches in hash table that haven't
+	 * been cleaned up yet - this covers race conditions where curl says
+	 * 0 active but we haven't processed completion yet */
+	if (active_fetches != NULL && g_hash_table_size(active_fetches) > 0) {
+		image_preview_debug_print("FETCH: still_running=0 but %u active in hash table, continuing",
+		                          g_hash_table_size(active_fetches));
 		return TRUE;
 	}
 
@@ -508,8 +565,8 @@ static gboolean curl_process(gpointer data)
 static void ensure_processing_timer(void)
 {
 	if (curl_timer_tag == 0) {
-		/* Poll every 10ms for faster downloads */
-		curl_timer_tag = g_timeout_add(10, curl_process, NULL);
+		/* Poll every 50ms - each tick does multiple poll/perform cycles */
+		curl_timer_tag = g_timeout_add(50, curl_process, NULL);
 		image_preview_debug_print("FETCH: timer STARTED, tag=%u", curl_timer_tag);
 	} else {
 		image_preview_debug_print("FETCH: timer already running, tag=%u", curl_timer_tag);
@@ -662,14 +719,26 @@ static void fetch_complete(IMAGE_FETCH_REC *fetch, gboolean success, const char 
 	}
 
 	/* Direct image fetch or stage 2 (og:image fetch) completion */
-	image_preview_debug_print("FETCH: image download complete, stage=%d total_bytes=%" G_GINT64_FORMAT,
-	                          fetch->stage, total_bytes_written);
+	image_preview_debug_print("FETCH: image download complete, stage=%d received=%" G_GINT64_FORMAT " expected=%" G_GINT64_FORMAT,
+	                          fetch->stage, fetch->received_bytes, fetch->content_length);
 
 	/* Close file */
 	if (fetch->fp != NULL) {
 		fflush(fetch->fp);
 		fclose(fetch->fp);
 		fetch->fp = NULL;
+	}
+
+	/* Verify we got all expected bytes (if Content-Length was provided) */
+	if (success && fetch->content_length > 0 && fetch->received_bytes < fetch->content_length) {
+		image_preview_debug_print("FETCH: INCOMPLETE DOWNLOAD! Expected %" G_GINT64_FORMAT " bytes but got %" G_GINT64_FORMAT,
+		                          fetch->content_length, fetch->received_bytes);
+		success = FALSE;
+		error = "Incomplete download";
+		/* Remove partial file */
+		if (fetch->cache_path != NULL) {
+			unlink(fetch->cache_path);
+		}
 	}
 
 	/* Remove from curl multi */
@@ -797,6 +866,7 @@ static void image_fetch_start_stage2(IMAGE_FETCH_REC *fetch, const char *og_imag
 	g_free(fetch->url);
 	fetch->url = g_strdup(og_image_url);
 	fetch->content_length = 0;
+	fetch->received_bytes = 0;  /* Reset for stage 2 */
 
 	/* Open cache file for image */
 	fetch->fp = fopen(fetch->cache_path, "wb");
@@ -820,9 +890,20 @@ static void image_fetch_start_stage2(IMAGE_FETCH_REC *fetch, const char *og_imag
 	                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15");
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_NOSIGNAL, 1L);
 
+	/* Enable HTTP/2 */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+	/* Keep connection alive for potential reuse */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_TCP_KEEPALIVE, 1L);
+	/* Accept compressed responses */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_ACCEPT_ENCODING, "");
+	/* Set buffer size for better throughput */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_BUFFERSIZE, 102400L);
+
 	/* Set timeout */
 	timeout_ms = settings_get_time(IMAGE_PREVIEW_TIMEOUT);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_TIMEOUT_MS, (long)timeout_ms);
+	/* Also set connect timeout */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
 
 	/* Re-add to multi handle */
 	mc = curl_multi_add_handle(curl_multi, fetch->curl_handle);
@@ -937,9 +1018,20 @@ gboolean image_fetch_start(const char *url, const char *cache_path,
 	                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15");
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_NOSIGNAL, 1L);
 
+	/* Enable HTTP/2 */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+	/* Keep connection alive for potential reuse */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_TCP_KEEPALIVE, 1L);
+	/* Accept compressed responses */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_ACCEPT_ENCODING, "");
+	/* Set buffer size for better throughput */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_BUFFERSIZE, 102400L);
+
 	/* Set timeout */
 	timeout_ms = settings_get_time(IMAGE_PREVIEW_TIMEOUT);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_TIMEOUT_MS, (long)timeout_ms);
+	/* Also set connect timeout */
+	curl_easy_setopt(fetch->curl_handle, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
 
 	/* Add to multi handle */
 	mc = curl_multi_add_handle(curl_multi, fetch->curl_handle);
@@ -1003,9 +1095,17 @@ void image_fetch_init(void)
 		return;
 	}
 
+	/* Configure multi handle for better reliability */
+	/* Limit concurrent connections to prevent overload */
+	curl_multi_setopt(curl_multi, CURLMOPT_MAX_TOTAL_CONNECTIONS, 4L);
+	/* Enable HTTP/2 multiplexing */
+	curl_multi_setopt(curl_multi, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
+
 	/* Create active fetches hash table */
 	active_fetches = g_hash_table_new_full(g_str_hash, g_str_equal,
 	                                       NULL, (GDestroyNotify)fetch_rec_free);
+
+	image_preview_debug_print("FETCH: curl_multi initialized with HTTP/2 multiplexing");
 }
 
 /* Deinitialize fetch system */

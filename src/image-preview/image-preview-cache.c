@@ -37,16 +37,34 @@ static struct {
 	int misses;
 } cache_stats = {0};
 
+/* Minimum file size for a valid image (100 bytes - magic + some data) */
+#define MIN_IMAGE_SIZE 100
+
 /* Validate that a file contains an actual image (not HTML or other garbage) */
 static gboolean validate_image_file(const char *path)
 {
 	FILE *fp;
 	unsigned char magic[12];
 	size_t nread;
+	struct stat st;
+
+	/* First check file exists and has reasonable size */
+	if (stat(path, &st) != 0) {
+		image_preview_debug_print("CACHE: validate_image_file - stat failed for %s", path);
+		return FALSE;
+	}
+
+	if (st.st_size < MIN_IMAGE_SIZE) {
+		image_preview_debug_print("CACHE: validate_image_file - file too small (%lld bytes): %s",
+		                          (long long)st.st_size, path);
+		return FALSE;
+	}
 
 	fp = fopen(path, "rb");
-	if (fp == NULL)
+	if (fp == NULL) {
+		image_preview_debug_print("CACHE: validate_image_file - can't open %s", path);
 		return FALSE;
+	}
 
 	nread = fread(magic, 1, sizeof(magic), fp);
 	fclose(fp);
