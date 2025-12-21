@@ -50,10 +50,12 @@ static gboolean popup_preview_showing = FALSE;
 static GString *popup_content = NULL;
 static int popup_x = 0, popup_y = 0;
 static int popup_width = 0, popup_height = 0;
+static LINE_REC *popup_current_line = NULL;  /* Line whose image is currently displayed */
 
 /* Forward declarations */
-static void popup_preview_show(const char *image_path);
+static void popup_preview_show_for_line(const char *image_path, LINE_REC *line);
 static void popup_preview_dismiss(void);
+static gboolean cache_cleanup_callback(gpointer user_data);
 
 /* Debug print helper - writes to file to avoid TUI interference */
 void image_preview_debug_print(const char *fmt, ...)
@@ -115,6 +117,12 @@ static void image_preview_rec_free(IMAGE_PREVIEW_REC *rec)
 {
 	if (rec == NULL)
 		return;
+
+	/* Cancel any pending cache cleanup timer */
+	if (rec->cache_cleanup_tag != 0) {
+		g_source_remove(rec->cache_cleanup_tag);
+		rec->cache_cleanup_tag = 0;
+	}
 
 	if (rec->rendered != NULL) {
 		g_string_free(rec->rendered, TRUE);
@@ -421,7 +429,9 @@ gboolean image_preview_queue_fetch(const char *url, LINE_REC *line, WINDOW_REC *
 	rec = image_preview_get(line);
 	if (rec != NULL) {
 		if (rec->fetch_pending) {
-			debug_print("queue_fetch: already fetching");
+			debug_print("queue_fetch: already fetching (rec=%p url=%s)",
+			            (void*)rec, rec->url ? rec->url : "(null)");
+			image_fetch_debug_dump();
 			return FALSE;
 		}
 		if (rec->cache_path != NULL && !rec->fetch_failed) {
@@ -536,51 +546,10 @@ void image_preview_render_view(TEXT_BUFFER_VIEW_REC *view, WINDOW_REC *window)
 	(void)window;
 }
 
-/* Signal: text line finished printing */
-static void sig_gui_print_text_finished(WINDOW_REC *window, void *dest)
-{
-	GUI_WINDOW_REC *gui;
-	LINE_REC *line;
-	GString *str;
-	GSList *urls;
-
-	if (!image_preview_enabled())
-		return;
-
-	if (window == NULL)
-		return;
-
-	gui = WINDOW_GUI(window);
-	if (gui == NULL || gui->view == NULL || gui->view->buffer == NULL)
-		return;
-
-	line = textbuffer_line_last(gui->view->buffer);
-	if (line == NULL)
-		return;
-
-	str = g_string_new(NULL);
-	textbuffer_line2text(gui->view->buffer, line, FALSE, str);
-	if (str->len == 0) {
-		g_string_free(str, TRUE);
-		return;
-	}
-
-	debug_print("scanning: %.60s%s", str->str, str->len > 60 ? "..." : "");
-
-	urls = image_preview_find_urls(str->str);
-	g_string_free(str, TRUE);
-
-	if (urls == NULL)
-		return;
-
-	debug_print("found URL: %s", (char *)urls->data);
-
-	if (image_preview_register_url(urls->data, line, window)) {
-		debug_print("registered URL OK");
-	}
-
-	g_slist_free_full(urls, g_free);
-}
+/* NOTE: sig_gui_print_text_finished was removed.
+ * We no longer scan lines on display - URL detection happens only on click
+ * in sig_mouse_button_clicked() -> find_url_in_line().
+ * This avoids unnecessary processing and allows dynamic detection. */
 
 /* Signal: window changed */
 static void sig_window_changed(WINDOW_REC *window)
@@ -620,8 +589,45 @@ static void sig_image_preview_ready(LINE_REC *line, WINDOW_REC *window)
 	if (preview->show_on_complete) {
 		debug_print("sig_image_preview_ready: showing popup");
 		preview->show_on_complete = FALSE;
-		popup_preview_show(preview->cache_path);
+		popup_preview_show_for_line(preview->cache_path, line);
 	}
+}
+
+/* Timer callback to clean up cached image 30 seconds after display */
+static gboolean cache_cleanup_callback(gpointer user_data)
+{
+	IMAGE_PREVIEW_REC *preview = user_data;
+
+	debug_print("CACHE_CLEANUP: timer fired for preview %p", (void*)preview);
+
+	if (preview == NULL)
+		return FALSE;
+
+	/* Clear the timer tag */
+	preview->cache_cleanup_tag = 0;
+
+	/* Delete the cached file */
+	if (preview->cache_path != NULL) {
+		debug_print("CACHE_CLEANUP: deleting %s", preview->cache_path);
+		unlink(preview->cache_path);
+		g_free(preview->cache_path);
+		preview->cache_path = NULL;
+	}
+
+	/* Clear rendered content */
+	if (preview->rendered != NULL) {
+		g_string_free(preview->rendered, TRUE);
+		preview->rendered = NULL;
+	}
+
+	/* Reset retry count for next fetch */
+	preview->retry_count = 0;
+	preview->fetch_failed = FALSE;
+	g_free(preview->error_message);
+	preview->error_message = NULL;
+
+	debug_print("CACHE_CLEANUP: done, preview reset for next click");
+	return FALSE;  /* Don't repeat timer */
 }
 
 /* Dismiss popup preview */
@@ -635,6 +641,7 @@ static void popup_preview_dismiss(void)
 	popup_preview_showing = FALSE;
 	popup_x = popup_y = 0;
 	popup_width = popup_height = 0;
+	popup_current_line = NULL;
 
 	if (popup_content != NULL) {
 		g_string_free(popup_content, TRUE);
@@ -648,15 +655,98 @@ static void popup_preview_dismiss(void)
 	image_render_clear_graphics();
 }
 
-/* Show centered popup preview for an image */
-static void popup_preview_show(const char *image_path)
+/* Show error popup (when fetch fails after retry) */
+void image_preview_show_error_popup(void)
 {
 	MAIN_WINDOW_REC *mainwin;
+	int mw_top, mw_left, mw_height, mw_width;
+	int rows = 0;
+	GString *error_content;
+
+	debug_print("ERROR_POPUP: showing error icon");
+
+	/* Get main window dimensions for centering */
+	mainwin = WINDOW_MAIN(active_win);
+	if (mainwin != NULL) {
+		mw_top = mainwin->first_line + mainwin->statusbar_lines_top;
+		mw_left = mainwin->first_column;
+		mw_height = mainwin->height - mainwin->statusbar_lines;
+		mw_width = mainwin->width;
+	} else {
+		mw_top = 0;
+		mw_left = 0;
+		mw_height = term_height;
+		mw_width = term_width;
+	}
+
+	/* Dismiss any existing popup first */
+	popup_preview_dismiss();
+
+	/* Render error icon */
+	error_content = image_render_error_icon(mw_width / 4, mw_height / 4, &rows);
+	if (error_content == NULL) {
+		debug_print("ERROR_POPUP: failed to render error icon");
+		return;
+	}
+
+	/* Store as popup content */
+	popup_content = error_content;
+
+	/* Center position within main window */
+	popup_y = mw_top + (mw_height - rows) / 2;
+	popup_x = mw_left + (mw_width - 8) / 2;  /* Error icon is about 8 cols wide */
+	popup_width = 8;
+	popup_height = rows;
+
+	debug_print("ERROR_POPUP: position y=%d x=%d size %dx%d", popup_y, popup_x, popup_width, popup_height);
+
+	popup_preview_showing = TRUE;
+
+	/* Output the error icon */
+	{
+		const char *tmux_env = g_getenv("TMUX");
+		gboolean in_tmux = (tmux_env != NULL && *tmux_env != '\0');
+
+		/* Save cursor position */
+		fprintf(stdout, "\0337");
+		/* Move to popup position */
+		fprintf(stdout, "\033[%d;%dH", popup_y + 1, popup_x + 1);
+
+		if (in_tmux) {
+			/* Wrap in tmux DCS passthrough */
+			size_t i;
+			fprintf(stdout, "\033Ptmux;");
+			for (i = 0; i < popup_content->len; i++) {
+				char c = popup_content->str[i];
+				if (c == '\033') {
+					fprintf(stdout, "\033\033");
+				} else {
+					fputc(c, stdout);
+				}
+			}
+			fprintf(stdout, "\033\\");
+		} else {
+			fwrite(popup_content->str, 1, popup_content->len, stdout);
+		}
+
+		/* Restore cursor position */
+		fprintf(stdout, "\0338");
+		fflush(stdout);
+
+		debug_print("ERROR_POPUP: shown successfully (%zu bytes)", popup_content->len);
+	}
+}
+
+/* Show centered popup preview for an image with optional LINE_REC for cache tracking */
+static void popup_preview_show_for_line(const char *image_path, LINE_REC *line)
+{
+	MAIN_WINDOW_REC *mainwin;
+	IMAGE_PREVIEW_REC *preview;
 	int max_width, max_height;
 	int mw_top, mw_left, mw_height, mw_width;
 	int rows = 0;
 
-	debug_print("POPUP: showing preview for %s", image_path);
+	debug_print("POPUP: showing preview for %s (line=%p)", image_path, (void*)line);
 
 	/* Get main window dimensions for centering */
 	mainwin = WINDOW_MAIN(active_win);
@@ -696,10 +786,26 @@ static void popup_preview_show(const char *image_path)
 	popup_x = mw_left + (mw_width - max_width) / 2;
 	popup_width = max_width;
 	popup_height = rows;
+	popup_current_line = line;
 
 	debug_print("POPUP: position y=%d x=%d size %dx%d", popup_y, popup_x, popup_width, popup_height);
 
 	popup_preview_showing = TRUE;
+
+	/* Start 30-second cache cleanup timer for this preview */
+	if (line != NULL) {
+		preview = image_preview_get(line);
+		if (preview != NULL) {
+			/* Cancel any existing timer */
+			if (preview->cache_cleanup_tag != 0) {
+				g_source_remove(preview->cache_cleanup_tag);
+				preview->cache_cleanup_tag = 0;
+			}
+			/* Start new 30-second timer */
+			preview->cache_cleanup_tag = g_timeout_add(30000, cache_cleanup_callback, preview);
+			debug_print("POPUP: started 30-second cache cleanup timer (tag=%u)", preview->cache_cleanup_tag);
+		}
+	}
 
 	/* Check if we're in tmux and need DCS passthrough */
 	{
@@ -743,6 +849,7 @@ static void popup_preview_show(const char *image_path)
 	}
 }
 
+
 /* Find LINE_REC at given screen Y coordinate */
 static LINE_REC *find_line_at_screen_y(TEXT_BUFFER_VIEW_REC *view, MAIN_WINDOW_REC *mainwin, int screen_y)
 {
@@ -778,6 +885,52 @@ static LINE_REC *find_line_at_screen_y(TEXT_BUFFER_VIEW_REC *view, MAIN_WINDOW_R
 	return NULL;
 }
 
+/* Check if click X coordinate is within mainwindow text area (not sidepanels) */
+static gboolean is_click_in_text_area(MAIN_WINDOW_REC *mainwin, int x)
+{
+	int text_left, text_right;
+
+	if (mainwin == NULL)
+		return FALSE;
+
+	/* Text area starts after left statusbar columns (sidepanel) */
+	text_left = mainwin->first_column + mainwin->statusbar_columns_left;
+	/* Text area ends before right statusbar columns (sidepanel) */
+	text_right = mainwin->first_column + mainwin->width - mainwin->statusbar_columns_right;
+
+	return (x >= text_left && x < text_right);
+}
+
+/* Dynamically find URL in line text at click time (doesn't rely on registration) */
+static char *find_url_in_line(TEXT_BUFFER_REC *buffer, LINE_REC *line)
+{
+	GString *str;
+	GSList *urls;
+	char *url = NULL;
+
+	if (buffer == NULL || line == NULL)
+		return NULL;
+
+	str = g_string_new(NULL);
+	textbuffer_line2text(buffer, line, FALSE, str);
+
+	if (str->len == 0) {
+		g_string_free(str, TRUE);
+		return NULL;
+	}
+
+	urls = image_preview_find_urls(str->str);
+	g_string_free(str, TRUE);
+
+	if (urls != NULL) {
+		/* Take first URL found */
+		url = g_strdup(urls->data);
+		g_slist_free_full(urls, g_free);
+	}
+
+	return url;
+}
+
 /* Mouse click handler for image preview */
 static gboolean image_preview_mouse_handler(const GuiMouseEvent *event, gpointer user_data)
 {
@@ -786,6 +939,7 @@ static gboolean image_preview_mouse_handler(const GuiMouseEvent *event, gpointer
 	MAIN_WINDOW_REC *mainwin;
 	LINE_REC *line;
 	IMAGE_PREVIEW_REC *preview;
+	char *url;
 
 	(void)user_data;
 
@@ -814,7 +968,13 @@ static gboolean image_preview_mouse_handler(const GuiMouseEvent *event, gpointer
 	if (mainwin == NULL)
 		return FALSE;
 
-	debug_print("CLICK: at y=%d x=%d", event->y, event->x);
+	/* Check if click is in text area (not sidepanels) */
+	if (!is_click_in_text_area(mainwin, event->x)) {
+		debug_print("CLICK: x=%d is outside text area (sidepanel), ignoring", event->x);
+		return FALSE;
+	}
+
+	debug_print("CLICK: at y=%d x=%d (in text area)", event->y, event->x);
 
 	line = find_line_at_screen_y(gui->view, mainwin, event->y);
 	if (line == NULL) {
@@ -822,44 +982,90 @@ static gboolean image_preview_mouse_handler(const GuiMouseEvent *event, gpointer
 		return FALSE;
 	}
 
-	preview = image_preview_get(line);
-	if (preview == NULL) {
-		debug_print("CLICK: line has no preview registered");
+	/* Dynamically scan line for URLs (doesn't rely on prior registration) */
+	url = find_url_in_line(gui->view->buffer, line);
+	if (url == NULL) {
+		debug_print("CLICK: no image URL found in line");
 		return FALSE;
 	}
+
+	debug_print("CLICK: found URL in line: %s", url);
+
+	/* Check if we already have a preview record for this line */
+	preview = image_preview_get(line);
 
 	/* Case 1: Already cached - show popup immediately */
-	if (preview->cache_path != NULL && !preview->fetch_pending && !preview->fetch_failed) {
+	if (preview != NULL && preview->cache_path != NULL &&
+	    !preview->fetch_pending && !preview->fetch_failed) {
 		debug_print("CLICK: cached, showing popup for %s", preview->cache_path);
-		popup_preview_show(preview->cache_path);
+		g_free(url);
+		popup_preview_show_for_line(preview->cache_path, line);
 		return TRUE;
 	}
 
-	/* Case 2: Fetch in progress */
-	if (preview->fetch_pending) {
+	/* Case 2: Fetch in progress - but check if it's actually stuck */
+	if (preview != NULL && preview->fetch_pending) {
 		debug_print("CLICK: fetch in progress, will show when complete");
-		preview->show_on_complete = TRUE;
-		return TRUE;
+		debug_print("CLICK: preview->url=%s retry_count=%d",
+		            preview->url ? preview->url : "(null)", preview->retry_count);
+		image_fetch_debug_dump();
+
+		/* Recovery: If fetch says "pending" but there's nothing actually happening,
+		 * the fetch got stuck (timer stopped without processing completion).
+		 * Reset state and allow a new fetch to start. */
+		if (!image_fetch_is_active(preview->url ? preview->url : url)) {
+			debug_print("CLICK: STUCK FETCH DETECTED! Cleaning up and retrying...");
+			/* Clean up the stuck fetch from active_fetches hash table */
+			image_fetch_cleanup_stuck(preview->url ? preview->url : url);
+			/* Reset preview state */
+			preview->fetch_pending = FALSE;
+			preview->fetch_failed = FALSE;  /* Not failed, just stuck - allow fresh retry */
+			preview->retry_count = 0;  /* Reset retry count for fresh attempt */
+			g_free(preview->error_message);
+			preview->error_message = NULL;
+			/* Fall through to Case 3 to start new fetch */
+		} else {
+			preview->show_on_complete = TRUE;
+			g_free(url);
+			return TRUE;
+		}
 	}
 
-	/* Case 3: Previous fetch failed */
-	if (preview->fetch_failed) {
-		debug_print("CLICK: fetch previously failed: %s",
-		            preview->error_message ? preview->error_message : "unknown error");
-		return FALSE;
+	/* Case 3: Not fetched or previous fetch failed - start fresh fetch */
+	debug_print("CLICK: starting fetch for %s (preview=%p)", url, (void*)preview);
+	if (preview != NULL) {
+		debug_print("CLICK: existing preview: fetch_pending=%d fetch_failed=%d cache_path=%s",
+		            preview->fetch_pending, preview->fetch_failed,
+		            preview->cache_path ? preview->cache_path : "(null)");
 	}
 
-	/* Case 4: Not fetched yet - start fetch now */
-	debug_print("CLICK: starting fetch for %s", preview->url);
+	/* Create or update preview record */
+	if (preview == NULL) {
+		preview = g_new0(IMAGE_PREVIEW_REC, 1);
+		preview->line = line;
+		preview->window = window;
+		preview->url = g_strdup(url);
+		g_hash_table_insert(image_previews, line, preview);
+		debug_print("CLICK: created new preview record");
+	} else {
+		/* Reset failed state for retry */
+		preview->fetch_failed = FALSE;
+		g_free(preview->error_message);
+		preview->error_message = NULL;
+		debug_print("CLICK: reset existing preview for retry");
+	}
+
 	preview->show_on_complete = TRUE;
 
-	if (!image_preview_queue_fetch(preview->url, line, window)) {
-		debug_print("CLICK: queue_fetch failed");
+	if (!image_preview_queue_fetch(url, line, window)) {
+		debug_print("CLICK: queue_fetch FAILED!");
 		preview->show_on_complete = FALSE;
+		g_free(url);
 		return FALSE;
 	}
 
-	debug_print("CLICK: fetch started, will show popup when complete");
+	debug_print("CLICK: fetch started OK, will show popup when complete");
+	g_free(url);
 	return TRUE;
 }
 
@@ -980,7 +1186,9 @@ void image_preview_init(void)
 	image_cache_init();
 	image_fetch_init();
 
-	signal_add("gui print text finished", (SIGNAL_FUNC)sig_gui_print_text_finished);
+	/* NOTE: We don't scan lines on display anymore - only on click.
+	 * signal_add("gui print text finished", ...) was removed intentionally.
+	 * URL detection happens dynamically in sig_mouse_button_clicked(). */
 	signal_add("window changed", (SIGNAL_FUNC)sig_window_changed);
 	signal_add("image preview ready", (SIGNAL_FUNC)sig_image_preview_ready);
 	signal_add("setup changed", (SIGNAL_FUNC)sig_setup_changed);
@@ -1008,7 +1216,6 @@ void image_preview_deinit(void)
 	signal_remove("setup changed", (SIGNAL_FUNC)sig_setup_changed);
 	signal_remove("image preview ready", (SIGNAL_FUNC)sig_image_preview_ready);
 	signal_remove("window changed", (SIGNAL_FUNC)sig_window_changed);
-	signal_remove("gui print text finished", (SIGNAL_FUNC)sig_gui_print_text_finished);
 
 	image_fetch_deinit();
 	image_cache_deinit();

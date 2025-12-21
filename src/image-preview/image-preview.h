@@ -32,6 +32,8 @@ typedef struct {
 	gboolean fetch_failed;       /* Fetch/render failed */
 	gboolean show_on_complete;   /* Show popup when fetch completes (user clicked) */
 	char *error_message;         /* Error description if failed */
+	int retry_count;             /* Number of retry attempts (max 1) */
+	guint cache_cleanup_tag;     /* Timer tag for 30-second cache cleanup */
 } IMAGE_PREVIEW_REC;
 
 /* Fetch stage for two-stage page URL handling */
@@ -105,6 +107,9 @@ gboolean image_fetch_start(const char *url, const char *cache_path,
                            gboolean is_page_url);
 void image_fetch_cancel(const char *url);
 void image_fetch_cancel_all(void);
+void image_fetch_debug_dump(void);
+gboolean image_fetch_is_active(const char *url);
+void image_fetch_cleanup_stuck(const char *url);
 
 /* URL classification */
 ImageUrlType image_preview_classify_url(const char *url);
@@ -114,9 +119,13 @@ GString *image_render_chafa(const char *image_path,
                             int max_cols,
                             int max_rows,
                             int *out_rows);
+GString *image_render_error_icon(int max_cols, int max_rows, int *out_rows);
 void image_render_popup(const char *image_path, int x, int y);
 void image_render_popup_close(void);
 void image_render_clear_graphics(void);
+
+/* Show error popup (when fetch fails after retry) */
+void image_preview_show_error_popup(void);
 
 /* Settings names */
 #define IMAGE_PREVIEW_SETTING           "image_preview"

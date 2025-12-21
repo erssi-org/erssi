@@ -52,11 +52,137 @@ static guint curl_timer_tag = 0;
 /* Maximum concurrent fetches */
 #define MAX_CONCURRENT_FETCHES 3
 
+/* Retry data structure */
+typedef struct {
+	char *url;
+	char *cache_path;
+	LINE_REC *line;
+	WINDOW_REC *window;
+	gboolean is_page_url;
+} RetryData;
+
 /* Forward declarations */
 static void fetch_complete(IMAGE_FETCH_REC *fetch, gboolean success, const char *error);
 static void fetch_rec_free(IMAGE_FETCH_REC *fetch);
 static void image_fetch_start_stage2(IMAGE_FETCH_REC *fetch, const char *og_image_url);
 static char *extract_og_image(const char *html);
+static gboolean retry_fetch_callback(gpointer user_data);
+
+/* Remove a stuck fetch from active_fetches (cleanup when detected stuck) */
+void image_fetch_cleanup_stuck(const char *url)
+{
+	GHashTableIter iter;
+	gpointer key, value;
+	const char *key_to_remove = NULL;
+
+	if (active_fetches == NULL || url == NULL)
+		return;
+
+	/* Try direct lookup first */
+	if (g_hash_table_remove(active_fetches, url)) {
+		image_preview_debug_print("FETCH_CLEANUP: removed stuck fetch for %s", url);
+		return;
+	}
+
+	/* Search by original_url for page URLs */
+	g_hash_table_iter_init(&iter, active_fetches);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		IMAGE_FETCH_REC *f = value;
+		if (f->original_url != NULL && strcmp(f->original_url, url) == 0) {
+			key_to_remove = key;
+			break;
+		}
+	}
+
+	if (key_to_remove != NULL) {
+		g_hash_table_remove(active_fetches, key_to_remove);
+		image_preview_debug_print("FETCH_CLEANUP: removed stuck fetch (by original_url) for %s", url);
+	}
+}
+
+/* Check if a fetch is actually active (in hash table AND curl timer running) */
+gboolean image_fetch_is_active(const char *url)
+{
+	IMAGE_FETCH_REC *fetch;
+	GHashTableIter iter;
+	gpointer key, value;
+	int still_running = 0;
+	gboolean active;
+
+	if (active_fetches == NULL || url == NULL)
+		return FALSE;
+
+	/* Check if URL is in active_fetches (also check original_url for page URLs) */
+	fetch = g_hash_table_lookup(active_fetches, url);
+
+	/* If not found directly, it might be a page URL where og:image is being fetched */
+	if (fetch == NULL) {
+		g_hash_table_iter_init(&iter, active_fetches);
+		while (g_hash_table_iter_next(&iter, &key, &value)) {
+			IMAGE_FETCH_REC *f = value;
+			if (f->original_url != NULL && strcmp(f->original_url, url) == 0) {
+				fetch = f;
+				break;
+			}
+		}
+	}
+
+	if (fetch == NULL) {
+		image_preview_debug_print("FETCH_IS_ACTIVE: %s NOT in active_fetches", url);
+		return FALSE;
+	}
+
+	/* Check if curl actually has active transfers */
+	if (curl_multi != NULL) {
+		curl_multi_perform(curl_multi, &still_running);
+	}
+
+	/* Active means: in hash table AND (timer running OR curl has active transfers) */
+	active = (curl_timer_tag != 0 || still_running > 0);
+	image_preview_debug_print("FETCH_IS_ACTIVE: %s found, timer=%u still_running=%d -> %s",
+	                          url, curl_timer_tag, still_running, active ? "ACTIVE" : "STUCK");
+	return active;
+}
+
+/* Debug: dump current fetch state */
+void image_fetch_debug_dump(void)
+{
+	GHashTableIter iter;
+	gpointer key, value;
+	int count = 0;
+
+	image_preview_debug_print("FETCH_DUMP: curl_multi=%p timer_tag=%u",
+	                          (void*)curl_multi, curl_timer_tag);
+
+	if (active_fetches == NULL) {
+		image_preview_debug_print("FETCH_DUMP: active_fetches is NULL!");
+		return;
+	}
+
+	image_preview_debug_print("FETCH_DUMP: %u active fetches",
+	                          g_hash_table_size(active_fetches));
+
+	g_hash_table_iter_init(&iter, active_fetches);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		IMAGE_FETCH_REC *fetch = value;
+		const char *stage_str = "?";
+		switch (fetch->stage) {
+			case FETCH_STAGE_IMAGE: stage_str = "IMAGE"; break;
+			case FETCH_STAGE_HTML: stage_str = "HTML"; break;
+			case FETCH_STAGE_OG_IMAGE: stage_str = "OG_IMAGE"; break;
+		}
+		image_preview_debug_print("FETCH_DUMP: [%d] url=%s stage=%s cancelled=%d",
+		                          count++, fetch->url, stage_str, fetch->cancelled);
+	}
+
+	/* Check curl multi status */
+	if (curl_multi != NULL) {
+		int still_running;
+		CURLMcode mc = curl_multi_perform(curl_multi, &still_running);
+		image_preview_debug_print("FETCH_DUMP: curl_multi_perform: mc=%d still_running=%d",
+		                          mc, still_running);
+	}
+}
 
 /* Track bytes written for debug */
 static gint64 total_bytes_written = 0;
@@ -337,12 +463,43 @@ static gboolean curl_process(gpointer data)
 	 * added new handles that we need to continue processing. */
 	mc = curl_multi_perform(curl_multi, &still_running);
 
+	/* CRITICAL: Check for completed messages again!
+	 * If stage 2 started and completed quickly (e.g., network error),
+	 * the completion message will be waiting but we haven't checked it.
+	 * Without this, the fetch stays "pending" forever. */
+	while ((msg = curl_multi_info_read(curl_multi, &msgs_left)) != NULL) {
+		if (msg->msg == CURLMSG_DONE) {
+			CURL *easy = msg->easy_handle;
+			CURLcode result = msg->data.result;
+			IMAGE_FETCH_REC *fetch = NULL;
+
+			curl_easy_getinfo(easy, CURLINFO_PRIVATE, &fetch);
+
+			image_preview_debug_print("FETCH: (post-recheck) transfer done, result=%d (%s)",
+			                          result, curl_easy_strerror(result));
+
+			if (fetch != NULL) {
+				if (result == CURLE_OK && !fetch->cancelled) {
+					fetch_complete(fetch, TRUE, NULL);
+				} else if (fetch->cancelled) {
+					fetch_complete(fetch, FALSE, "Cancelled or file too large");
+				} else {
+					fetch_complete(fetch, FALSE, curl_easy_strerror(result));
+				}
+			}
+		}
+	}
+
+	/* Final check after processing any remaining messages */
+	mc = curl_multi_perform(curl_multi, &still_running);
+
 	/* Continue if there are active transfers */
 	if (still_running > 0) {
 		return TRUE;
 	}
 
 	/* No more transfers - stop timer */
+	image_preview_debug_print("FETCH: timer STOPPING - no active transfers");
 	curl_timer_tag = 0;
 	return FALSE;
 }
@@ -353,7 +510,55 @@ static void ensure_processing_timer(void)
 	if (curl_timer_tag == 0) {
 		/* Poll every 10ms for faster downloads */
 		curl_timer_tag = g_timeout_add(10, curl_process, NULL);
+		image_preview_debug_print("FETCH: timer STARTED, tag=%u", curl_timer_tag);
+	} else {
+		image_preview_debug_print("FETCH: timer already running, tag=%u", curl_timer_tag);
 	}
+}
+
+/* Retry timer callback - starts a new fetch after 3 second delay */
+static gboolean retry_fetch_callback(gpointer user_data)
+{
+	RetryData *retry = user_data;
+	IMAGE_PREVIEW_REC *preview;
+
+	image_preview_debug_print("RETRY: timer fired, starting retry for %s", retry->url);
+
+	/* Find the preview record */
+	preview = image_preview_get(retry->line);
+	if (preview == NULL) {
+		image_preview_debug_print("RETRY: preview record gone, aborting");
+		g_free(retry->url);
+		g_free(retry->cache_path);
+		g_free(retry);
+		return FALSE;
+	}
+
+	/* Reset fetch state for retry */
+	preview->fetch_pending = TRUE;
+	preview->fetch_failed = FALSE;
+	g_free(preview->error_message);
+	preview->error_message = NULL;
+
+	/* Start the fetch again */
+	if (!image_fetch_start(retry->url, retry->cache_path, retry->line,
+	                       retry->window, retry->is_page_url)) {
+		image_preview_debug_print("RETRY: fetch_start failed, showing error");
+		preview->fetch_pending = FALSE;
+		preview->fetch_failed = TRUE;
+		preview->error_message = g_strdup("Retry failed");
+
+		/* Show error popup */
+		if (preview->show_on_complete) {
+			preview->show_on_complete = FALSE;
+			image_preview_show_error_popup();
+		}
+	}
+
+	g_free(retry->url);
+	g_free(retry->cache_path);
+	g_free(retry);
+	return FALSE;  /* Don't repeat timer */
 }
 
 /* Handle fetch completion */
@@ -398,8 +603,8 @@ static void fetch_complete(IMAGE_FETCH_REC *fetch, gboolean success, const char 
 			return;  /* Don't cleanup yet - stage 2 will continue */
 		}
 
-		/* HTML fetch failed or no og:image found - mark as failed */
-		image_preview_debug_print("FETCH: HTML stage FAILED - no og:image found, giving up");
+		/* HTML fetch failed or no og:image found */
+		image_preview_debug_print("FETCH: HTML stage FAILED - no og:image found");
 
 		/* Cleanup curl handle now */
 		if (fetch->curl_handle != NULL) {
@@ -407,12 +612,46 @@ static void fetch_complete(IMAGE_FETCH_REC *fetch, gboolean success, const char 
 			fetch->curl_handle = NULL;
 		}
 
-		/* Update preview record with failure */
+		/* Update preview record - check for retry */
 		preview = image_preview_get(fetch->line);
 		if (preview != NULL) {
+			/* Check if we can retry (max 1 retry) */
+			if (preview->retry_count < 1) {
+				RetryData *retry;
+
+				preview->retry_count++;
+				image_preview_debug_print("FETCH: HTML stage - scheduling retry #%d in 3 seconds",
+				                          preview->retry_count);
+
+				/* Prepare retry data */
+				retry = g_new0(RetryData, 1);
+				retry->url = g_strdup(fetch->original_url ? fetch->original_url : fetch->url);
+				retry->cache_path = g_strdup(fetch->cache_path);
+				retry->line = fetch->line;
+				retry->window = fetch->window;
+				retry->is_page_url = TRUE;  /* It was a page URL */
+
+				/* Schedule retry in 3 seconds */
+				g_timeout_add(3000, retry_fetch_callback, retry);
+
+				/* Remove from active fetches so retry can proceed */
+				if (active_fetches != NULL) {
+					g_hash_table_remove(active_fetches, fetch->original_url ? fetch->original_url : fetch->url);
+				}
+				return;
+			}
+
+			/* Already retried, mark as failed */
+			image_preview_debug_print("FETCH: HTML stage - retry exhausted, marking as failed");
 			preview->fetch_pending = FALSE;
 			preview->fetch_failed = TRUE;
 			preview->error_message = g_strdup("No og:image found in page");
+
+			/* Show error popup if user was waiting */
+			if (preview->show_on_complete) {
+				preview->show_on_complete = FALSE;
+				image_preview_show_error_popup();
+			}
 		}
 
 		/* Remove from active fetches */
@@ -448,11 +687,48 @@ static void fetch_complete(IMAGE_FETCH_REC *fetch, gboolean success, const char 
 			preview->fetch_failed = FALSE;
 			image_preview_debug_print("FETCH: saved to %s", fetch->cache_path);
 		} else {
-			preview->fetch_failed = TRUE;
-			preview->error_message = g_strdup(error ? error : "Unknown error");
 			/* Remove failed download file */
 			if (fetch->cache_path != NULL) {
 				unlink(fetch->cache_path);
+			}
+
+			/* Check if we can retry (max 1 retry) */
+			if (preview->retry_count < 1) {
+				RetryData *retry;
+				ImageUrlType url_type;
+
+				preview->retry_count++;
+				image_preview_debug_print("FETCH: scheduling retry #%d in 3 seconds",
+				                          preview->retry_count);
+
+				/* Determine if original URL was a page URL */
+				url_type = image_preview_classify_url(
+					fetch->original_url ? fetch->original_url : fetch->url);
+
+				/* Prepare retry data */
+				retry = g_new0(RetryData, 1);
+				retry->url = g_strdup(fetch->original_url ? fetch->original_url : fetch->url);
+				retry->cache_path = g_strdup(fetch->cache_path);
+				retry->line = fetch->line;
+				retry->window = fetch->window;
+				retry->is_page_url = (url_type != URL_TYPE_DIRECT_IMAGE);
+
+				/* Schedule retry in 3 seconds */
+				g_timeout_add(3000, retry_fetch_callback, retry);
+
+				/* Keep fetch_pending true so we don't trigger error state */
+				preview->fetch_pending = TRUE;
+			} else {
+				/* Already retried, mark as failed */
+				image_preview_debug_print("FETCH: retry exhausted, marking as failed");
+				preview->fetch_failed = TRUE;
+				preview->error_message = g_strdup(error ? error : "Unknown error");
+
+				/* Show error popup if user was waiting */
+				if (preview->show_on_complete) {
+					preview->show_on_complete = FALSE;
+					image_preview_show_error_popup();
+				}
 			}
 		}
 	} else {
