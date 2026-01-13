@@ -5,6 +5,46 @@ All notable changes to erssi will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.6] - 2026-01-13
+
+### Wip
+
+- **fe-notcurses**: Experimental notcurses backend - blocked by tmux/screen support
+
+### ⚡ Features
+
+- **fe-notcurses**: Add image preview support for IRC URLs
+- **fe-notcurses**: Add og:image extraction for page URLs
+- **fe-notcurses**: Add horizontal separator above statusbar
+- **fe-ansi**: Add ANSI backend and refactor fe-notcurses
+- **image-preview**: Add inline image preview with wide terminal support
+- **image-preview**: Click-only URL detection with retry and error handling
+
+### 🐛 Bug Fixes
+
+- **sidepanels**: Clear cache when right panel destroyed to fix empty nicklist bug
+- **term**: Prevent sidepanel boundary violations during scroll/clear
+- **resize**: Skip resize when only pixel dimensions change
+- **fe-notcurses**: Add resize support via notcurses_refresh
+- **sidepanels**: Guard terminfo borders for notcurses compatibility
+- **sidepanels**: Clear cache when right panel destroyed to fix empty nicklist bug
+- **fe-notcurses**: Flush terminal responses and fix border color
+- **resize**: Prevent UI freeze when terminal shrinks below sidepanel space
+- **term**: Prevent sidepanel boundary violations during scroll/clear
+- **resize**: Skip resize when only pixel dimensions change
+- **image-preview**: Proper popup clearing and line tracking
+- **image-preview**: Use Safari User-Agent to bypass bot detection
+- **ci**: Fix release workflow dependencies
+
+### 📚 Documentation
+
+- Update CHANGELOG.md for v1.2.5 [skip ci]
+
+### 🔨 Miscellaneous
+
+- Remove unused detect_passthrough function
+- **release**: V1.2.6
+
 ## [1.2.5] - 2025-12-14
 
 ### 📚 Documentation
