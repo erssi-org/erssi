@@ -168,9 +168,9 @@ ninja -C Build test
 
 ## Version Information
 
-- **Erssi Version**: 1.0.0 (based on irssi 1.5)
+- **Erssi Version**: 1.2.6 (based on irssi 1.5)
 - **Build System**: Meson + Ninja
-- **Documentation Date**: November 3, 2025
+- **Documentation Date**: January 13, 2026
 
 ---
 

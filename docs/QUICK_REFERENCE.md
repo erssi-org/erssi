@@ -439,7 +439,7 @@ gdb ./Build/src/fe-text/irssi
 
 ---
 
-**Last Updated**: November 3, 2025
-**Version**: Erssi 1.0.0 (irssi 1.5 base)
+**Last Updated**: January 13, 2026
+**Version**: Erssi 1.2.6 (irssi 1.5 base)
 
 See `/Users/k/dev/erssi/docs/ARCHITECTURE.md` for complete details.

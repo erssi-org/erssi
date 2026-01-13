@@ -5,7 +5,7 @@
 
 # TEMPLATES:
 
-# The real text formats that irssi uses are the ones you can find with
+# The real text formats that erssi uses are the ones you can find with
 # /FORMAT command. Back in the old days all the colors and texts were mixed
 # up in those formats, and it was really hard to change the colors since you
 # might have had to change them in tens of different places. So, then came
@@ -18,13 +18,13 @@
 
 # So .. the templates. They're those {blahblah} parts you see all over the
 # /FORMATs and here. Their usage is simply {name parameter1 parameter2}.
-# When irssi sees this kind of text, it goes to find "name" from abstracts
+# When erssi sees this kind of text, it goes to find "name" from abstracts
 # block below and sets "parameter1" into $0 and "parameter2" into $1 (you
 # can have more parameters of course). Templates can have subtemplates.
 # Here's a small example:
 #   /FORMAT format hello {colorify {underline world}}
 #   abstracts = { colorify = "%G$0-%n"; underline = "%U$0-%U"; }
-# When irssi expands the templates in "format", the final string would be:
+# When erssi expands the templates in "format", the final string would be:
 #   hello %G%Uworld%U%n
 # ie. underlined bright green "world" text.
 # and why "$0-", why not "$0"? $0 would only mean the first parameter,
@@ -39,7 +39,7 @@
 # There's one difference here though. %n format. Normally it means the
 # default color of the terminal (white mostly), but here it means the
 # "reset color back to the one it was in higher template". For example
-# if there was /FORMAT test %g{foo}bar, and foo = "%Y$0%n", irssi would
+# if there was /FORMAT test %g{foo}bar, and foo = "%Y$0%n", erssi would
 # print yellow "foo" (as set with %Y) but "bar" would be green, which was
 # set at the beginning before the {foo} template. If there wasn't the %g
 # at start, the normal behaviour of %n would occur. If you _really_ want

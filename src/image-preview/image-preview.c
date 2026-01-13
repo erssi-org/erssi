@@ -1203,7 +1203,7 @@ static void cmd_image(const char *data, SERVER_REC *server, void *item)
 void image_preview_init(void)
 {
 	/* Register settings - use fe-text module so they save to correct config section */
-	settings_add_bool_module("fe-text", "lookandfeel", IMAGE_PREVIEW_SETTING, FALSE);
+	settings_add_bool_module("fe-text", "lookandfeel", IMAGE_PREVIEW_SETTING, TRUE);
 	settings_add_int_module("fe-text", "lookandfeel", IMAGE_PREVIEW_MAX_WIDTH,
 	                        IMAGE_PREVIEW_DEFAULT_MAX_WIDTH);
 	settings_add_int_module("fe-text", "lookandfeel", IMAGE_PREVIEW_MAX_HEIGHT,

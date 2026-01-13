@@ -8,15 +8,30 @@ on:
 permissions:
   contents: write  # Required for creating releases
 
+env:
+  # Common meson build arguments
+  MESON_ARGS: >-
+    -Dwith-perl=yes
+    -Dwith-otr=yes
+    -Ddisable-utf8proc=no
+    -Dwith-fe-web=yes
+    -Dwith-fe-ansi=yes
+    -Dwith-image-preview=yes
+
 jobs:
-  create-release:
+  # ==========================================================================
+  # Source Distribution
+  # ==========================================================================
+  create-source-dist:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for changelog generation
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,32 +49,471 @@ jobs:
             libglib2.0-dev \
             libssl-dev \
             libgcrypt20-dev \
-            libncurses-dev
+            libncurses-dev \
+            libcurl4-openssl-dev \
+            libchafa-dev
           pip install meson
 
       - name: Configure build
-        run: |
-          meson setup Build \
-            -Dwith-perl=yes \
-            -Dwith-otr=yes \
-            -Ddisable-utf8proc=no \
-            -Dwith-fe-web=yes
+        run: meson setup Build ${{ env.MESON_ARGS }}
 
       - name: Create distribution tarball
-        run: |
-          meson dist -C Build --no-tests --formats=gztar,xztar
-          # Distribution tarballs will be in Build/meson-dist/
-
-      - name: Generate checksums
-        run: |
-          cd Build/meson-dist
-          sha256sum *.tar.xz > checksums.txt
-          sha256sum *.tar.gz >> checksums.txt
-          cat checksums.txt
+        run: meson dist -C Build --no-tests --formats=gztar,xztar
 
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload source artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-dist
+          path: |
+            Build/meson-dist/*.tar.xz
+            Build/meson-dist/*.tar.gz
+
+  # ==========================================================================
+  # macOS Builds (arm64 + x86_64)
+  # ==========================================================================
+  build-macos:
+    runs-on: ${{ matrix.os }}
+    needs: create-source-dist
+    strategy:
+      matrix:
+        include:
+          - os: macos-26      # Apple Silicon (arm64) - macOS 26 Tahoe
+            arch: arm64
+          - os: macos-15-intel  # Intel (x86_64) - macOS 15 Sequoia
+            arch: x86_64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies via Homebrew
+        run: |
+          brew update
+          brew install \
+            meson \
+            ninja \
+            glib \
+            openssl@3 \
+            ncurses \
+            utf8proc \
+            libgcrypt \
+            libotr \
+            perl \
+            curl \
+            chafa
+
+      - name: Configure build
+        run: |
+          export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix ncurses)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          meson setup Build \
+            --prefix=/usr/local \
+            ${{ env.MESON_ARGS }}
+
+      - name: Build
+        run: ninja -C Build
+
+      - name: Create macOS package
+        run: |
+          VERSION="${{ needs.create-source-dist.outputs.version }}"
+          ARCH="${{ matrix.arch }}"
+          PKG_NAME="erssi-${VERSION}-macos-${ARCH}"
+
+          # Create package directory structure
+          mkdir -p "${PKG_NAME}/bin"
+          mkdir -p "${PKG_NAME}/share/erssi"
+          mkdir -p "${PKG_NAME}/share/doc/erssi"
+
+          # Copy binaries
+          cp Build/src/fe-ansi/erssi "${PKG_NAME}/bin/"
+          cp Build/src/fe-text/erssi-nc "${PKG_NAME}/bin/"
+
+          # Copy themes and default config
+          cp -r themes "${PKG_NAME}/share/erssi/"
+          cp irssi.conf "${PKG_NAME}/share/erssi/default.conf"
+
+          # Copy docs
+          cp README.md NEWS COPYING "${PKG_NAME}/share/doc/erssi/"
+
+          # Create archive
+          tar -czvf "${PKG_NAME}.tar.gz" "${PKG_NAME}"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: erssi-*.tar.gz
+
+  # ==========================================================================
+  # Linux Builds (x86_64 + arm64)
+  # ==========================================================================
+  build-linux:
+    runs-on: ubuntu-latest
+    needs: create-source-dist
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            platform: linux/amd64
+          - arch: arm64
+            platform: linux/arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for arm64)
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build in Docker container
+        run: |
+          VERSION="${{ needs.create-source-dist.outputs.version }}"
+          ARCH="${{ matrix.arch }}"
+          PKG_NAME="erssi-${VERSION}-linux-${ARCH}"
+
+          # Create Dockerfile for building
+          cat > Dockerfile.build << 'EOF'
+          FROM debian:bookworm-slim
+
+          RUN apt-get update && apt-get install -y \
+              build-essential \
+              meson \
+              ninja-build \
+              pkg-config \
+              libglib2.0-dev \
+              libssl-dev \
+              libncurses-dev \
+              libutf8proc-dev \
+              libgcrypt20-dev \
+              libotr5-dev \
+              libperl-dev \
+              libcurl4-openssl-dev \
+              libchafa-dev \
+              && rm -rf /var/lib/apt/lists/*
+
+          WORKDIR /build
+          EOF
+
+          # Build using Docker
+          docker buildx build \
+            --platform=${{ matrix.platform }} \
+            --load \
+            -t erssi-builder:${{ matrix.arch }} \
+            -f Dockerfile.build .
+
+          docker run --platform=${{ matrix.platform }} \
+            -v "$(pwd):/build" \
+            erssi-builder:${{ matrix.arch }} \
+            bash -c "
+              meson setup Build --prefix=/usr ${{ env.MESON_ARGS }} && \
+              ninja -C Build && \
+              mkdir -p ${PKG_NAME}/bin && \
+              mkdir -p ${PKG_NAME}/share/erssi && \
+              mkdir -p ${PKG_NAME}/share/doc/erssi && \
+              cp Build/src/fe-ansi/erssi ${PKG_NAME}/bin/ && \
+              cp Build/src/fe-text/erssi-nc ${PKG_NAME}/bin/ && \
+              cp -r themes ${PKG_NAME}/share/erssi/ && \
+              cp irssi.conf ${PKG_NAME}/share/erssi/default.conf && \
+              cp README.md NEWS COPYING ${PKG_NAME}/share/doc/erssi/ && \
+              tar -czvf ${PKG_NAME}.tar.gz ${PKG_NAME}
+            "
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: erssi-*.tar.gz
+
+  # ==========================================================================
+  # DEB Package (Debian/Ubuntu)
+  # ==========================================================================
+  build-deb:
+    runs-on: ubuntu-latest
+    needs: create-source-dist
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: arm64
+            platform: linux/arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for arm64)
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build DEB package
+        run: |
+          VERSION="${{ needs.create-source-dist.outputs.version }}"
+          ARCH="${{ matrix.arch }}"
+          PKG_NAME="erssi_${VERSION}_${ARCH}"
+
+          # Create Dockerfile for DEB building
+          cat > Dockerfile.deb << 'EOF'
+          FROM debian:bookworm-slim
+
+          RUN apt-get update && apt-get install -y \
+              build-essential \
+              meson \
+              ninja-build \
+              pkg-config \
+              libglib2.0-dev \
+              libssl-dev \
+              libncurses-dev \
+              libutf8proc-dev \
+              libgcrypt20-dev \
+              libotr5-dev \
+              libperl-dev \
+              libcurl4-openssl-dev \
+              libchafa-dev \
+              fakeroot \
+              && rm -rf /var/lib/apt/lists/*
+
+          WORKDIR /build
+          EOF
+
+          docker buildx build \
+            --platform=${{ matrix.platform }} \
+            --load \
+            -t erssi-deb-builder:${{ matrix.arch }} \
+            -f Dockerfile.deb .
+
+          docker run --platform=${{ matrix.platform }} \
+            -v "$(pwd):/build" \
+            erssi-deb-builder:${{ matrix.arch }} \
+            bash -c "
+              # Build erssi
+              meson setup Build --prefix=/usr ${{ env.MESON_ARGS }}
+              ninja -C Build
+
+              # Create DEB structure
+              mkdir -p ${PKG_NAME}/DEBIAN
+              mkdir -p ${PKG_NAME}/usr/bin
+              mkdir -p ${PKG_NAME}/usr/share/erssi/themes
+              mkdir -p ${PKG_NAME}/usr/share/doc/erssi
+              mkdir -p ${PKG_NAME}/etc/erssi
+
+              # Copy files
+              cp Build/src/fe-ansi/erssi ${PKG_NAME}/usr/bin/
+              cp Build/src/fe-text/erssi-nc ${PKG_NAME}/usr/bin/
+              cp -r themes/* ${PKG_NAME}/usr/share/erssi/themes/
+              cp irssi.conf ${PKG_NAME}/etc/erssi/default.conf
+              cp README.md NEWS COPYING ${PKG_NAME}/usr/share/doc/erssi/
+
+              # Create control file
+              cat > ${PKG_NAME}/DEBIAN/control << CTRL
+          Package: erssi
+          Version: ${VERSION}
+          Section: net
+          Priority: optional
+          Architecture: ${ARCH}
+          Depends: libglib2.0-0, libssl3, libncurses6, libutf8proc2, libgcrypt20, libotr5, libcurl4, libchafa0
+          Maintainer: erssi-org <https://github.com/erssi-org>
+          Description: Enhanced/Evolved IRC Client
+           erssi is a modernized IRC client built on irssi's foundation,
+           featuring ANSI terminal rendering, inline image preview,
+           advanced sidepanels, mouse gesture navigation, and web interface.
+          Homepage: https://erssi.org
+          CTRL
+
+              # Build DEB
+              fakeroot dpkg-deb --build ${PKG_NAME}
+            "
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.arch }}
+          path: erssi_*.deb
+
+  # ==========================================================================
+  # RPM Package (Fedora/RHEL)
+  # ==========================================================================
+  build-rpm:
+    runs-on: ubuntu-latest
+    needs: create-source-dist
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            platform: linux/amd64
+          - arch: aarch64
+            platform: linux/arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for arm64)
+        if: matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build RPM package
+        run: |
+          VERSION="${{ needs.create-source-dist.outputs.version }}"
+          ARCH="${{ matrix.arch }}"
+
+          # Create Dockerfile for RPM building
+          cat > Dockerfile.rpm << 'EOF'
+          FROM fedora:40
+
+          RUN dnf install -y \
+              gcc \
+              meson \
+              ninja-build \
+              pkg-config \
+              glib2-devel \
+              openssl-devel \
+              ncurses-devel \
+              utf8proc-devel \
+              libgcrypt-devel \
+              libotr-devel \
+              perl-devel \
+              perl-ExtUtils-Embed \
+              libcurl-devel \
+              chafa-devel \
+              rpm-build \
+              && dnf clean all
+
+          WORKDIR /build
+          EOF
+
+          docker buildx build \
+            --platform=${{ matrix.platform }} \
+            --load \
+            -t erssi-rpm-builder:${{ matrix.arch }} \
+            -f Dockerfile.rpm .
+
+          docker run --platform=${{ matrix.platform }} \
+            -v "$(pwd):/build" \
+            erssi-rpm-builder:${{ matrix.arch }} \
+            bash -c "
+              # Build erssi
+              meson setup Build --prefix=/usr ${{ env.MESON_ARGS }}
+              ninja -C Build
+
+              # Setup RPM build environment
+              mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
+              # Create spec file
+              cat > ~/rpmbuild/SPECS/erssi.spec << SPEC
+          Name:           erssi
+          Version:        ${VERSION}
+          Release:        1%{?dist}
+          Summary:        Enhanced/Evolved IRC Client
+
+          License:        GPLv2+
+          URL:            https://erssi.org
+
+          Requires:       glib2 openssl ncurses-libs utf8proc libgcrypt libotr libcurl chafa-libs
+
+          %description
+          erssi is a modernized IRC client built on irssi's foundation,
+          featuring ANSI terminal rendering, inline image preview,
+          advanced sidepanels, mouse gesture navigation, and web interface.
+
+          %install
+          mkdir -p %{buildroot}/usr/bin
+          mkdir -p %{buildroot}/usr/share/erssi/themes
+          mkdir -p %{buildroot}/usr/share/doc/erssi
+          mkdir -p %{buildroot}/etc/erssi
+
+          cp /build/Build/src/fe-ansi/erssi %{buildroot}/usr/bin/
+          cp /build/Build/src/fe-text/erssi-nc %{buildroot}/usr/bin/
+          cp -r /build/themes/* %{buildroot}/usr/share/erssi/themes/
+          cp /build/irssi.conf %{buildroot}/etc/erssi/default.conf
+          cp /build/README.md /build/NEWS /build/COPYING %{buildroot}/usr/share/doc/erssi/
+
+          %files
+          /usr/bin/erssi
+          /usr/bin/erssi-nc
+          /usr/share/erssi/themes/*
+          %config(noreplace) /etc/erssi/default.conf
+          %doc /usr/share/doc/erssi/*
+          SPEC
+
+              # Build RPM (binary only, no source)
+              rpmbuild -bb ~/rpmbuild/SPECS/erssi.spec
+
+              # Copy RPM to output
+              cp ~/rpmbuild/RPMS/${ARCH}/*.rpm /build/
+            "
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-${{ matrix.arch }}
+          path: erssi-*.rpm
+
+  # ==========================================================================
+  # Create GitHub Release
+  # ==========================================================================
+  create-release:
+    runs-on: ubuntu-latest
+    needs:
+      - create-source-dist
+      - build-macos
+      - build-linux
+      - build-deb
+      - build-rpm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Organize release files
+        run: |
+          mkdir -p release
+
+          # Source tarballs
+          cp artifacts/source-dist/*.tar.* release/ || true
+
+          # macOS binaries
+          cp artifacts/macos-*/*.tar.gz release/ || true
+
+          # Linux binaries
+          cp artifacts/linux-*/*.tar.gz release/ || true
+
+          # DEB packages
+          cp artifacts/deb-*/*.deb release/ || true
+
+          # RPM packages
+          cp artifacts/rpm-*/*.rpm release/ || true
+
+          # Generate checksums
+          cd release
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Install git-cliff
         run: |
@@ -68,20 +522,65 @@ jobs:
           chmod +x /usr/local/bin/git-cliff
 
       - name: Generate changelog for release notes
-        id: changelog
         run: |
           git-cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
+
+          # Add download instructions
+          cat >> RELEASE_NOTES.md << 'EOF'
+
+          ## Downloads
+
+          ### Binaries
+
+          | Platform | Architecture | File |
+          |----------|--------------|------|
+          | macOS | Apple Silicon (arm64) | `erssi-*-macos-arm64.tar.gz` |
+          | macOS | Intel (x86_64) | `erssi-*-macos-x86_64.tar.gz` |
+          | Linux | x86_64 | `erssi-*-linux-x86_64.tar.gz` |
+          | Linux | arm64 | `erssi-*-linux-arm64.tar.gz` |
+
+          ### Packages
+
+          | Format | Architecture | File |
+          |--------|--------------|------|
+          | DEB (Debian/Ubuntu) | amd64 | `erssi_*_amd64.deb` |
+          | DEB (Debian/Ubuntu) | arm64 | `erssi_*_arm64.deb` |
+          | RPM (Fedora/RHEL) | x86_64 | `erssi-*-x86_64.rpm` |
+          | RPM (Fedora/RHEL) | aarch64 | `erssi-*-aarch64.rpm` |
+
+          ### Source
+
+          - `erssi-*.tar.xz` - Source tarball (xz compressed)
+          - `erssi-*.tar.gz` - Source tarball (gzip compressed)
+
+          ### Installation
+
+          **macOS/Linux binary:**
+          ```bash
+          tar -xzf erssi-*-<platform>-<arch>.tar.gz
+          sudo cp erssi-*/bin/* /usr/local/bin/
+          ```
+
+          **Debian/Ubuntu:**
+          ```bash
+          sudo dpkg -i erssi_*_<arch>.deb
+          sudo apt-get install -f  # Install dependencies if needed
+          ```
+
+          **Fedora/RHEL:**
+          ```bash
+          sudo dnf install erssi-*-<arch>.rpm
+          ```
+          EOF
+
           cat RELEASE_NOTES.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: erssi ${{ steps.version.outputs.VERSION }}
+          name: erssi ${{ needs.create-source-dist.outputs.version }}
           body_path: RELEASE_NOTES.md
-          files: |
-            Build/meson-dist/*.tar.xz
-            Build/meson-dist/*.tar.gz
-            Build/meson-dist/checksums.txt
+          files: release/*
           draft: false
           prerelease: false
         env:
@@ -94,20 +593,18 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Ensure we are on main branch (not detached HEAD)
+      - name: Ensure we are on main branch
         run: |
-          # Checkout main if not already on it, and pull latest
           git checkout main
           git pull origin main
 
       - name: Generate full changelog
-        run: |
-          git-cliff --config cliff.toml -o CHANGELOG.md
+        run: git-cliff --config cliff.toml -o CHANGELOG.md
 
       - name: Commit and push changelog
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "docs: update CHANGELOG.md for v${{ steps.version.outputs.VERSION }} [skip ci]"
+          commit_message: "docs: update CHANGELOG.md for v${{ needs.create-source-dist.outputs.version }} [skip ci]"
           file_pattern: 'CHANGELOG.md'
           branch: main
           commit_user_name: 'github-actions[bot]'

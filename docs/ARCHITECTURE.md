@@ -1022,6 +1022,6 @@ Or via command:
 
 ---
 
-**Document Last Updated**: November 3, 2025
-**Erssi Version**: 1.0.0 (based on irssi 1.5)
+**Document Last Updated**: January 13, 2026
+**Erssi Version**: 1.2.6 (based on irssi 1.5)
 **Build System**: Meson + Ninja

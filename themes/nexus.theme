@@ -1,13 +1,13 @@
 # Nexus Steel v2.0 - Complete
 # Modern cyberpunk IRC theme for the 21st century terminal experience
-# Based on Irssi color documentation and enhanced with complete coverage
+# Based on erssi color documentation and enhanced with complete coverage
 # Compatible with advanced statusbar configurations
 
 ################################################################################
 # NEXUS STEEL COLOR PALETTE LEGEND
 ################################################################################
 #
-# Irssi Color Codes used:
+# erssi Color Codes used:
 # %w/%W - dark gray/white    %R/%r - red/dark red
 # %G/%g - green/dark green   %Y/%y - yellow/brown
 # %B/%b - blue/dark blue     %M/%m - magenta/dark magenta
@@ -320,7 +320,7 @@ formats = {
   "fe-common/core" = {
     # Modern join/part/kick/quit with enhanced cyberpunk layout
     line_start = "{line_start}";
-    line_start_irssi = "{line_start}{hilight Irssi:} ";
+    line_start_irssi = "{line_start}{hilight erssi:} ";
     timestamp = "{timestamp $Z} ";
     servertag = "%Z708090❮%B$0%Z708090❯%N ";
     daychange = "Day changed to %%d %%b %%Y";
@@ -436,7 +436,7 @@ formats = {
     log_opened = "%G✓%N Log file {hilight $0} opened";
     log_closed = "%G✓%N Log file {hilight $0} closed";
     log_create_failed = "%R⚠%N Couldn't create log file {hilight $0}: $1";
-    log_locked = "%R⚠%N Log file {hilight $0} is locked, probably by another running Irssi";
+    log_locked = "%R⚠%N Log file {hilight $0} is locked, probably by another running erssi";
     log_not_open = "%R⚠%N Log file {hilight $0} not open";
     log_started = "%G✓%N Started logging to file {hilight $0}";
     log_stopped = "%G✓%N Stopped logging to file {hilight $0}";
@@ -460,7 +460,7 @@ formats = {
     module_already_loaded = "%R⚠%N Module {hilight $0/$1} already loaded";
     module_not_loaded = "%R⚠%N Module {hilight $0/$1} is not loaded";
     module_load_error = "%R⚠%N Error loading module {hilight $0/$1}: $2";
-    module_invalid = "%R⚠%N {hilight $0/$1} isn't Irssi module";
+    module_invalid = "%R⚠%N {hilight $0/$1} isn't erssi module";
     module_loaded = "%G✓%N Loaded module {hilight $0/$1}";
     module_unloaded = "%G✓%N Unloaded module {hilight $0/$1}";
 
@@ -535,7 +535,7 @@ formats = {
     # Configuration
     config_saved = "%G✓%N Saved configuration to file $0";
     config_reloaded = "%G⚡%N Reloaded configuration";
-    config_modified = "%Y⚠%N Configuration file was modified since irssi was last started - do you want to overwrite the possible changes?";
+    config_modified = "%Y⚠%N Configuration file was modified since erssi was last started - do you want to overwrite the possible changes?";
     glib_error = "%R⚠%N {error $0} $1";
     overwrite_config = "%Y⚠%N Overwrite config (y/N)?";
 
@@ -584,7 +584,7 @@ formats = {
     joinerror_bad_mask = "%R⚠%N Cannot breach to channel {channel $0} (Bad channel mask)";
     joinerror_unavail = "%R⚠%N Cannot breach to channel {channel $0} (Channel is temporarily unavailable)";
     joinerror_duplicate = "%R⚠%N Channel {channel $0} already exists - cannot create it";
-    channel_rejoin = "%Y⚠%N Channel {channel $0} is temporarily unavailable, this is normally because of netsplits. Irssi will now automatically try to rebreach back to this channel until the breach is successful. Use /RMREJOINS command if you wish to abort this.";
+    channel_rejoin = "%Y⚠%N Channel {channel $0} is temporarily unavailable, this is normally because of netsplits. erssi will now automatically try to rebreach back to this channel until the breach is successful. Use /RMREJOINS command if you wish to abort this.";
 
     # Channel management
     inviting = "%G✉%N Inviting {nick %b$0} to {channel $1}";

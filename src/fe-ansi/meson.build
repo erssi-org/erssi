@@ -60,7 +60,7 @@ if have_image_preview
   fe_ansi_inc += image_preview_inc
 endif
 
-executable('erssi-ansi',
+executable('erssi',
   fe_ansi_sources + fe_text_shared_sources + [
     irssi_version_h,
     default_config_h,

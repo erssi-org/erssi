@@ -10,7 +10,7 @@
 
 ## What is erssi?
 
-**erssi v1.2.5** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
+**erssi v1.2.6** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
 
 🎯 **Mission**: Modernizing IRC, one feature at a time, while preserving the soul of irssi.
 
@@ -84,17 +84,18 @@
 
 ---
 
-## ✨ Latest Release - v1.2.4
+## ✨ Latest Release - v1.2.6
 
-### 🎨 Flicker-Free Sidepanels
+### 🖼️ ANSI Backend & Image Preview
 
-The v1.2.4 release introduces differential rendering for smooth, flicker-free sidepanel updates:
+The v1.2.6 release introduces a pure ANSI terminal backend as the default, with inline image preview support:
 
-- **Differential Rendering**: Only changed lines are redrawn instead of entire panel refresh
-- **Line-by-Line Caching**: Stores text, prefix, format, and refnum for intelligent comparison
-- **Terminal Buffering**: Uses term_refresh_freeze/thaw to batch all terminal operations
-- **Smart Cache Invalidation**: Full redraw only when dimensions or scroll offset change
-- **Modern TUI Approach**: Similar rendering strategy to WeeChat and other modern terminal UIs
+- **Pure ANSI Backend**: New default terminal implementation without ncurses dependency
+- **Inline Image Preview**: Display images directly in terminal (Kitty, iTerm2, Sixel, symbols)
+- **Graphics Protocol Support**: Automatic detection for Kitty, iTerm2, Sixel, and symbol fallback
+- **tmux/screen Passthrough**: Automatic DCS wrapping for terminal multiplexers
+- **Async Image Fetching**: Non-blocking curl_multi with cache and retry logic
+- **erssi-nc Binary**: ncurses/terminfo version available as `erssi-nc` for compatibility
 
 **See [CHANGELOG.md](CHANGELOG.md) for complete version history and detailed changes.**
 
