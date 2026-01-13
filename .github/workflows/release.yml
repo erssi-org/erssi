@@ -104,11 +104,14 @@ jobs:
             libotr \
             perl \
             curl \
-            chafa
+            chafa \
+            pkg-config
 
       - name: Configure build
         run: |
-          export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix ncurses)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix ncurses)/lib/pkgconfig:$(brew --prefix utf8proc)/lib/pkgconfig:$(brew --prefix libgcrypt)/lib/pkgconfig:$(brew --prefix chafa)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export LDFLAGS="-L$(brew --prefix utf8proc)/lib"
+          export CPPFLAGS="-I$(brew --prefix utf8proc)/include"
           meson setup Build \
             --prefix=/usr/local \
             ${{ env.MESON_ARGS }}
@@ -378,7 +381,7 @@ jobs:
 
           # Create Dockerfile for RPM building
           cat > Dockerfile.rpm << 'EOF'
-          FROM fedora:40
+          FROM fedora:41
 
           RUN dnf install -y \
               gcc \
