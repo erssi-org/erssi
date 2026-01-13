@@ -25,6 +25,7 @@
 
 #include <irssi/src/fe-text/term.h>
 #include <irssi/src/fe-text/mainwindows.h>
+#include <irssi/src/fe-text/resize-debug.h>
 
 #ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
@@ -71,26 +72,36 @@ int term_get_size(int *width, int *height)
 /* Resize the terminal if needed */
 void term_resize_dirty(void)
 {
-        int width, height;
+	int width, height;
 	int old_width = term_width;
 	int old_height = term_height;
 
 	if (!resize_dirty)
 		return;
 
-        resize_dirty = FALSE;
+	resize_dirty = FALSE;
+	resize_debug_log("TERM_RESIZE", "SIGWINCH received - starting resize");
 
 	if (!term_get_size(&width, &height))
 		width = height = -1;
 
+	resize_debug_dimensions("TERM_RESIZE", old_width, old_height, width, height);
+
 	/* Skip resize if character dimensions unchanged (Ghostty sends SIGWINCH
 	 * for pixel-only changes which would clear sidepanel caches without redraw) */
-	if (width == old_width && height == old_height)
+	if (width == old_width && height == old_height) {
+		resize_debug_log("TERM_RESIZE", "dimensions unchanged, skipping resize");
 		return;
+	}
+
+	resize_debug_log("TERM_RESIZE", "calling term_resize(%d, %d)", width, height);
 
 	term_resize(width, height);
+
+	resize_debug_log("TERM_RESIZE", "calling mainwindows_resize(%d, %d)", term_width, term_height);
 	mainwindows_resize(term_width, term_height);
 	term_resize_final(width, height);
+	resize_debug_log("TERM_RESIZE", "term_resize_dirty complete");
 }
 
 #ifdef SIGWINCH

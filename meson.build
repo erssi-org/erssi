@@ -50,6 +50,12 @@ want_otr            = get_option('with-otr') != 'no'
 require_fe_web      = get_option('with-fe-web') == 'yes'
 want_fe_web         = get_option('with-fe-web') != 'no'
 
+require_fe_notcurses = get_option('with-fe-notcurses') == 'yes'
+want_fe_notcurses    = get_option('with-fe-notcurses') != 'no'
+
+require_fe_ansi      = get_option('with-fe-ansi') == 'yes'
+want_fe_ansi         = get_option('with-fe-ansi') != 'no'
+
 want_glib_internal  = get_option('install-glib') != 'no'
 require_glib_internal = get_option('install-glib') == 'force'
 
@@ -524,6 +530,60 @@ if want_fe_web
   endif
 endif
 
+################
+# fe-notcurses #
+################
+
+have_fe_notcurses = false
+notcurses_libdir = ''
+notcurses_full_lib = dependency('', required : false)
+if want_fe_notcurses
+  # Use full notcurses (not notcurses-core) to get multimedia/image support
+  notcurses_dep = dependency('notcurses', version : '>=3.0.0', required : require_fe_notcurses, static : want_static_dependency, include_type : 'system')
+  if notcurses_dep.found()
+    have_fe_notcurses = true
+    # Get libdir for rpath (needed when notcurses is in non-standard location)
+    notcurses_libdir = notcurses_dep.get_variable(pkgconfig: 'libdir', default_value: '')
+    # Explicitly find full libnotcurses (has multimedia, FFmpeg) vs notcurses-core (minimal)
+    if notcurses_libdir != ''
+      notcurses_full_lib = cc.find_library('notcurses', dirs : [notcurses_libdir], required : false)
+    else
+      notcurses_full_lib = cc.find_library('notcurses', required : false)
+    endif
+  endif
+endif
+
+#################
+# image-preview #
+#################
+
+require_image_preview = get_option('with-image-preview') == 'yes'
+want_image_preview    = get_option('with-image-preview') != 'no'
+
+have_image_preview = false
+curl_dep = dependency('', required : false)
+image_preview_chafa_dep = dependency('', required : false)
+if want_image_preview
+  # image-preview requires libcurl for fetching and chafa for rendering
+  curl_dep = dependency('libcurl', version : '>=7.60.0', required : require_image_preview, static : want_static_dependency, include_type : 'system')
+  image_preview_chafa_dep = dependency('chafa', version : '>=1.12.0', required : require_image_preview, static : want_static_dependency, include_type : 'system')
+  if curl_dep.found() and image_preview_chafa_dep.found()
+    have_image_preview = true
+  endif
+endif
+
+###########
+# fe-ansi #
+###########
+
+have_fe_ansi = false
+chafa_dep = dependency('', required : false)
+if want_fe_ansi
+  # Chafa is optional - for image rendering in ANSI terminal
+  chafa_dep = dependency('chafa', version : '>=1.12.0', required : false, static : want_static_dependency, include_type : 'system')
+  have_fe_ansi = true
+endif
+
 ############
 # capsicum #
 ############
@@ -733,6 +793,9 @@ message('Building with Capsicum ........... : ' + have_capsicum.to_string('yes',
 message('Building with utf8proc ........... : ' + have_libutf8proc.to_string('yes', 'no'))
 message('Building with OTR support ........ : ' + have_otr.to_string('yes', 'no'))
 message('Building with FE-WEB support ..... : ' + have_fe_web.to_string('yes', 'no'))
+message('Building with FE-NOTCURSES ...... : ' + have_fe_notcurses.to_string('yes', 'no'))
+message('Building with FE-ANSI (Chafa) ... : ' + have_fe_ansi.to_string('yes', 'no') + (have_fe_ansi and chafa_dep.found() ? ' (with Chafa)' : ''))
+message('Building with IMAGE-PREVIEW ..... : ' + have_image_preview.to_string('yes', 'no'))
 message('')
 message('If there are any problems, read the INSTALL file.')
 message('Now type ninja -C ' + meson.current_build_dir() + ' to build Irssi')

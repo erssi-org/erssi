@@ -220,10 +220,16 @@ void draw_border_vertical(TERM_WINDOW *tw, int width, int height, int right_bord
 	int x = right_border ? width - 1 : 0;
 	if (!tw)
 		return;
+	/* Use blue color to match default theme's window_border = "%B│%N"
+	 * Note: irssi color 1 = blue (maps to ANSI 4), irssi color 4 = red */
+	term_set_color(tw, 1);  /* Blue (irssi color 1) - matches %B in theme */
 	for (y = 0; y < height; y++) {
 		term_move(tw, x, y);
-		term_addch(tw, '|');
+		/* Use Unicode box drawing character for continuous vertical line */
+		term_addstr(tw, "│");
 	}
+	/* Reset color after drawing border */
+	term_set_color(tw, ATTR_RESET);
 }
 
 /* 24-bit color handling function from textbuffer-view.c */
@@ -747,9 +753,25 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	/* Clean up */
 	free_sorted_window_list(sort_list);
 
-	/* Only draw border if right panel is also visible */
-	if (ctx->right_tw && ctx->right_h > 0) {
-		draw_border_vertical(tw, width, height, 1);
+	/* Always draw the right border of the left panel for consistent visual separation.
+	 * Previously this was conditional on right panel existence, but that created
+	 * inconsistent UI when auto-hide mode hides the right panel in non-channel windows. */
+	draw_border_vertical(tw, width, height, 1);
+
+	/* Draw scroll indicators (bright cyan = color 6 + bold) */
+	if (has_more_above && height > 0) {
+		/* Show "^" at top-right corner to indicate more content above */
+		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
+		term_move(tw, width - 2, 0);
+		term_addch(tw, '^');
+		lines_changed++;
+	}
+	if (has_more_below && height > 1) {
+		/* Show "v" at bottom-right corner to indicate more content below */
+		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
+		term_move(tw, width - 2, height - 1);
+		term_addch(tw, 'v');
+		lines_changed++;
 	}
 
 	/* Draw scroll indicators (bright cyan = color 6 + bold) */

@@ -41,6 +41,7 @@
 #include <irssi/src/fe-common/core/themes.h>
 #include <irssi/src/fe-text/gui-printtext.h>
 #include <irssi/src/fe-common/core/printtext.h>
+#include <irssi/src/fe-text/resize-debug.h>
 #include <stdarg.h>
 #include <stdlib.h>
 
@@ -48,6 +49,7 @@
 extern void sp_logf(const char *fmt, ...);
 extern void update_left_selection_to_active(void);
 extern int get_auto_create_separators(void);
+extern SP_MAINWIN_CTX *get_ctx(MAIN_WINDOW_REC *mw, gboolean create);
 
 /* Helper function to find server separator window */
 static WINDOW_REC *find_server_separator_window(const char *server_tag)
@@ -170,6 +172,8 @@ void sig_server_connected(SERVER_REC *server)
 
 void sig_window_changed(WINDOW_REC *old, WINDOW_REC *new)
 {
+	GSList *t;
+
 	(void) old;
 
 	/* Reset priority when user opens/switches to window */
@@ -178,6 +182,22 @@ void sig_window_changed(WINDOW_REC *old, WINDOW_REC *new)
 		// sp_logf("SIGNAL: window_changed from %d to %d '%s' (USER SWITCHED)",
 		//        old ? old->refnum : -1, new->refnum, item_name);
 		reset_window_priority(new);
+	}
+
+	/* Clear right panel cache for all main windows when switching windows.
+	 * The cache doesn't track which channel it belongs to, so switching
+	 * between channels with same dimensions wouldn't trigger a redraw.
+	 * This ensures the nicklist is properly refreshed on window change. */
+	for (t = mainwindows; t; t = t->next) {
+		MAIN_WINDOW_REC *mw = t->data;
+		SP_MAINWIN_CTX *ctx;
+
+		if (!mw)
+			continue;
+		ctx = get_ctx(mw, FALSE);
+		if (ctx && ctx->right_cache) {
+			sp_cache_clear(ctx->right_cache);
+		}
 	}
 
 	update_left_selection_to_active();
@@ -406,11 +426,88 @@ void sig_nick_mode_filter(CHANNEL_REC *channel, NICK_REC *nick,
 
 void sig_mainwindow_resized(MAIN_WINDOW_REC *mw)
 {
-	redraw_one(mw);
+	SP_MAINWIN_CTX *ctx = get_ctx(mw, FALSE);
+	int mw_id = mw ? (int)(long)mw : -1;
+
+	resize_debug_log("SP_MW_RESIZED", "mainwindow %p resized, ctx=%p", (void*)mw, (void*)ctx);
+
+	if (ctx) {
+		/* CRITICAL: Clear both caches on resize to force full redraw.
+		 * Without this, differential rendering would skip unchanged lines,
+		 * but after resize the line positions have changed! */
+		if (ctx->left_cache) {
+			sp_cache_clear(ctx->left_cache);
+			resize_debug_cache("CLEAR", "left", mw_id);
+		}
+		if (ctx->right_cache) {
+			sp_cache_clear(ctx->right_cache);
+			resize_debug_cache("CLEAR", "right", mw_id);
+		}
+
+		/* Redraw panel CONTENTS only - do NOT call position_tw here!
+		 * position_tw emits "mainwindow resized" when destroying panels,
+		 * which would cause infinite recursion if we called it from here. */
+		resize_debug_redraw("draw_contents_only", mw_id);
+		if (ctx->left_tw && ctx->left_h > 0) {
+			draw_left_contents(mw, ctx);
+		}
+		if (ctx->right_tw && ctx->right_h > 0) {
+			draw_right_contents(mw, ctx);
+		}
+		draw_main_window_borders(mw);
+		irssi_set_dirty();
+	}
+
+	resize_debug_log("SP_MW_RESIZED", "contents redraw complete");
+}
+
+/* Clear ALL sidepanel caches when terminal is resized.
+ * This is a safety net in addition to per-mainwindow cache clearing. */
+static void sig_terminal_resized(void)
+{
+	GSList *tmp;
+	int count = 0;
+
+	resize_debug_log("SP_TERM_RESIZED", "'terminal resized' signal received, term_width=%d, term_height=%d",
+	                 term_width, term_height);
+
+	for (tmp = mainwindows; tmp != NULL; tmp = tmp->next) {
+		MAIN_WINDOW_REC *mw = tmp->data;
+		SP_MAINWIN_CTX *ctx = get_ctx(mw, FALSE);
+		int mw_id = mw ? (int)(long)mw : -1;
+		if (ctx) {
+			if (ctx->left_cache) {
+				sp_cache_clear(ctx->left_cache);
+				resize_debug_cache("CLEAR_ALL", "left", mw_id);
+			}
+			if (ctx->right_cache) {
+				sp_cache_clear(ctx->right_cache);
+				resize_debug_cache("CLEAR_ALL", "right", mw_id);
+			}
+			count++;
+		}
+	}
+
+	resize_debug_log("SP_TERM_RESIZED", "cleared caches for %d mainwindows", count);
+
+	/* Recalculate sidepanel geometry for all mainwindows.
+	 * This is critical after resize - setup_ctx_for recalculates widths
+	 * and position_tw handles collapsed mode if terminal is too small. */
+	resize_debug_log("SP_TERM_RESIZED", "recalculating sidepanel geometry...");
+	for (tmp = mainwindows; tmp != NULL; tmp = tmp->next) {
+		MAIN_WINDOW_REC *mw = tmp->data;
+		setup_ctx_for(mw);
+	}
+
+	/* Force full redraw of all sidepanels */
+	resize_debug_redraw("redraw_all", -1);
+	redraw_all();
+	resize_debug_log("SP_TERM_RESIZED", "redraw_all complete");
 }
 
 void sidepanels_signals_register(void)
 {
+	signal_add("terminal resized", (SIGNAL_FUNC) sig_terminal_resized);
 	signal_add("mainwindow resized", (SIGNAL_FUNC) sig_mainwindow_resized);
 	signal_add("server connected", (SIGNAL_FUNC) sig_server_connected);
 	signal_add("window changed", (SIGNAL_FUNC) sig_window_changed);
@@ -448,6 +545,7 @@ void sidepanels_signals_register(void)
 
 void sidepanels_signals_unregister(void)
 {
+	signal_remove("terminal resized", (SIGNAL_FUNC) sig_terminal_resized);
 	signal_remove("mainwindow resized", (SIGNAL_FUNC) sig_mainwindow_resized);
 	signal_remove("server connected", (SIGNAL_FUNC) sig_server_connected);
 	signal_remove("window changed", (SIGNAL_FUNC) sig_window_changed);

@@ -46,6 +46,11 @@
 #include <irssi/src/fe-text/sidepanels.h>
 #include <irssi/src/fe-text/gui-mouse.h>
 #include <irssi/src/fe-text/gui-gestures.h>
+#include <irssi/src/fe-text/resize-debug.h>
+
+#ifdef HAVE_IMAGE_PREVIEW
+#include <irssi/src/image-preview/image-preview.h>
+#endif
 
 #include <signal.h>
 #include <locale.h>
@@ -121,30 +126,52 @@ static void dirty_check(void)
 	if (!dirty)
 		return;
 
+	resize_debug_log("DIRTY_CHECK", "dirty_check() called, full_redraw=%d", full_redraw);
+
 	/* Freeze terminal output - all drawing operations will be buffered
 	 * and flushed once at the end. This eliminates flicker from multiple
 	 * intermediate flushes during window/statusbar redraws. */
 	term_refresh_freeze();
+	resize_debug_log("DIRTY_CHECK", "term_refresh_freeze() done");
 
 	term_resize_dirty();
+	resize_debug_log("DIRTY_CHECK", "term_resize_dirty() done");
 
 	if (full_redraw) {
 		full_redraw = FALSE;
+		resize_debug_log("DIRTY_CHECK", "FULL REDRAW starting");
 
 		/* first clear the screen so curses will be
 		   forced to redraw the screen */
 		term_clear();
+		resize_debug_log("DIRTY_CHECK", "term_clear() done");
 
 		mainwindows_redraw();
+		resize_debug_log("DIRTY_CHECK", "mainwindows_redraw() done");
 		redraw_both_panels_only("screen_clear"); /* Redraw only sidepanels after full screen clear */
+		resize_debug_log("DIRTY_CHECK", "redraw_both_panels_only() done");
 		statusbar_redraw(NULL, TRUE);
+		resize_debug_log("DIRTY_CHECK", "statusbar_redraw() done");
+
+		/* Draw horizontal separator above statusbar for notcurses
+		 * (terminfo uses scroll regions for protection) */
+		if (screen_reserved_bottom > 0) {
+			term_draw_statusbar_separator(term_height - screen_reserved_bottom - 1);
+		}
+		resize_debug_log("DIRTY_CHECK", "FULL REDRAW complete");
 	}
 
 	mainwindows_redraw_dirty();
 	statusbar_redraw_dirty();
 
+	/* Redraw statusbar separator during dirty updates as well */
+	if (screen_reserved_bottom > 0) {
+		term_draw_statusbar_separator(term_height - screen_reserved_bottom - 1);
+	}
+
 	/* Thaw and flush all buffered output in one operation */
 	term_refresh_thaw();
+	resize_debug_log("DIRTY_CHECK", "term_refresh_thaw() done, dirty_check complete");
 
 	dirty = FALSE;
 }
@@ -202,11 +229,15 @@ static void textui_finish_init(void)
 	gui_mouse_init();
 	gui_gestures_init();
 	sidepanels_init();
+#ifdef HAVE_IMAGE_PREVIEW
+	image_preview_init();
+#endif
 	/* Temporarily raise the fatal level to abort on config errors. */
 	loglev = critical_fatal_section_begin();
 	statusbar_init();
 	critical_fatal_section_end(loglev);
 
+	resize_debug_init();
 	settings_check();
 
 	module_register("core", "fe-text");
@@ -284,8 +315,12 @@ static void textui_deinit(void)
 	signal_remove("module autoload", (SIGNAL_FUNC) sig_autoload_modules);
 	signal_remove("gui exit", (SIGNAL_FUNC) sig_exit);
 
+	resize_debug_deinit();
 	lastlog_deinit();
 	statusbar_deinit();
+#ifdef HAVE_IMAGE_PREVIEW
+	image_preview_deinit();
+#endif
 	sidepanels_deinit();
 	gui_gestures_deinit();
 	gui_mouse_deinit();
