@@ -1,12 +1,12 @@
-erssi-v1.2.7 2026-01-16  erssi-org team <https://github.com/erssi-org>
+erssi-v1.2.8 2026-01-16  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 	https://erssi.org && https://erssi.dev
 	ERSSI - Enhanced/Evolved IRC Client
-	CI/CD workflow synchronization with install.sh build options.
+	CI/CD workflow fixes and unified /opt/erssi installation.
 
 	+ CI/CD
 	  - Synchronized meson build options across release.yml, check.yml, and install.sh
-	  - Added -Dwith-proxy=yes to release.yml
+	  - Added -Dwith-proxy=yes to all workflows
 	  - Updated check.yml with all erssi features (fe-web, fe-ansi, image-preview)
 	  - Added missing build dependencies (libcurl, libchafa, libssl, libgcrypt)
 	  - Renamed workflow from "Check Irssi" to "Check erssi"
@@ -15,7 +15,9 @@ erssi-v1.2.7 2026-01-16  erssi-org team <https://github.com/erssi-org>
 	+ RELEASE PACKAGING
 	  - Fixed release packages to include dynamic modules (.so files)
 	  - All modules now properly packaged: irc, perl, otr, web, dcc, flood, notifylist, anti_floodnet
-	  - Modules installed to lib/irssi/modules/ in all package formats (tar.gz, DEB, RPM)
+	  - Unified --prefix=/opt/erssi across all platforms (macOS, Linux, DEB, RPM)
+	  - DEB/RPM packages install to /opt/erssi with symlinks in /usr/bin
+	  - Modules installed to /opt/erssi/lib/irssi/modules/
 
 erssi-v1.2.6 2026-01-13  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>

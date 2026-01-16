@@ -114,7 +114,7 @@ jobs:
           export LDFLAGS="-L$(brew --prefix utf8proc)/lib"
           export CPPFLAGS="-I$(brew --prefix utf8proc)/include"
           meson setup Build \
-            --prefix=/usr/local \
+            --prefix=/opt/erssi \
             ${{ env.MESON_ARGS }}
 
       - name: Build
@@ -223,7 +223,7 @@ jobs:
             -v "$(pwd):/build" \
             erssi-builder:${{ matrix.arch }} \
             bash -c "
-              meson setup Build --prefix=/usr ${{ env.MESON_ARGS }} && \
+              meson setup Build --prefix=/opt/erssi ${{ env.MESON_ARGS }} && \
               ninja -C Build && \
               mkdir -p ${PKG_NAME}/bin && \
               mkdir -p ${PKG_NAME}/lib/irssi/modules && \
@@ -312,24 +312,28 @@ jobs:
             erssi-deb-builder:${{ matrix.arch }} \
             bash -c "
               # Build erssi
-              meson setup Build --prefix=/usr ${{ env.MESON_ARGS }}
+              meson setup Build --prefix=/opt/erssi ${{ env.MESON_ARGS }}
               ninja -C Build
 
-              # Create DEB structure
+              # Create DEB structure - install to /opt/erssi with symlinks in /usr/bin
               mkdir -p ${PKG_NAME}/DEBIAN
+              mkdir -p ${PKG_NAME}/opt/erssi/bin
+              mkdir -p ${PKG_NAME}/opt/erssi/lib/irssi/modules
+              mkdir -p ${PKG_NAME}/opt/erssi/share/erssi/themes
+              mkdir -p ${PKG_NAME}/opt/erssi/share/doc/erssi
               mkdir -p ${PKG_NAME}/usr/bin
-              mkdir -p ${PKG_NAME}/usr/lib/irssi/modules
-              mkdir -p ${PKG_NAME}/usr/share/erssi/themes
-              mkdir -p ${PKG_NAME}/usr/share/doc/erssi
-              mkdir -p ${PKG_NAME}/etc/erssi
 
-              # Copy files
-              cp Build/src/fe-ansi/erssi ${PKG_NAME}/usr/bin/
-              cp Build/src/fe-text/erssi-nc ${PKG_NAME}/usr/bin/
-              find Build/src -name '*.so' -type f -exec cp {} ${PKG_NAME}/usr/lib/irssi/modules/ \;
-              cp -r themes/* ${PKG_NAME}/usr/share/erssi/themes/
-              cp irssi.conf ${PKG_NAME}/etc/erssi/default.conf
-              cp README.md NEWS COPYING ${PKG_NAME}/usr/share/doc/erssi/
+              # Copy files to /opt/erssi
+              cp Build/src/fe-ansi/erssi ${PKG_NAME}/opt/erssi/bin/
+              cp Build/src/fe-text/erssi-nc ${PKG_NAME}/opt/erssi/bin/
+              find Build/src -name '*.so' -type f -exec cp {} ${PKG_NAME}/opt/erssi/lib/irssi/modules/ \;
+              cp -r themes/* ${PKG_NAME}/opt/erssi/share/erssi/themes/
+              cp irssi.conf ${PKG_NAME}/opt/erssi/share/erssi/default.conf
+              cp README.md NEWS COPYING ${PKG_NAME}/opt/erssi/share/doc/erssi/
+
+              # Create symlinks in /usr/bin
+              ln -s /opt/erssi/bin/erssi ${PKG_NAME}/usr/bin/erssi
+              ln -s /opt/erssi/bin/erssi-nc ${PKG_NAME}/usr/bin/erssi-nc
 
               # Create control file
               cat > ${PKG_NAME}/DEBIAN/control << CTRL
@@ -425,7 +429,7 @@ jobs:
             erssi-rpm-builder:${{ matrix.arch }} \
             bash -c "
               # Build erssi
-              meson setup Build --prefix=/usr ${{ env.MESON_ARGS }}
+              meson setup Build --prefix=/opt/erssi ${{ env.MESON_ARGS }}
               ninja -C Build
 
               # Setup RPM build environment
@@ -449,26 +453,30 @@ jobs:
           advanced sidepanels, mouse gesture navigation, and web interface.
 
           %install
+          mkdir -p %{buildroot}/opt/erssi/bin
+          mkdir -p %{buildroot}/opt/erssi/lib/irssi/modules
+          mkdir -p %{buildroot}/opt/erssi/share/erssi/themes
+          mkdir -p %{buildroot}/opt/erssi/share/doc/erssi
           mkdir -p %{buildroot}/usr/bin
-          mkdir -p %{buildroot}/usr/lib/irssi/modules
-          mkdir -p %{buildroot}/usr/share/erssi/themes
-          mkdir -p %{buildroot}/usr/share/doc/erssi
-          mkdir -p %{buildroot}/etc/erssi
 
-          cp /build/Build/src/fe-ansi/erssi %{buildroot}/usr/bin/
-          cp /build/Build/src/fe-text/erssi-nc %{buildroot}/usr/bin/
-          find /build/Build/src -name '*.so' -type f -exec cp {} %{buildroot}/usr/lib/irssi/modules/ \;
-          cp -r /build/themes/* %{buildroot}/usr/share/erssi/themes/
-          cp /build/irssi.conf %{buildroot}/etc/erssi/default.conf
-          cp /build/README.md /build/NEWS /build/COPYING %{buildroot}/usr/share/doc/erssi/
+          cp /build/Build/src/fe-ansi/erssi %{buildroot}/opt/erssi/bin/
+          cp /build/Build/src/fe-text/erssi-nc %{buildroot}/opt/erssi/bin/
+          find /build/Build/src -name '*.so' -type f -exec cp {} %{buildroot}/opt/erssi/lib/irssi/modules/ \;
+          cp -r /build/themes/* %{buildroot}/opt/erssi/share/erssi/themes/
+          cp /build/irssi.conf %{buildroot}/opt/erssi/share/erssi/default.conf
+          cp /build/README.md /build/NEWS /build/COPYING %{buildroot}/opt/erssi/share/doc/erssi/
+          ln -s /opt/erssi/bin/erssi %{buildroot}/usr/bin/erssi
+          ln -s /opt/erssi/bin/erssi-nc %{buildroot}/usr/bin/erssi-nc
 
           %files
+          /opt/erssi/bin/erssi
+          /opt/erssi/bin/erssi-nc
+          /opt/erssi/lib/irssi/modules/*
+          /opt/erssi/share/erssi/themes/*
+          %config(noreplace) /opt/erssi/share/erssi/default.conf
+          %doc /opt/erssi/share/doc/erssi/*
           /usr/bin/erssi
           /usr/bin/erssi-nc
-          /usr/lib/irssi/modules/*
-          /usr/share/erssi/themes/*
-          %config(noreplace) /etc/erssi/default.conf
-          %doc /usr/share/doc/erssi/*
           SPEC
 
               # Build RPM (binary only, no source)

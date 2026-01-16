@@ -10,7 +10,7 @@
 
 ## What is erssi?
 
-**erssi v1.2.7** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
+**erssi v1.2.8** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
 
 🎯 **Mission**: Modernizing IRC, one feature at a time, while preserving the soul of irssi.
 
@@ -84,11 +84,11 @@
 
 ---
 
-## ✨ Latest Release - v1.2.7
+## ✨ Latest Release - v1.2.8
 
 ### 🔧 CI/CD Workflow Synchronization
 
-The v1.2.7 release synchronizes CI/CD workflows with install.sh build options:
+The v1.2.8 release synchronizes CI/CD workflows with install.sh build options:
 
 - **Unified Build Options**: All workflows now use identical meson options as install.sh
 - **Complete Feature Set**: release.yml and check.yml now build with all features (fe-web, fe-ansi, image-preview, proxy)
