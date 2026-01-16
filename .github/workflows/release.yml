@@ -13,10 +13,11 @@ env:
   MESON_ARGS: >-
     -Dwith-perl=yes
     -Dwith-otr=yes
-    -Ddisable-utf8proc=no
+    -Dwith-proxy=yes
     -Dwith-fe-web=yes
     -Dwith-fe-ansi=yes
     -Dwith-image-preview=yes
+    -Ddisable-utf8proc=no
 
 jobs:
   # ==========================================================================
@@ -127,12 +128,17 @@ jobs:
 
           # Create package directory structure
           mkdir -p "${PKG_NAME}/bin"
+          mkdir -p "${PKG_NAME}/lib/irssi/modules"
           mkdir -p "${PKG_NAME}/share/erssi"
           mkdir -p "${PKG_NAME}/share/doc/erssi"
 
           # Copy binaries
           cp Build/src/fe-ansi/erssi "${PKG_NAME}/bin/"
           cp Build/src/fe-text/erssi-nc "${PKG_NAME}/bin/"
+
+          # Copy dynamic modules (.so and .bundle files)
+          find Build/src -name "*.so" -type f -exec cp {} "${PKG_NAME}/lib/irssi/modules/" \;
+          find Build/src -name "*.bundle" -type f -exec cp {} "${PKG_NAME}/lib/irssi/modules/" \;
 
           # Copy themes and default config
           cp -r themes "${PKG_NAME}/share/erssi/"
@@ -220,10 +226,12 @@ jobs:
               meson setup Build --prefix=/usr ${{ env.MESON_ARGS }} && \
               ninja -C Build && \
               mkdir -p ${PKG_NAME}/bin && \
+              mkdir -p ${PKG_NAME}/lib/irssi/modules && \
               mkdir -p ${PKG_NAME}/share/erssi && \
               mkdir -p ${PKG_NAME}/share/doc/erssi && \
               cp Build/src/fe-ansi/erssi ${PKG_NAME}/bin/ && \
               cp Build/src/fe-text/erssi-nc ${PKG_NAME}/bin/ && \
+              find Build/src -name '*.so' -type f -exec cp {} ${PKG_NAME}/lib/irssi/modules/ \; && \
               cp -r themes ${PKG_NAME}/share/erssi/ && \
               cp irssi.conf ${PKG_NAME}/share/erssi/default.conf && \
               cp README.md NEWS COPYING ${PKG_NAME}/share/doc/erssi/ && \
@@ -310,6 +318,7 @@ jobs:
               # Create DEB structure
               mkdir -p ${PKG_NAME}/DEBIAN
               mkdir -p ${PKG_NAME}/usr/bin
+              mkdir -p ${PKG_NAME}/usr/lib/irssi/modules
               mkdir -p ${PKG_NAME}/usr/share/erssi/themes
               mkdir -p ${PKG_NAME}/usr/share/doc/erssi
               mkdir -p ${PKG_NAME}/etc/erssi
@@ -317,6 +326,7 @@ jobs:
               # Copy files
               cp Build/src/fe-ansi/erssi ${PKG_NAME}/usr/bin/
               cp Build/src/fe-text/erssi-nc ${PKG_NAME}/usr/bin/
+              find Build/src -name '*.so' -type f -exec cp {} ${PKG_NAME}/usr/lib/irssi/modules/ \;
               cp -r themes/* ${PKG_NAME}/usr/share/erssi/themes/
               cp irssi.conf ${PKG_NAME}/etc/erssi/default.conf
               cp README.md NEWS COPYING ${PKG_NAME}/usr/share/doc/erssi/
@@ -440,12 +450,14 @@ jobs:
 
           %install
           mkdir -p %{buildroot}/usr/bin
+          mkdir -p %{buildroot}/usr/lib/irssi/modules
           mkdir -p %{buildroot}/usr/share/erssi/themes
           mkdir -p %{buildroot}/usr/share/doc/erssi
           mkdir -p %{buildroot}/etc/erssi
 
           cp /build/Build/src/fe-ansi/erssi %{buildroot}/usr/bin/
           cp /build/Build/src/fe-text/erssi-nc %{buildroot}/usr/bin/
+          find /build/Build/src -name '*.so' -type f -exec cp {} %{buildroot}/usr/lib/irssi/modules/ \;
           cp -r /build/themes/* %{buildroot}/usr/share/erssi/themes/
           cp /build/irssi.conf %{buildroot}/etc/erssi/default.conf
           cp /build/README.md /build/NEWS /build/COPYING %{buildroot}/usr/share/doc/erssi/
@@ -453,6 +465,7 @@ jobs:
           %files
           /usr/bin/erssi
           /usr/bin/erssi-nc
+          /usr/lib/irssi/modules/*
           /usr/share/erssi/themes/*
           %config(noreplace) /etc/erssi/default.conf
           %doc /usr/share/doc/erssi/*

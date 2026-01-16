@@ -10,7 +10,7 @@
 
 ## What is erssi?
 
-**erssi v1.2.6** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
+**erssi v1.2.7** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
 
 🎯 **Mission**: Modernizing IRC, one feature at a time, while preserving the soul of irssi.
 
@@ -84,11 +84,20 @@
 
 ---
 
-## ✨ Latest Release - v1.2.6
+## ✨ Latest Release - v1.2.7
 
-### 🖼️ ANSI Backend & Image Preview
+### 🔧 CI/CD Workflow Synchronization
 
-The v1.2.6 release introduces a pure ANSI terminal backend as the default, with inline image preview support:
+The v1.2.7 release synchronizes CI/CD workflows with install.sh build options:
+
+- **Unified Build Options**: All workflows now use identical meson options as install.sh
+- **Complete Feature Set**: release.yml and check.yml now build with all features (fe-web, fe-ansi, image-preview, proxy)
+- **Updated Dependencies**: check.yml includes all required libraries (libcurl, libchafa, libssl, libgcrypt)
+- **Modernized Workflow**: check.yml renamed to "Check erssi", branch changed to main
+
+### 🖼️ ANSI Backend & Image Preview (v1.2.6)
+
+The v1.2.6 release introduced a pure ANSI terminal backend as the default, with inline image preview support:
 
 - **Pure ANSI Backend**: New default terminal implementation without ncurses dependency
 - **Inline Image Preview**: Display images directly in terminal (Kitty, iTerm2, Sixel, symbols)
