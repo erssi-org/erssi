@@ -23,9 +23,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <termios.h>
-#include <sys/select.h>
-#include <fcntl.h>
 
 /* STB image for loading - single header library */
 #define STB_IMAGE_IMPLEMENTATION
@@ -70,155 +67,79 @@ static DetectedTerminal cached_terminal = TERM_UNKNOWN;
 static gboolean terminal_detected = FALSE;
 
 /*
- * Query terminal using XTVERSION escape sequence.
- * This works through tmux passthrough to detect the REAL outer terminal.
+ * Query terminal type via tmux's client_termname variable.
+ * Uses 'tmux display-message -p' which knows the real outer terminal.
  * Returns detected terminal type or TERM_UNKNOWN on failure.
  */
 static DetectedTerminal query_terminal_type(void)
 {
-	struct termios old_term, new_term;
+	FILE *fp;
 	char buf[256];
-	int n = 0;
-	fd_set fds;
-	struct timeval tv;
-	int ret;
 	DetectedTerminal result = TERM_UNKNOWN;
 
-	/* If already detected, return cached result */
+	/* Return cached result if already detected */
 	if (terminal_detected) {
 		return cached_terminal;
 	}
 
-	image_preview_debug_print("QUERY: Sending XTVERSION query to terminal");
+	image_preview_debug_print("QUERY: Querying tmux for client terminal");
 
-	/* Save terminal settings */
-	if (tcgetattr(STDIN_FILENO, &old_term) < 0) {
-		image_preview_debug_print("QUERY: Failed to get terminal attributes");
-		return TERM_UNKNOWN;
+	/* Query tmux for client's terminal name */
+	fp = popen("tmux display-message -p '#{client_termname}' 2>/dev/null", "r");
+	if (fp == NULL) {
+		image_preview_debug_print("QUERY: Failed to run tmux command");
+		goto cache_result;
 	}
 
-	/* Set raw mode for reading response */
-	new_term = old_term;
-	new_term.c_lflag &= ~(ICANON | ECHO);
-	new_term.c_cc[VMIN] = 0;
-	new_term.c_cc[VTIME] = 0;
+	if (fgets(buf, sizeof(buf), fp) != NULL) {
+		/* Remove trailing newline */
+		size_t len = strlen(buf);
+		if (len > 0 && buf[len - 1] == '\n')
+			buf[len - 1] = '\0';
 
-	if (tcsetattr(STDIN_FILENO, TCSANOW, &new_term) < 0) {
-		image_preview_debug_print("QUERY: Failed to set raw mode");
-		return TERM_UNKNOWN;
-	}
+		image_preview_debug_print("QUERY: tmux client_termname: %s", buf);
 
-	/* Flush any pending input */
-	tcflush(STDIN_FILENO, TCIFLUSH);
-
-	/* Send XTVERSION query: ESC [ > 0 q */
-	/* For tmux, we need to wrap it in passthrough */
-	{
-		const char *tmux_env = g_getenv("TMUX");
-		if (tmux_env && *tmux_env) {
-			/* tmux passthrough: ESC P tmux; ESC ESC [ > 0 q ESC \ */
-			write(STDOUT_FILENO, "\033Ptmux;\033\033[>0q\033\\", 16);
-			image_preview_debug_print("QUERY: Sent via tmux passthrough");
+		/* Match terminal name to type */
+		if (strcasestr(buf, "iterm") != NULL) {
+			result = TERM_ITERM2;
+			image_preview_debug_print("QUERY: Detected iTerm2");
+		} else if (strcasestr(buf, "kitty") != NULL) {
+			result = TERM_KITTY;
+			image_preview_debug_print("QUERY: Detected Kitty");
+		} else if (strcasestr(buf, "ghostty") != NULL) {
+			result = TERM_GHOSTTY;
+			image_preview_debug_print("QUERY: Detected Ghostty");
+		} else if (strcasestr(buf, "wezterm") != NULL) {
+			result = TERM_WEZTERM;
+			image_preview_debug_print("QUERY: Detected WezTerm");
+		} else if (strcasestr(buf, "rio") != NULL) {
+			result = TERM_RIO;
+			image_preview_debug_print("QUERY: Detected Rio");
+		} else if (strcasestr(buf, "foot") != NULL) {
+			result = TERM_FOOT;
+			image_preview_debug_print("QUERY: Detected foot");
+		} else if (strcasestr(buf, "contour") != NULL) {
+			result = TERM_CONTOUR;
+			image_preview_debug_print("QUERY: Detected Contour");
+		} else if (strcasestr(buf, "konsole") != NULL) {
+			result = TERM_KONSOLE;
+			image_preview_debug_print("QUERY: Detected Konsole");
+		} else if (strcasestr(buf, "mintty") != NULL) {
+			result = TERM_MINTTY;
+			image_preview_debug_print("QUERY: Detected mintty");
+		} else if (strcasestr(buf, "mlterm") != NULL) {
+			result = TERM_MLTERM;
+			image_preview_debug_print("QUERY: Detected mlterm");
+		} else if (strcasestr(buf, "xterm") != NULL) {
+			result = TERM_XTERM;
+			image_preview_debug_print("QUERY: Detected xterm");
 		} else {
-			/* Direct query */
-			write(STDOUT_FILENO, "\033[>0q", 5);
-			image_preview_debug_print("QUERY: Sent directly");
+			image_preview_debug_print("QUERY: Unknown terminal: %s", buf);
 		}
 	}
+	pclose(fp);
 
-	/* Wait for response with timeout (100ms) */
-	FD_ZERO(&fds);
-	FD_SET(STDIN_FILENO, &fds);
-	tv.tv_sec = 0;
-	tv.tv_usec = 100000; /* 100ms */
-
-	ret = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
-
-	if (ret > 0 && FD_ISSET(STDIN_FILENO, &fds)) {
-		/* Read response */
-		n = read(STDIN_FILENO, buf, sizeof(buf) - 1);
-		if (n > 0) {
-			buf[n] = '\0';
-			image_preview_debug_print("QUERY: Got response (%d bytes)", n);
-
-			/* Log response for debugging (escape special chars) */
-			{
-				GString *hex = g_string_new(NULL);
-				int i;
-				for (i = 0; i < n && i < 60; i++) {
-					unsigned char c = (unsigned char)buf[i];
-					if (c == 0x1b)
-						g_string_append(hex, "<ESC>");
-					else if (c >= 32 && c < 127)
-						g_string_append_c(hex, c);
-					else
-						g_string_append_printf(hex, "<%02x>", c);
-				}
-				image_preview_debug_print("QUERY: Response: %s", hex->str);
-				g_string_free(hex, TRUE);
-			}
-
-			/* Parse response - format: ESC P > | <name> ... ESC \ */
-			/* Or for some terminals: ESC [ > ... c */
-
-			/* iTerm2 protocol terminals */
-			if (g_strstr_len(buf, n, "iTerm2") != NULL ||
-			    g_strstr_len(buf, n, "iterm2") != NULL) {
-				result = TERM_ITERM2;
-				image_preview_debug_print("QUERY: Detected iTerm2");
-			}
-			/* Kitty graphics protocol terminals */
-			else if (g_strstr_len(buf, n, "kitty") != NULL ||
-			         g_strstr_len(buf, n, "Kitty") != NULL) {
-				result = TERM_KITTY;
-				image_preview_debug_print("QUERY: Detected Kitty");
-			} else if (g_strstr_len(buf, n, "ghostty") != NULL ||
-			           g_strstr_len(buf, n, "Ghostty") != NULL) {
-				result = TERM_GHOSTTY;
-				image_preview_debug_print("QUERY: Detected Ghostty");
-			} else if (g_strstr_len(buf, n, "WezTerm") != NULL ||
-			           g_strstr_len(buf, n, "wezterm") != NULL) {
-				result = TERM_WEZTERM;
-				image_preview_debug_print("QUERY: Detected WezTerm");
-			} else if (g_strstr_len(buf, n, "rio") != NULL ||
-			           g_strstr_len(buf, n, "Rio") != NULL) {
-				result = TERM_RIO;
-				image_preview_debug_print("QUERY: Detected Rio");
-			}
-			/* Sixel protocol terminals */
-			else if (g_strstr_len(buf, n, "foot") != NULL) {
-				result = TERM_FOOT;
-				image_preview_debug_print("QUERY: Detected foot");
-			} else if (g_strstr_len(buf, n, "contour") != NULL ||
-			           g_strstr_len(buf, n, "Contour") != NULL) {
-				result = TERM_CONTOUR;
-				image_preview_debug_print("QUERY: Detected Contour");
-			} else if (g_strstr_len(buf, n, "konsole") != NULL ||
-			           g_strstr_len(buf, n, "Konsole") != NULL) {
-				result = TERM_KONSOLE;
-				image_preview_debug_print("QUERY: Detected Konsole");
-			} else if (g_strstr_len(buf, n, "mintty") != NULL ||
-			           g_strstr_len(buf, n, "MinTTY") != NULL) {
-				result = TERM_MINTTY;
-				image_preview_debug_print("QUERY: Detected mintty");
-			} else if (g_strstr_len(buf, n, "mlterm") != NULL) {
-				result = TERM_MLTERM;
-				image_preview_debug_print("QUERY: Detected mlterm");
-			} else if (g_strstr_len(buf, n, "xterm") != NULL ||
-			           g_strstr_len(buf, n, "XTerm") != NULL) {
-				result = TERM_XTERM;
-				image_preview_debug_print("QUERY: Detected xterm");
-			} else {
-				image_preview_debug_print("QUERY: Unknown terminal response");
-			}
-		}
-	} else {
-		image_preview_debug_print("QUERY: No response (timeout or error)");
-	}
-
-	/* Restore terminal settings */
-	tcsetattr(STDIN_FILENO, TCSANOW, &old_term);
-
+cache_result:
 	/* Cache the result */
 	cached_terminal = result;
 	terminal_detected = TRUE;
