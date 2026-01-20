@@ -603,6 +603,10 @@ void image_render_clear_graphics(void)
 		image_preview_debug_print("CLEAR: Kitty - sending delete-all sequence");
 		fprintf(stdout, "%s\033_Ga=d\033\033\\%s", tmux_start, tmux_end);
 		fflush(stdout);
+		/* Small delay to let tmux process the clear before new image */
+		if (env_tmux && *env_tmux) {
+			usleep(10000);  /* 10ms */
+		}
 	} else {
 		/* iTerm2/Sixel/Symbols: redraw mainwindow to overwrite image with text.
 		 * Only mainwindow needs redraw since popup is displayed within it. */
