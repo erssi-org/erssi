@@ -136,10 +136,12 @@ void image_preview_show_error_popup(void);
 #define IMAGE_PREVIEW_MAX_FILE_SIZE     "image_preview_max_file_size"
 #define IMAGE_PREVIEW_BLITTER           "image_preview_blitter"
 #define IMAGE_PREVIEW_DEBUG_SETTING     "image_preview_debug"
+#define IMAGE_PREVIEW_MAX_BYTES         "image_preview_max_bytes"
 
 /* Default values */
-#define IMAGE_PREVIEW_DEFAULT_MAX_WIDTH   40
-#define IMAGE_PREVIEW_DEFAULT_MAX_HEIGHT  10
+#define IMAGE_PREVIEW_DEFAULT_MAX_WIDTH   0   /* 0 = auto (use byte limit) */
+#define IMAGE_PREVIEW_DEFAULT_MAX_HEIGHT  0   /* 0 = auto (use byte limit) */
+#define IMAGE_PREVIEW_DEFAULT_MAX_BYTES   900000  /* 900KB - safe for tmux DCS passthrough */
 #define IMAGE_PREVIEW_DEFAULT_CACHE_SIZE  "100M"
 #define IMAGE_PREVIEW_DEFAULT_TIMEOUT     "60s"
 #define IMAGE_PREVIEW_DEFAULT_MAX_FILE_SIZE 10  /* MB */

@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 
 /* STB image for loading - single header library */
 #define STB_IMAGE_IMPLEMENTATION
@@ -294,6 +295,8 @@ GString *image_render_chafa(const char *image_path,
 	int img_width, img_height, img_channels;
 	int target_cols, target_rows;
 	float aspect_ratio;
+	int max_bytes, source_w, source_h, estimated_bytes;
+	float scale;
 
 	if (image_path == NULL) {
 		image_preview_debug_print("CHAFA: NULL image path");
@@ -334,6 +337,32 @@ GString *image_render_chafa(const char *image_path,
 
 	if (target_cols < 1) target_cols = 1;
 	if (target_rows < 1) target_rows = 1;
+
+	/* Auto-scale down if estimated output exceeds byte limit (for tmux DCS passthrough).
+	 * Estimated size: source_pixels * 4 bytes RGBA * 1.4 (base64 + overhead)
+	 * Source pixels with cell_geometry(8,16): cols*8 * rows*16 */
+	max_bytes = settings_get_int(IMAGE_PREVIEW_MAX_BYTES);
+	if (max_bytes <= 0) max_bytes = IMAGE_PREVIEW_DEFAULT_MAX_BYTES;
+
+	source_w = target_cols * 8;
+	source_h = target_rows * 16;
+	estimated_bytes = (int)((float)(source_w * source_h * 4) * 1.4f);
+
+	if (estimated_bytes > max_bytes) {
+		/* Scale down to fit byte limit */
+		scale = sqrtf((float)max_bytes / (float)estimated_bytes);
+		target_cols = (int)((float)target_cols * scale);
+		target_rows = (int)((float)target_rows * scale);
+		if (target_cols < 1) target_cols = 1;
+		if (target_rows < 1) target_rows = 1;
+
+		source_w = target_cols * 8;
+		source_h = target_rows * 16;
+		estimated_bytes = (int)((float)(source_w * source_h * 4) * 1.4f);
+
+		image_preview_debug_print("CHAFA: Scaled down to fit %d bytes limit (est: %d)",
+		                          max_bytes, estimated_bytes);
+	}
 
 	image_preview_debug_print("CHAFA: Target size: %dx%d cells", target_cols, target_rows);
 

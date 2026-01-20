@@ -784,13 +784,14 @@ static void popup_preview_show_for_line(const char *image_path, LINE_REC *line)
 	/* Dismiss any existing popup first */
 	popup_preview_dismiss();
 
-	/* Calculate max size - use user settings if set, otherwise 50% of main window */
+	/* Calculate max size - use user settings if set, otherwise use window size
+	 * (byte limiting in image_render_chafa will auto-scale down if needed) */
 	max_width = settings_get_int(IMAGE_PREVIEW_MAX_WIDTH);
 	max_height = settings_get_int(IMAGE_PREVIEW_MAX_HEIGHT);
 
-	/* Fall back to 50% of window if settings are 0 or negative */
-	if (max_width <= 0) max_width = mw_width / 2;
-	if (max_height <= 0) max_height = mw_height / 2;
+	/* If settings are 0 (auto), use 80% of window - byte limit will handle the rest */
+	if (max_width <= 0) max_width = (mw_width * 4) / 5;
+	if (max_height <= 0) max_height = (mw_height * 4) / 5;
 
 	/* Apply minimum bounds */
 	if (max_width < 20) max_width = 20;
@@ -1225,6 +1226,8 @@ void image_preview_init(void)
 	                         IMAGE_PREVIEW_DEFAULT_TIMEOUT);
 	settings_add_int_module("fe-text", "misc", IMAGE_PREVIEW_MAX_FILE_SIZE,
 	                        IMAGE_PREVIEW_DEFAULT_MAX_FILE_SIZE);
+	settings_add_int_module("fe-text", "lookandfeel", IMAGE_PREVIEW_MAX_BYTES,
+	                        IMAGE_PREVIEW_DEFAULT_MAX_BYTES);
 	settings_add_bool_module("fe-text", "lookandfeel", IMAGE_PREVIEW_DEBUG_SETTING, FALSE);
 
 	image_preview_debug = settings_get_bool(IMAGE_PREVIEW_DEBUG_SETTING);
