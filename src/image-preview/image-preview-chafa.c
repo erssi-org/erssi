@@ -314,10 +314,13 @@ GString *image_render_chafa(const char *image_path,
 	image_preview_debug_print("CHAFA: Image loaded: %dx%d, %d channels",
 	                          img_width, img_height, img_channels);
 
-	/* Calculate target dimensions preserving aspect ratio */
+	/* Calculate target dimensions preserving aspect ratio.
+	 * Terminal cells are ~8x16 pixels (2:1 height:width), so we multiply
+	 * aspect ratio by 2 to get correct number of columns.
+	 * We also set cell_geometry(8,16) below so Chafa generates correct
+	 * source pixels for the Kitty protocol. */
 	aspect_ratio = (float)img_width / (float)img_height;
-	/* Terminal cells are ~2:1 aspect (height:width), so adjust */
-	aspect_ratio *= 2.0f;
+	aspect_ratio *= 2.0f;  /* Adjust for 2:1 cell aspect ratio */
 
 	if (aspect_ratio > (float)max_cols / (float)max_rows) {
 		/* Width limited */
@@ -424,6 +427,12 @@ GString *image_render_chafa(const char *image_path,
 	config = chafa_canvas_config_new();
 	chafa_canvas_config_set_geometry(config, target_cols, target_rows);
 	chafa_canvas_config_set_pixel_mode(config, pixel_mode);
+
+	/* Tell Chafa about actual terminal cell dimensions (width x height in pixels).
+	 * Most terminal fonts use approximately 8x16 pixel cells (2:1 height:width).
+	 * This ensures Chafa generates source pixels with correct aspect ratio
+	 * so images display correctly without manual aspect adjustment hacks. */
+	chafa_canvas_config_set_cell_geometry(config, 8, 16);
 
 	/* Set canvas mode based on terminal colors */
 	chafa_canvas_config_set_canvas_mode(config, CHAFA_CANVAS_MODE_TRUECOLOR);
@@ -774,6 +783,7 @@ GString *image_render_error_icon(int max_cols, int max_rows, int *out_rows)
 	config = chafa_canvas_config_new();
 	chafa_canvas_config_set_geometry(config, target_cols, target_rows);
 	chafa_canvas_config_set_pixel_mode(config, pixel_mode);
+	chafa_canvas_config_set_cell_geometry(config, 8, 16);
 	chafa_canvas_config_set_canvas_mode(config, CHAFA_CANVAS_MODE_TRUECOLOR);
 
 	/* Create canvas */
