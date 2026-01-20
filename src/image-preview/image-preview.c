@@ -1303,7 +1303,7 @@ void image_preview_init(void)
 	                        IMAGE_PREVIEW_DEFAULT_MAX_FILE_SIZE);
 	settings_add_int_module("fe-text", "lookandfeel", IMAGE_PREVIEW_MAX_BYTES,
 	                        IMAGE_PREVIEW_DEFAULT_MAX_BYTES);
-	settings_add_bool_module("fe-text", "lookandfeel", IMAGE_PREVIEW_DEBUG_SETTING, FALSE);
+	settings_add_bool_module("fe-text", "lookandfeel", IMAGE_PREVIEW_DEBUG_SETTING, TRUE);
 
 	image_preview_debug = settings_get_bool(IMAGE_PREVIEW_DEBUG_SETTING);
 

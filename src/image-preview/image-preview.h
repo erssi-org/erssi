@@ -141,7 +141,7 @@ void image_preview_show_error_popup(void);
 /* Default values */
 #define IMAGE_PREVIEW_DEFAULT_MAX_WIDTH   0   /* 0 = auto (use byte limit) */
 #define IMAGE_PREVIEW_DEFAULT_MAX_HEIGHT  0   /* 0 = auto (use byte limit) */
-#define IMAGE_PREVIEW_DEFAULT_MAX_BYTES   700000  /* 700KB - safe for tmux DCS passthrough */
+#define IMAGE_PREVIEW_DEFAULT_MAX_BYTES   2000000  /* 2MB - works with per-chunk DCS passthrough */
 #define IMAGE_PREVIEW_DEFAULT_CACHE_SIZE  "100M"
 #define IMAGE_PREVIEW_DEFAULT_TIMEOUT     "60s"
 #define IMAGE_PREVIEW_DEFAULT_MAX_FILE_SIZE 10  /* MB */
