@@ -729,15 +729,24 @@ void image_preview_show_error_popup(void)
 		fprintf(stdout, "\033[%d;%dH", popup_y + 1, popup_x + 1);
 
 		if (in_tmux) {
-			/* Wrap in tmux DCS passthrough */
+			/* Wrap in tmux DCS passthrough - flush periodically for stability */
 			size_t i;
+			size_t bytes_since_flush = 0;
+			const size_t FLUSH_INTERVAL = 65536;
+
 			fprintf(stdout, "\033Ptmux;");
 			for (i = 0; i < popup_content->len; i++) {
 				char c = popup_content->str[i];
 				if (c == '\033') {
 					fprintf(stdout, "\033\033");
+					bytes_since_flush += 2;
 				} else {
 					fputc(c, stdout);
+					bytes_since_flush++;
+				}
+				if (bytes_since_flush >= FLUSH_INTERVAL) {
+					fflush(stdout);
+					bytes_since_flush = 0;
 				}
 			}
 			fprintf(stdout, "\033\\");
@@ -868,16 +877,28 @@ static void popup_preview_show_for_line(const char *image_path, LINE_REC *line)
 		fprintf(stdout, "\033[%d;%dH", popup_y + 1, popup_x + 1);
 
 		if (in_tmux) {
-			/* Wrap in tmux DCS passthrough - need to double all ESC chars */
+			/* Wrap in tmux DCS passthrough - need to double all ESC chars.
+			 * Flush periodically to prevent tmux buffer issues with large data. */
 			size_t i;
+			size_t bytes_since_flush = 0;
+			const size_t FLUSH_INTERVAL = 65536;  /* 64KB chunks */
+
 			fprintf(stdout, "\033Ptmux;");
 			for (i = 0; i < popup_content->len; i++) {
 				char c = popup_content->str[i];
 				if (c == '\033') {
 					/* Double the escape for tmux passthrough */
 					fprintf(stdout, "\033\033");
+					bytes_since_flush += 2;
 				} else {
 					fputc(c, stdout);
+					bytes_since_flush++;
+				}
+
+				/* Flush periodically to let tmux process the data */
+				if (bytes_since_flush >= FLUSH_INTERVAL) {
+					fflush(stdout);
+					bytes_since_flush = 0;
 				}
 			}
 			fprintf(stdout, "\033\\");
