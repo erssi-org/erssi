@@ -729,27 +729,52 @@ void image_preview_show_error_popup(void)
 		fprintf(stdout, "\033[%d;%dH", popup_y + 1, popup_x + 1);
 
 		if (in_tmux) {
-			/* Wrap in tmux DCS passthrough - flush periodically for stability */
-			size_t i;
-			size_t bytes_since_flush = 0;
-			const size_t FLUSH_INTERVAL = 65536;
+			/* Wrap EACH Kitty graphics chunk separately in tmux DCS passthrough */
+			size_t i = 0;
+			size_t len = popup_content->len;
+			const char *data = popup_content->str;
 
-			fprintf(stdout, "\033Ptmux;");
-			for (i = 0; i < popup_content->len; i++) {
-				char c = popup_content->str[i];
-				if (c == '\033') {
-					fprintf(stdout, "\033\033");
-					bytes_since_flush += 2;
-				} else {
-					fputc(c, stdout);
-					bytes_since_flush++;
-				}
-				if (bytes_since_flush >= FLUSH_INTERVAL) {
+			while (i < len) {
+				if (i + 2 < len && data[i] == '\033' && data[i+1] == '_' && data[i+2] == 'G') {
+					size_t chunk_start = i;
+					size_t j = i + 3;
+					while (j + 1 < len) {
+						if (data[j] == '\033' && data[j+1] == '\\') {
+							j += 2;
+							break;
+						}
+						j++;
+					}
+					fprintf(stdout, "\033Ptmux;");
+					for (size_t k = chunk_start; k < j; k++) {
+						if (data[k] == '\033') {
+							fprintf(stdout, "\033\033");
+						} else {
+							fputc(data[k], stdout);
+						}
+					}
+					fprintf(stdout, "\033\\");
 					fflush(stdout);
-					bytes_since_flush = 0;
+					i = j;
+				} else {
+					size_t chunk_start = i;
+					while (i < len && !(i + 2 < len && data[i] == '\033' && data[i+1] == '_' && data[i+2] == 'G')) {
+						i++;
+					}
+					if (i > chunk_start) {
+						fprintf(stdout, "\033Ptmux;");
+						for (size_t k = chunk_start; k < i; k++) {
+							if (data[k] == '\033') {
+								fprintf(stdout, "\033\033");
+							} else {
+								fputc(data[k], stdout);
+							}
+						}
+						fprintf(stdout, "\033\\");
+						fflush(stdout);
+					}
 				}
 			}
-			fprintf(stdout, "\033\\");
 		} else {
 			fwrite(popup_content->str, 1, popup_content->len, stdout);
 		}
@@ -877,31 +902,60 @@ static void popup_preview_show_for_line(const char *image_path, LINE_REC *line)
 		fprintf(stdout, "\033[%d;%dH", popup_y + 1, popup_x + 1);
 
 		if (in_tmux) {
-			/* Wrap in tmux DCS passthrough - need to double all ESC chars.
-			 * Flush periodically to prevent tmux buffer issues with large data. */
-			size_t i;
-			size_t bytes_since_flush = 0;
-			const size_t FLUSH_INTERVAL = 65536;  /* 64KB chunks */
+			/* Wrap EACH Kitty graphics chunk separately in tmux DCS passthrough.
+			 * Kitty chunks start with ESC_G and end with ESC\.
+			 * Wrapping each one prevents tmux buffer overflow on large images. */
+			size_t i = 0;
+			size_t len = popup_content->len;
+			const char *data = popup_content->str;
 
-			fprintf(stdout, "\033Ptmux;");
-			for (i = 0; i < popup_content->len; i++) {
-				char c = popup_content->str[i];
-				if (c == '\033') {
-					/* Double the escape for tmux passthrough */
-					fprintf(stdout, "\033\033");
-					bytes_since_flush += 2;
-				} else {
-					fputc(c, stdout);
-					bytes_since_flush++;
-				}
+			while (i < len) {
+				/* Look for start of Kitty chunk: ESC _ G */
+				if (i + 2 < len && data[i] == '\033' && data[i+1] == '_' && data[i+2] == 'G') {
+					/* Find end of this chunk: ESC \ */
+					size_t chunk_start = i;
+					size_t j = i + 3;
+					while (j + 1 < len) {
+						if (data[j] == '\033' && data[j+1] == '\\') {
+							j += 2;  /* Include the ESC \ */
+							break;
+						}
+						j++;
+					}
 
-				/* Flush periodically to let tmux process the data */
-				if (bytes_since_flush >= FLUSH_INTERVAL) {
+					/* Wrap this chunk in DCS passthrough */
+					fprintf(stdout, "\033Ptmux;");
+					for (size_t k = chunk_start; k < j; k++) {
+						if (data[k] == '\033') {
+							fprintf(stdout, "\033\033");
+						} else {
+							fputc(data[k], stdout);
+						}
+					}
+					fprintf(stdout, "\033\\");
 					fflush(stdout);
-					bytes_since_flush = 0;
+
+					i = j;
+				} else {
+					/* Non-Kitty data - wrap in DCS and output */
+					size_t chunk_start = i;
+					while (i < len && !(i + 2 < len && data[i] == '\033' && data[i+1] == '_' && data[i+2] == 'G')) {
+						i++;
+					}
+					if (i > chunk_start) {
+						fprintf(stdout, "\033Ptmux;");
+						for (size_t k = chunk_start; k < i; k++) {
+							if (data[k] == '\033') {
+								fprintf(stdout, "\033\033");
+							} else {
+								fputc(data[k], stdout);
+							}
+						}
+						fprintf(stdout, "\033\\");
+						fflush(stdout);
+					}
 				}
 			}
-			fprintf(stdout, "\033\\");
 		} else {
 			/* Direct output */
 			fwrite(popup_content->str, 1, popup_content->len, stdout);
