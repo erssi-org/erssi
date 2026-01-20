@@ -784,11 +784,21 @@ static void popup_preview_show_for_line(const char *image_path, LINE_REC *line)
 	/* Dismiss any existing popup first */
 	popup_preview_dismiss();
 
-	/* Calculate max size (50% of main window) */
-	max_width = mw_width / 2;
-	max_height = mw_height / 2;
+	/* Calculate max size - use user settings if set, otherwise 50% of main window */
+	max_width = settings_get_int(IMAGE_PREVIEW_MAX_WIDTH);
+	max_height = settings_get_int(IMAGE_PREVIEW_MAX_HEIGHT);
+
+	/* Fall back to 50% of window if settings are 0 or negative */
+	if (max_width <= 0) max_width = mw_width / 2;
+	if (max_height <= 0) max_height = mw_height / 2;
+
+	/* Apply minimum bounds */
 	if (max_width < 20) max_width = 20;
 	if (max_height < 10) max_height = 10;
+
+	/* Don't exceed window size */
+	if (max_width > mw_width - 4) max_width = mw_width - 4;
+	if (max_height > mw_height - 4) max_height = mw_height - 4;
 
 	/* Render using Chafa */
 	popup_content = image_render_chafa(image_path, max_width, max_height, &rows);
