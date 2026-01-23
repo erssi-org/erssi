@@ -1,3 +1,6 @@
+/* Enable GNU extensions (strcasestr) */
+#define _GNU_SOURCE
+
 /*
  image-preview-chafa.c : Image rendering using Chafa library
 

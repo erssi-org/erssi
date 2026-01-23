@@ -1,3 +1,6 @@
+/* Enable GNU extensions (strcasestr) */
+#define _GNU_SOURCE
+
 /*
  fe-web-server.c : TCP/WebSocket server for fe-web
 
