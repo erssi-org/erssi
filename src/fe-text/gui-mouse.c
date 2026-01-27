@@ -260,9 +260,11 @@ gboolean gui_mouse_try_parse_key(gunichar key)
 		s = mouse_buf;
 		
 		/* Check if this is arrow keys (A/B/C/D) or other ESC sequences */
-		if (mouse_len == 1 && (key == 'A' || key == 'B' || key == 'C' || key == 'D' ||
-		                       key == 'H' || key == 'F' || key == '1' || key == '2' ||
-		                       key == '3' || key == '4' || key == '5' || key == '6')) {
+		/* But NOT if first char is '<' (SGR mouse prefix) */
+		if (mouse_len == 1 && mouse_buf[0] != '<' &&
+		    (key == 'A' || key == 'B' || key == 'C' || key == 'D' ||
+		     key == 'H' || key == 'F' || key == '1' || key == '2' ||
+		     key == '3' || key == '4' || key == '5' || key == '6')) {
 			/* This is arrow key or function key - re-emit ESC[ and current key */
 			mouse_state = 0;
 			mouse_len = 0;
