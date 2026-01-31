@@ -254,6 +254,18 @@ gboolean gui_mouse_try_parse_key(gunichar key)
 		}
 		return TRUE;
 	} else if (mouse_state >= 2) {
+		/* If we receive ESC while parsing, abort current sequence and start new one */
+		if (key == 0x1b) {
+			/* Discard incomplete sequence, start fresh */
+			mouse_state = 1;
+			mouse_len = 0;
+			esc_pending = 1;
+			if (esc_timeout_tag != -1)
+				g_source_remove(esc_timeout_tag);
+			esc_timeout_tag = g_timeout_add(50, esc_timeout_callback, NULL);
+			return TRUE;
+		}
+
 		if (mouse_len < (int) sizeof(mouse_buf) - 1)
 			mouse_buf[mouse_len++] = (char) key;
 		mouse_buf[mouse_len] = '\0';
