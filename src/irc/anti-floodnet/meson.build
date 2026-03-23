@@ -10,12 +10,14 @@ libirc_anti_floodnet_a = static_library('irc_anti_floodnet',
   include_directories : rootinc,
   implicit_include_directories : false,
   dependencies : dep)
-shared_module('irc_anti_floodnet',
+shared_library('irc_anti_floodnet',
   name_suffix : module_suffix,
   install : true,
   install_dir : moduledir,
   link_with : dl_cross_irc_core,
-  link_whole : libirc_anti_floodnet_a)
+  link_whole : libirc_anti_floodnet_a,
+  override_options : ['b_lundef=false'],
+)
 
 install_headers(
   files(

@@ -2,7 +2,7 @@
 
 # OpenSSL dependency is provided by parent meson.build (when have_fe_web = true)
 
-shared_module('fe_web',
+shared_library('fe_web',
   files(
     'fe-web.c',
     'fe-web-client.c',
@@ -22,6 +22,7 @@ shared_module('fe_web',
   install : true,
   install_dir : moduledir,
   dependencies : [dep, openssl_dep],
+  override_options : ['b_lundef=false'],
 )
 
 # noinst_headers = files(
