@@ -12,7 +12,6 @@ glib_libffi_internal_version = 'libffi'
 cc = meson.get_compiler('c')
 rootinc = include_directories('.')
 dep = []
-textui_dep = []
 need_dl_cross_link = false
 # The Android environment requires that all modules are linked to each other.
 # See https://github.com/android/ndk/issues/201
@@ -28,7 +27,6 @@ themedir            = get_option('datadir') / incdir / 'themes'
 scriptdir           = get_option('datadir') / incdir / 'scripts'
 docdir              = get_option('docdir') != '' ? get_option('docdir') : (get_option('datadir') / 'doc' / incdir)
 
-want_textui         = get_option('without-textui') != 'yes'
 want_bot            = get_option('with-bot') == 'yes'
 want_fuzzer         = get_option('with-fuzzer') == 'yes'
 fuzzer_lib          = get_option('with-fuzzer-lib')
@@ -50,12 +48,6 @@ want_otr            = get_option('with-otr') != 'no'
 
 require_fe_web      = get_option('with-fe-web') == 'yes'
 want_fe_web         = get_option('with-fe-web') != 'no'
-
-require_fe_notcurses = get_option('with-fe-notcurses') == 'yes'
-want_fe_notcurses    = get_option('with-fe-notcurses') != 'no'
-
-require_fe_ansi      = get_option('with-fe-ansi') == 'yes'
-want_fe_ansi         = get_option('with-fe-ansi') != 'no'
 
 want_glib_internal  = get_option('install-glib') != 'no'
 require_glib_internal = get_option('install-glib') == 'force'
@@ -352,25 +344,6 @@ endif
 ############################
 ############################
 
-############
-# terminfo #
-############
-
-if want_textui
-  setupterm_found = false
-  foreach setupterm_provider : ['tinfo', 'ncursesw', 'ncurses', 'terminfo']
-    prov_lib = cc.find_library(setupterm_provider, required : false)
-    if prov_lib.found() and cc.has_function('setupterm', dependencies : prov_lib)
-      textui_dep += prov_lib
-      setupterm_found = true
-      break
-    endif
-  endforeach
-  if not setupterm_found
-    error('Terminfo not found')
-  endif
-endif
-
 ########
 # perl #
 ########
@@ -551,29 +524,6 @@ if want_fe_web
   endif
 endif
 
-################
-# fe-notcurses #
-################
-
-have_fe_notcurses = false
-notcurses_libdir = ''
-notcurses_full_lib = dependency('', required : false)
-if want_fe_notcurses
-  # Use full notcurses (not notcurses-core) to get multimedia/image support
-  notcurses_dep = dependency('notcurses', version : '>=3.0.0', required : require_fe_notcurses, static : want_static_dependency, include_type : 'system')
-  if notcurses_dep.found()
-    have_fe_notcurses = true
-    # Get libdir for rpath (needed when notcurses is in non-standard location)
-    notcurses_libdir = notcurses_dep.get_variable(pkgconfig: 'libdir', default_value: '')
-    # Explicitly find full libnotcurses (has multimedia, FFmpeg) vs notcurses-core (minimal)
-    if notcurses_libdir != ''
-      notcurses_full_lib = cc.find_library('notcurses', dirs : [notcurses_libdir], required : false)
-    else
-      notcurses_full_lib = cc.find_library('notcurses', required : false)
-    endif
-  endif
-endif
-
 #################
 # image-preview #
 #################
@@ -597,13 +547,9 @@ endif
 # fe-ansi #
 ###########
 
-have_fe_ansi = false
-chafa_dep = dependency('', required : false)
-if want_fe_ansi
-  # Chafa is optional - for image rendering in ANSI terminal
-  chafa_dep = dependency('chafa', version : '>=1.12.0', required : false, static : want_static_dependency, include_type : 'system')
-  have_fe_ansi = true
-endif
+# Chafa is optional - for image rendering in ANSI terminal
+chafa_dep = dependency('chafa', version : '>=1.12.0', required : false, static : want_static_dependency, include_type : 'system')
+have_fe_ansi = true
 
 ############
 # capsicum #
@@ -666,45 +612,6 @@ foreach h : headers
     conf.set('HAVE_' + h.underscorify().to_upper(), 1, description : 'Define to 1 if you have the <' + h + '> header file.')
   endif
 endforeach
-
-if want_textui and conf.get('HAVE_TERM_H', 0) == 1
-  if cc.links('''
-#include <stdio.h>
-#include <term.h>
-int main (void) {
-  return tputs("x", 1, putchar);
-}
-''', args : '-pedantic-errors', dependencies : textui_dep, name : 'Curses working')
-    # ok
-  else
-    has_curses_h = cc.has_header('curses.h')
-    if has_curses_h and cc.links('''
-#include <curses.h>
-#include <term.h>
-int main (void) {
-  return tputs("x", 1, putchar);
-}
-''', args : '-pedantic-errors', dependencies : textui_dep, name : 'Curses working with curses.h')
-      conf.set('NEED_CURSES_H', 1, description : 'tputs needs curses.h')
-    else
-      if has_curses_h and cc.links('''
-#include <curses.h>
-#include <term.h>
-int char_putchar (char c) {
-  return putchar(c);
-}
-int main (void) {
-  return tputs("x", 1, char_putchar);
-}
-''', args : '-pedantic-errors', dependencies : textui_dep, name : 'Curses with tputs third argument arg char')
-        conf.set('NEED_CURSES_H', 1, description : 'tputs needs curses.h')
-        conf.set('TPUTS_SVR4', 1, description : 'third argument of tputs has the type int (*)(char)')
-      else
-        error('could not link terminfo')
-      endif
-    endif
-  endif
-endif
 
 conf.set('HAVE_LIBUTF8PROC', have_libutf8proc)
 conf.set_quoted('PACKAGE_VERSION', package_version)
@@ -794,7 +701,6 @@ install_data('startup', install_dir : get_option('datadir') / incdir)
 
 message('*** Irssi configured ***')
 message('')
-message('Building text frontend ........... : ' + want_textui.to_string('yes', 'no'))
 message('Building irssi bot ............... : ' + want_bot.to_string('yes', 'no'))
 message('Building irssi proxy ............. : ' + want_proxy.to_string('yes', 'no'))
 if want_perl and not have_perl
@@ -814,8 +720,7 @@ message('Building with Capsicum ........... : ' + have_capsicum.to_string('yes',
 message('Building with utf8proc ........... : ' + have_libutf8proc.to_string('yes', 'no'))
 message('Building with OTR support ........ : ' + have_otr.to_string('yes', 'no'))
 message('Building with FE-WEB support ..... : ' + have_fe_web.to_string('yes', 'no'))
-message('Building with FE-NOTCURSES ...... : ' + have_fe_notcurses.to_string('yes', 'no'))
-message('Building with FE-ANSI (Chafa) ... : ' + have_fe_ansi.to_string('yes', 'no') + (have_fe_ansi and chafa_dep.found() ? ' (with Chafa)' : ''))
+message('Building with Chafa (images) ..... : ' + chafa_dep.found().to_string('yes', 'no'))
 message('Building with IMAGE-PREVIEW ..... : ' + have_image_preview.to_string('yes', 'no'))
 message('')
 message('If there are any problems, read the INSTALL file.')

@@ -12,7 +12,6 @@ env:
     libotr5-dev
     libglib2.0-dev
     libssl-dev
-    libncurses-dev
     libgcrypt20-dev
     libcurl4-openssl-dev
     libchafa-dev

@@ -20,7 +20,7 @@
 
 #include <irssi/src/irc/core/module.h>
 #include <irssi/src/core/modules-load.h>
-#include <irssi/src/fe-text/module-formats.h>
+#include <irssi/src/fe-ansi/module-formats.h>
 #include <irssi/src/core/levels.h>
 #include <irssi/src/fe-common/core/themes.h>
 #include <irssi/src/core/core.h>

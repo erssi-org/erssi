@@ -14,8 +14,8 @@
 
 #include "module.h"
 #include "image-preview.h"
-#include "src/fe-text/mainwindows.h"
-#include "src/fe-text/term.h"
+#include "src/fe-ansi/mainwindows.h"
+#include "src/fe-ansi/term.h"
 
 #include <irssi/src/core/settings.h>
 

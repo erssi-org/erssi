@@ -59,7 +59,7 @@ install_dependencies() {
 
    case "$pkg_mgr" in
        "brew")
-           brew install meson ninja pkg-config glib openssl@3 ncurses utf8proc libgcrypt libotr perl curl chafa || {
+           brew install meson ninja pkg-config glib openssl@3 utf8proc libgcrypt libotr perl curl chafa || {
                print_error "Failed to install dependencies with brew"
                exit 1
            }
@@ -70,7 +70,7 @@ install_dependencies() {
                exit 1
            }
            sudo apt-get install -y meson ninja-build build-essential pkg-config perl \
-               libglib2.0-dev libssl-dev libncurses-dev libperl-dev libutf8proc-dev \
+               libglib2.0-dev libssl-dev libperl-dev libutf8proc-dev \
                libgcrypt20-dev libotr5-dev libattr1-dev libcurl4-openssl-dev libchafa-dev || {
                print_error "Failed to install dependencies with apt"
                exit 1
@@ -78,7 +78,7 @@ install_dependencies() {
            ;;
        "dnf")
            sudo dnf install -y meson ninja-build gcc pkg-config perl \
-               glib2-devel openssl-devel ncurses-devel perl-devel utf8proc-devel \
+               glib2-devel openssl-devel perl-devel utf8proc-devel \
                libgcrypt-devel libotr-devel libattr-devel libcurl-devel chafa-devel || {
                print_error "Failed to install dependencies with dnf"
                exit 1
@@ -86,7 +86,7 @@ install_dependencies() {
            ;;
        "pacman")
            sudo pacman -S --needed meson ninja gcc pkg-config perl \
-               glib2 openssl ncurses utf8proc libgcrypt libotr curl chafa || {
+               glib2 openssl utf8proc libgcrypt libotr curl chafa || {
                print_error "Failed to install dependencies with pacman"
                exit 1
            }
@@ -119,7 +119,7 @@ ask_dependencies_installation() {
    echo "3) Exit and install dependencies manually"
    echo ""
    print_warning "Option 2 requires that you have already installed all required dependencies"
-   print_info "Required: meson, ninja, pkg-config, glib, openssl, ncurses, perl, utf8proc, libgcrypt, libotr, curl, chafa"
+   print_info "Required: meson, ninja, pkg-config, glib, openssl, perl, utf8proc, libgcrypt, libotr, curl, chafa"
    echo ""
 
    while true; do
@@ -190,10 +190,10 @@ setup_build_environment() {
    if [[ "$system" == "macos" ]]; then
        if [[ -d "/opt/homebrew" ]]; then
            export PATH="/opt/homebrew/bin:$PATH"
-           export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/ncurses/lib/pkgconfig:$PKG_CONFIG_PATH"
+           export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH"
        elif [[ -d "/usr/local/Homebrew" ]]; then
            export PATH="/usr/local/bin:$PATH"
-           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/opt/ncurses/lib/pkgconfig:$PKG_CONFIG_PATH"
+           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
        fi
    fi
 }
@@ -249,7 +249,6 @@ build_and_install() {
 
 create_symlinks() {
    local bin_path="$install_path/bin/erssi"
-   local bin_nc_path="$install_path/bin/erssi-nc"
 
    if [[ ! -f "$bin_path" ]]; then
        print_error "Binary not found at $bin_path"
@@ -269,9 +268,6 @@ create_symlinks() {
        if [[ -L "/usr/local/bin/erssi" ]]; then
            sudo rm -f /usr/local/bin/erssi
        fi
-       if [[ -L "/usr/local/bin/erssi-nc" ]]; then
-           sudo rm -f /usr/local/bin/erssi-nc
-       fi
 
        sudo ln -sf "$bin_path" /usr/local/bin/erssi || {
            print_error "Failed to create symlink in /usr/local/bin"
@@ -280,12 +276,6 @@ create_symlinks() {
        }
 
        print_success "Created symlink: /usr/local/bin/erssi -> $bin_path"
-
-       # Create symlink for ncurses version if it exists
-       if [[ -f "$bin_nc_path" ]]; then
-           sudo ln -sf "$bin_nc_path" /usr/local/bin/erssi-nc
-           print_success "Created symlink: /usr/local/bin/erssi-nc -> $bin_nc_path"
-       fi
    else
        # For local install, create symlink in ~/.local/bin
        mkdir -p "$HOME/.local/bin" || {
@@ -299,12 +289,6 @@ create_symlinks() {
        }
 
        print_success "Created symlink: $HOME/.local/bin/erssi -> $bin_path"
-
-       # Create symlink for ncurses version if it exists
-       if [[ -f "$bin_nc_path" ]]; then
-           ln -sf "$bin_nc_path" "$HOME/.local/bin/erssi-nc"
-           print_success "Created symlink: $HOME/.local/bin/erssi-nc -> $bin_nc_path"
-       fi
 
        # Add to PATH if not already there
        if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
@@ -320,8 +304,7 @@ show_completion_message() {
    print_info "Installation details:"
    echo "  • Application: erssi v${VERSION}"
    echo "  • Location: $install_path"
-   echo "  • Binary: $install_path/bin/erssi (ANSI backend - main)"
-   echo "  • Binary: $install_path/bin/erssi-nc (ncurses/terminfo)"
+   echo "  • Binary: $install_path/bin/erssi"
 
    if [[ "$install_path" == "/opt/erssi" ]]; then
        echo "  • Symlink: /usr/local/bin/erssi"

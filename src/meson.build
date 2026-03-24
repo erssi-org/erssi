@@ -18,14 +18,9 @@ endif
 if have_image_preview
   subdir('image-preview')
 endif
-if have_fe_ansi
-  subdir('fe-ansi')
-endif
+subdir('fe-ansi')
 if want_bot
   subdir('fe-none')
-endif
-if want_textui
-  subdir('fe-text')
 endif
 if want_fuzzer
   subdir('fe-fuzz')

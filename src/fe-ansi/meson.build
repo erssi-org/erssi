@@ -2,36 +2,32 @@
 
 fe_ansi_sources = files(
   'term-ansi.c',
-)
-
-# Shared sources from fe-text (reuse the same UI logic)
-fe_text_shared_sources = files(
-  '../fe-text/gui-entry.c',
-  '../fe-text/gui-expandos.c',
-  '../fe-text/gui-gestures.c',
-  '../fe-text/gui-mouse.c',
-  '../fe-text/gui-printtext.c',
-  '../fe-text/gui-readline.c',
-  '../fe-text/gui-windows.c',
-  '../fe-text/irssi.c',
-  '../fe-text/lastlog.c',
-  '../fe-text/mainwindow-activity.c',
-  '../fe-text/mainwindows-layout.c',
-  '../fe-text/mainwindows.c',
-  '../fe-text/module-formats.c',
-  '../fe-text/sidepanels-core.c',
-  '../fe-text/sidepanels-render.c',
-  '../fe-text/sidepanels-activity.c',
-  '../fe-text/sidepanels-signals.c',
-  '../fe-text/sidepanels-layout.c',
-  '../fe-text/statusbar-config.c',
-  '../fe-text/statusbar-items.c',
-  '../fe-text/statusbar.c',
-  '../fe-text/textbuffer-commands.c',
-  '../fe-text/textbuffer-formats.c',
-  '../fe-text/textbuffer-view.c',
-  '../fe-text/textbuffer.c',
-  '../fe-text/resize-debug.c',
+  'gui-entry.c',
+  'gui-expandos.c',
+  'gui-gestures.c',
+  'gui-mouse.c',
+  'gui-printtext.c',
+  'gui-readline.c',
+  'gui-windows.c',
+  'irssi.c',
+  'lastlog.c',
+  'mainwindow-activity.c',
+  'mainwindows-layout.c',
+  'mainwindows.c',
+  'module-formats.c',
+  'sidepanels-core.c',
+  'sidepanels-render.c',
+  'sidepanels-activity.c',
+  'sidepanels-signals.c',
+  'sidepanels-layout.c',
+  'statusbar-config.c',
+  'statusbar-items.c',
+  'statusbar.c',
+  'textbuffer-commands.c',
+  'textbuffer-formats.c',
+  'textbuffer-view.c',
+  'textbuffer.c',
+  'resize-debug.c',
 )
 
 fe_ansi_dep = []
@@ -43,7 +39,6 @@ fe_ansi_libs = [
 fe_ansi_c_args = [
   def_themesdir,
   def_datadir,
-  '-DUSE_ANSI_BACKEND',
 ]
 fe_ansi_inc = [rootinc]
 
@@ -61,7 +56,7 @@ if have_image_preview
 endif
 
 executable('erssi',
-  fe_ansi_sources + fe_text_shared_sources + [
+  fe_ansi_sources + [
     irssi_version_h,
     default_config_h,
     default_theme_h,
@@ -73,4 +68,32 @@ executable('erssi',
   link_with : fe_ansi_libs,
   install : true,
   dependencies : dep + fe_ansi_dep,
+)
+
+install_headers(
+  files(
+    'gui-entry.h',
+    'gui-gestures.h',
+    'gui-mouse.h',
+    'gui-printtext.h',
+    'gui-readline.h',
+    'gui-windows.h',
+    'mainwindows.h',
+    'module-formats.h',
+    'resize-debug.h',
+    'sidepanels.h',
+    'sidepanels-activity.h',
+    'sidepanels-layout.h',
+    'sidepanels-render.h',
+    'sidepanels-signals.h',
+    'sidepanels-types.h',
+    'statusbar.h',
+    'statusbar-config.h',
+    'statusbar-item.h',
+    'term.h',
+    'textbuffer.h',
+    'textbuffer-formats.h',
+    'textbuffer-view.h',
+  ),
+  subdir : incdir / 'src' / 'fe-ansi',
 )

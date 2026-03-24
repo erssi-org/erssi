@@ -42,11 +42,11 @@ else
     find . -type f | xargs sed -i 's|\.irssi/|\.erssi/|g'
 fi
 
-# 5. w src/fe-text/meson.build: executable('irssi', -> executable('erssi',
+# 5. w src/fe-ansi/meson.build: executable('irssi', -> executable('erssi',
 if [[ "$SYSTEM" == "macos" ]]; then
-    sed -i '' "s/executable('irssi',/executable('erssi',/" src/fe-text/meson.build
+    sed -i '' "s/executable('irssi',/executable('erssi',/" src/fe-ansi/meson.build
 else
-    sed -i "s/executable('irssi',/executable('erssi',/" src/fe-text/meson.build
+    sed -i "s/executable('irssi',/executable('erssi',/" src/fe-ansi/meson.build
 fi
 
 echo "✅ Gotowe - dokładnie 5 zmian wykonanych"

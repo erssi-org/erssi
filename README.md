@@ -97,14 +97,13 @@ The v1.2.8 release synchronizes CI/CD workflows with install.sh build options:
 
 ### 🖼️ ANSI Backend & Image Preview (v1.2.6)
 
-The v1.2.6 release introduced a pure ANSI terminal backend as the default, with inline image preview support:
+The v1.2.6 release introduced a pure ANSI terminal backend with inline image preview support:
 
-- **Pure ANSI Backend**: New default terminal implementation without ncurses dependency
+- **Pure ANSI Backend**: Terminal implementation using pure ANSI/VT100 escape sequences
 - **Inline Image Preview**: Display images directly in terminal (Kitty, iTerm2, Sixel, symbols)
 - **Graphics Protocol Support**: Automatic detection for Kitty, iTerm2, Sixel, and symbol fallback
 - **tmux/screen Passthrough**: Automatic DCS wrapping for terminal multiplexers
 - **Async Image Fetching**: Non-blocking curl_multi with cache and retry logic
-- **erssi-nc Binary**: ncurses/terminfo version available as `erssi-nc` for compatibility
 
 **See [CHANGELOG.md](CHANGELOG.md) for complete version history and detailed changes.**
 
@@ -148,9 +147,8 @@ For advanced users who prefer manual control:
 # Install dependencies (varies by system)
 # See docs/INSTALL for complete package lists
 
-meson setup Build --prefix=/opt/erssi -Dwith-perl=yes -Dwith-otr=yes -Ddisable-utf8proc=no
+meson setup Build --prefix=/opt/erssi -Dwith-perl=yes -Dwith-otr=yes -Dwith-fe-ansi=yes -Dwith-image-preview=yes -Ddisable-utf8proc=no
 ninja -C Build
-sudo ninja -C Build install  
 sudo ninja -C Build install
 ```
 
@@ -160,20 +158,22 @@ sudo ninja -C Build install
 The installation script handles all dependencies:
 
 **macOS (Homebrew):**
-- meson, ninja, pkg-config, glib, openssl@3, ncurses
-- utf8proc, libgcrypt, libotr, perl
+- meson, ninja, pkg-config, glib, openssl@3
+- utf8proc, libgcrypt, libotr, perl, curl, chafa
 
 **Linux (APT/DNF/Pacman):**
 - Build tools, meson, ninja, pkg-config
-- libglib2.0-dev, libssl-dev, libncurses-dev
-- libperl-dev, libutf8proc-dev, libgcrypt-dev, libotr-dev
+- libglib2.0-dev, libssl-dev, libperl-dev
+- libutf8proc-dev, libgcrypt-dev, libotr-dev
+- libcurl4-openssl-dev, libchafa-dev
 
 ### Build Features Enabled
 - ✅ **Perl Scripting**: Full embedded Perl support
 - ✅ **OTR Messaging**: Off-The-Record encrypted messaging
 - ✅ **UTF8proc**: Enhanced Unicode handling
 - ✅ **SSL/TLS**: Secure connections
-- ✅ **Terminal UI**: Full ncurses support with mouse interaction
+- ✅ **ANSI Terminal UI**: Pure ANSI/VT100 rendering with mouse interaction
+- ✅ **Image Preview**: Inline image rendering via Chafa (Kitty, iTerm2, Sixel)
 
 ## 📋 System Requirements
 
@@ -362,24 +362,29 @@ For detailed troubleshooting, see [INSTALL-SCRIPT.md](INSTALL-SCRIPT.md).
 ## 📁 Project Structure
 
 ```
-irssi/
-├── install-irssi.sh       # Main installation script
-├── check-installation.sh  # Installation checker
+erssi/
+├── install.sh            # Main installation script
+├── check-installation.sh # Installation checker
 ├── erssi-convert.sh      # Irssi → Erssi converter
 ├── INSTALL-SCRIPT.md     # Detailed installation guide
 ├── src/                  # Source code
-│   ├── fe-text/
-│   │   ├── sidepanels.c  # Enhanced sidepanel system with optimized redraws
-│   │   └── sidepanels.h  # Sidepanel definitions
-│   └── fe-common/core/
-│       └── fe-expandos.c # Nick formatting expandos (alignment, truncation, coloring)
-├── themes/              # Premium theme collection
-│   ├── nexus.theme      # Modern cyberpunk theme (recommended)
-│   ├── default.theme    # Enhanced classic irssi theme
-│   └── colorless.theme  # Minimalist theme for limited color terminals
-├── startup              # Evolved banner displayed on erssi startup
+│   ├── fe-ansi/          # ANSI terminal frontend
+│   │   ├── irssi.c       # Main entry point
+│   │   ├── sidepanels-*.c # Enhanced sidepanel system
+│   │   ├── gui-mouse.c   # Mouse protocol handling
+│   │   ├── gui-gestures.c # Mouse gesture navigation
+│   │   └── term-ansi.c   # Pure ANSI terminal abstraction
+│   ├── fe-common/core/
+│   │   └── fe-expandos.c # Nick formatting expandos (alignment, truncation, coloring)
+│   ├── fe-web/           # WebSocket web interface
+│   └── image-preview/    # Inline image preview (Chafa-based)
+├── themes/               # Premium theme collection
+│   ├── nexus.theme       # Modern cyberpunk theme (recommended)
+│   ├── default.theme     # Enhanced classic irssi theme
+│   └── colorless.theme   # Minimalist theme for limited color terminals
+├── startup               # Evolved banner displayed on erssi startup
 ├── material-erssi.itermcolors # Premium iTerm2 color scheme for optimal erssi experience
-└── docs/               # Documentation
+└── docs/                 # Documentation
 ```
 
 ## 🤝 Contributing

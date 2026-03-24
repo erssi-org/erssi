@@ -33,7 +33,7 @@ jobs:
         run: |
           xbps-install -Syu xbps || :
           xbps-install -Syu
-          xbps-install -Sy meson base-devel libglib-devel libutf8proc-devel ncurses-devel ncurses-base openssl-devel libotr-devel libgcrypt-devel tar findutils curl
+          xbps-install -Sy meson base-devel libglib-devel libutf8proc-devel openssl-devel libotr-devel libgcrypt-devel tar findutils curl chafa-devel
       - name: fetch dist
         uses: actions/download-artifact@v4
       - name: Setup local annotations

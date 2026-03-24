@@ -8,7 +8,7 @@
 ## ✅ WORKING FEATURES
 
 ### Mouse Scroll in Chat Area - FIXED ✅
-- **File**: `src/fe-text/sidepanels.c` lines ~2113-2139
+- **File**: `src/fe-ansi/sidepanels.c` lines ~2113-2139
 - **Fix**: Replaced wrong signals with `gui_window_scroll()` function
 - **Works**: Mouse wheel in chat area now scrolls like PageUp/PageDown
 - **Implementation**: Copied `get_scroll_count()` logic from `gui-readline.c`
@@ -30,7 +30,7 @@ MOUSE_CLICK: Chat area click detected       ← Good
 
 ## 🐛 ROOT CAUSE IDENTIFIED
 
-**File**: `src/fe-text/sidepanels.c` line **2181**
+**File**: `src/fe-ansi/sidepanels.c` line **2181**
 
 **Current (WRONG) Code**:
 ```c

@@ -76,28 +76,28 @@ chmod +x install-irssi.sh check-installation.sh
 
 ### macOS (via Homebrew)
 ```bash
-brew install meson ninja pkg-config glib openssl@3 ncurses \
-  utf8proc libgcrypt libotr perl
+brew install meson ninja pkg-config glib openssl@3 \
+  utf8proc libgcrypt libotr perl curl chafa
 ```
 
 ### Debian/Ubuntu
 ```bash
 sudo apt-get install meson ninja-build build-essential pkg-config perl \
-  libglib2.0-dev libssl-dev libncurses-dev libperl-dev libutf8proc-dev \
-  libgcrypt20-dev libotr5-dev libattr1-dev
+  libglib2.0-dev libssl-dev libperl-dev libutf8proc-dev \
+  libgcrypt20-dev libotr5-dev libattr1-dev libcurl4-openssl-dev libchafa-dev
 ```
 
 ### Fedora/RHEL
 ```bash
 sudo dnf install meson ninja-build gcc pkg-config perl \
-  glib2-devel openssl-devel ncurses-devel perl-devel utf8proc-devel \
-  libgcrypt-devel libotr-devel libattr-devel
+  glib2-devel openssl-devel perl-devel utf8proc-devel \
+  libgcrypt-devel libotr-devel libattr-devel libcurl-devel chafa-devel
 ```
 
 ### Arch Linux
 ```bash
 sudo pacman -S meson ninja gcc pkg-config perl \
-  glib2 openssl ncurses utf8proc libgcrypt libotr
+  glib2 openssl utf8proc libgcrypt libotr curl chafa
 ```
 
 ## Build Configuration
@@ -156,11 +156,6 @@ erssi
 ## Troubleshooting
 
 ### macOS Issues
-
-**ncurses linking problems:**
-```bash
-export PKG_CONFIG_PATH="/opt/homebrew/opt/ncurses/lib/pkgconfig:$PKG_CONFIG_PATH"
-```
 
 **OpenSSL not found:**
 ```bash

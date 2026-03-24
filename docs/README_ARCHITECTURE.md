@@ -114,7 +114,7 @@ Defines the standard IRC module pattern:
 ### Reference Implementations
 - **Flood module**: `/Users/k/dev/erssi/src/irc/flood/flood.c` (350 lines)
 - **Fe-web signals**: `/Users/k/dev/erssi/src/fe-web/fe-web-signals.c` (55KB, 50+ handlers)
-- **Module init order**: `/Users/k/dev/erssi/src/fe-text/irssi.c` (initialization sequence)
+- **Module init order**: `/Users/k/dev/erssi/src/fe-ansi/irssi.c` (initialization sequence)
 
 ### Supporting Systems
 - **Settings**: `/Users/k/dev/erssi/src/core/settings.c:52-150`

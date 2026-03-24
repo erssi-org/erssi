@@ -136,7 +136,7 @@ tar -xf erssi-1.1.0.tar.xz
 cd erssi-1.1.0
 meson setup Build -Dwith-perl=yes -Dwith-otr=yes
 ninja -C Build
-./Build/src/fe-text/irssi --version
+./Build/src/fe-ansi/erssi --version
 ```
 
 ## Hotfix Releases

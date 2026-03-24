@@ -30,7 +30,7 @@ jobs:
           TERMUX_PKG_REVISION=@REVISION@
           TERMUX_PKG_SRCURL=git+file:///home/builder/termux-packages/src.irssi.git
           TERMUX_PKG_AUTO_UPDATE=true
-          TERMUX_PKG_DEPENDS="glib, libandroid-glob, libiconv, libotr, ncurses, openssl, perl, utf8proc"
+          TERMUX_PKG_DEPENDS="glib, libandroid-glob, libiconv, libotr, openssl, perl, utf8proc"
           TERMUX_PKG_BREAKS="irssi"
           TERMUX_PKG_REPLACES="irssi"
           TERMUX_MESON_PERL_CROSS_FILE=$TERMUX_PKG_TMPDIR/meson-perl-cross-$TERMUX_ARCH.txt

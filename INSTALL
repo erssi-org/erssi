@@ -10,7 +10,8 @@ To compile Irssi you need:
 - openssl (for ssl support)
 - perl-5.8 or greater (for building, and optionally Perl scripts)
   (n.b a complete perl is needed, including ExtUtils::Embed and xsubpp)
-- terminfo or ncurses (for text frontend)
+- libcurl (for image preview fetching)
+- chafa (for terminal image rendering)
 - utf8proc (optional, for additional char width calculation)
 - libgcrypt (for OTR)
 
@@ -55,9 +56,13 @@ meson options
 
   Build irssi-bot
 
-  -Dwithout-textui=yes
+  -Dwith-fe-ansi=yes
 
-  Build without text frontend
+  Build the ANSI terminal frontend
+
+  -Dwith-image-preview=yes
+
+  Build inline image preview support (requires libcurl and chafa)
 
 If anything is in non-standard path, you can just give the paths in
 the -Dc_args and -Dc_link_args options variable, eg.:

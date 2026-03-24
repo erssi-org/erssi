@@ -1,0 +1,37 @@
+test_test_paste_join_multiline = executable('test-paste-join-multiline',
+  files(
+    '../../src/fe-ansi/gui-entry.c',
+    '../../src/fe-ansi/gui-gestures.c',
+    '../../src/fe-ansi/gui-mouse.c',
+    '../../src/fe-ansi/gui-printtext.c',
+    '../../src/fe-ansi/gui-windows.c',
+    '../../src/fe-ansi/mainwindows.c',
+    '../../src/fe-ansi/term-ansi.c',
+    '../../src/fe-ansi/sidepanels-core.c',
+    '../../src/fe-ansi/sidepanels-render.c',
+    '../../src/fe-ansi/sidepanels-activity.c',
+    '../../src/fe-ansi/sidepanels-signals.c',
+    '../../src/fe-ansi/sidepanels-layout.c',
+    '../../src/fe-ansi/textbuffer-formats.c',
+    '../../src/fe-ansi/textbuffer-view.c',
+    '../../src/fe-ansi/textbuffer.c',
+    '../../src/fe-ansi/resize-debug.c',
+    'mock-irssi.c',
+    'test-paste-join-multiline.c',
+  ),
+  link_with : [
+    libconfig_a,
+    libcore_a,
+    libfe_common_core_a,
+  ],
+  c_args : [
+    '-D' + 'PACKAGE_STRING' + '="' + 'fe-ansi' + '"',
+  ],
+  include_directories : rootinc,
+  implicit_include_directories : false,
+  dependencies : dep,
+)
+
+test('test-paste-join-multiline test', test_test_paste_join_multiline,
+  args : ['--tap'],
+  protocol : 'tap')
