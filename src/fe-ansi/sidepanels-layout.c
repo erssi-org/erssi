@@ -339,11 +339,6 @@ void renumber_windows_by_position(void)
 
 void draw_main_window_borders(MAIN_WINDOW_REC *mw)
 {
-#ifdef USE_NOTCURSES
-	/* Notcurses handles borders differently - skip terminfo border drawing */
-	(void) mw;
-	return;
-#else
 	SP_MAINWIN_CTX *ctx = get_ctx(mw, FALSE);
 	if (!ctx)
 		return;
@@ -365,7 +360,6 @@ void draw_main_window_borders(MAIN_WINDOW_REC *mw)
 			                            mw->first_line + mw->statusbar_lines_top + y);
 		}
 	}
-#endif
 }
 
 void sidepanels_layout_init(void)
