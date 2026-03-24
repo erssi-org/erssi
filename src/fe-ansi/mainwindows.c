@@ -19,7 +19,7 @@
 */
 
 #include "module.h"
-#include <irssi/src/fe-text/module-formats.h>
+#include <irssi/src/fe-ansi/module-formats.h>
 #include <irssi/src/core/signals.h>
 #include <irssi/src/core/commands.h>
 #include <irssi/src/core/levels.h>
@@ -27,9 +27,9 @@
 #include <irssi/src/core/settings.h>
 #include <irssi/src/fe-common/core/printtext.h>
 
-#include <irssi/src/fe-text/term.h>
-#include <irssi/src/fe-text/gui-windows.h>
-#include <irssi/src/fe-text/resize-debug.h>
+#include <irssi/src/fe-ansi/term.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
+#include <irssi/src/fe-ansi/resize-debug.h>
 
 #define NEW_WINDOW_SIZE (WINDOW_MIN_SIZE + 1)
 

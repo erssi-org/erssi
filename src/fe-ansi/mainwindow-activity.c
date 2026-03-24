@@ -22,7 +22,7 @@
 #include <irssi/src/core/signals.h>
 #include <irssi/src/core/settings.h>
 
-#include <irssi/src/fe-text/gui-windows.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
 
 /* Don't send window activity if window is already visible in
    another mainwindow */

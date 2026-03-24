@@ -22,12 +22,12 @@
 #include "module.h"
 #include <irssi/src/core/signals.h>
 #include <irssi/src/core/settings.h>
-#include <irssi/src/fe-text/mainwindows.h>
-#include <irssi/src/fe-text/sidepanels.h>
-#include <irssi/src/fe-text/sidepanels-signals.h>
-#include <irssi/src/fe-text/sidepanels-render.h>
-#include <irssi/src/fe-text/sidepanels-activity.h>
-#include <irssi/src/fe-text/sidepanels-layout.h>
+#include <irssi/src/fe-ansi/mainwindows.h>
+#include <irssi/src/fe-ansi/sidepanels.h>
+#include <irssi/src/fe-ansi/sidepanels-signals.h>
+#include <irssi/src/fe-ansi/sidepanels-render.h>
+#include <irssi/src/fe-ansi/sidepanels-activity.h>
+#include <irssi/src/fe-ansi/sidepanels-layout.h>
 #include <irssi/src/core/servers.h>
 #include <irssi/src/core/channels.h>
 #include <irssi/src/core/queries.h>
@@ -35,13 +35,13 @@
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/fe-common/core/window-items.h>
 #include <irssi/src/core/levels.h>
-#include <irssi/src/fe-text/term.h>
+#include <irssi/src/fe-ansi/term.h>
 #include <irssi/src/fe-common/core/formats.h>
-#include <irssi/src/fe-text/module-formats.h>
+#include <irssi/src/fe-ansi/module-formats.h>
 #include <irssi/src/fe-common/core/themes.h>
-#include <irssi/src/fe-text/gui-printtext.h>
+#include <irssi/src/fe-ansi/gui-printtext.h>
 #include <irssi/src/fe-common/core/printtext.h>
-#include <irssi/src/fe-text/resize-debug.h>
+#include <irssi/src/fe-ansi/resize-debug.h>
 #include <stdarg.h>
 #include <stdlib.h>
 

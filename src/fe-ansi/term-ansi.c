@@ -13,10 +13,10 @@
 #include <irssi/src/core/signals.h>
 #include <irssi/src/core/commands.h>
 #include <irssi/src/core/settings.h>
-#include <irssi/src/fe-text/term.h>
-#include <irssi/src/fe-text/mainwindows.h>
+#include <irssi/src/fe-ansi/term.h>
+#include <irssi/src/fe-ansi/mainwindows.h>
 #include <irssi/src/core/utf8.h>
-#include <irssi/src/fe-text/resize-debug.h>
+#include <irssi/src/fe-ansi/resize-debug.h>
 
 #include "term-ansi.h"
 

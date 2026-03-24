@@ -25,8 +25,8 @@
 #include <irssi/src/core/signals.h>
 #include <irssi/src/core/utf8.h>
 #include <irssi/src/fe-common/core/formats.h>
-#include <irssi/src/fe-text/textbuffer-formats.h>
-#include <irssi/src/fe-text/textbuffer-view.h>
+#include <irssi/src/fe-ansi/textbuffer-formats.h>
+#include <irssi/src/fe-ansi/textbuffer-view.h>
 
 typedef struct {
 	char *name;

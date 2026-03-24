@@ -2,7 +2,7 @@
 #define IRSSI_IMAGE_PREVIEW_MODULE_H
 
 #include <irssi/src/common.h>
-#include <irssi/src/fe-text/term.h>
+#include <irssi/src/fe-ansi/term.h>
 
 #define MODULE_NAME "image-preview"
 

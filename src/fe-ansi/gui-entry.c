@@ -25,9 +25,9 @@
 #include <irssi/src/fe-common/core/formats.h>
 #include <irssi/src/fe-common/core/printtext.h>
 
-#include <irssi/src/fe-text/gui-entry.h>
-#include <irssi/src/fe-text/gui-printtext.h>
-#include <irssi/src/fe-text/term.h>
+#include <irssi/src/fe-ansi/gui-entry.h>
+#include <irssi/src/fe-ansi/gui-printtext.h>
+#include <irssi/src/fe-ansi/term.h>
 #include <irssi/src/core/recode.h>
 
 #ifdef HAVE_LIBUTF8PROC

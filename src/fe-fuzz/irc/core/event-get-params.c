@@ -18,10 +18,10 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include <irssi/src/fe-text/module.h>
+#include <irssi/src/fe-ansi/module.h>
 #include <irssi/src/core/modules-load.h>
 #include <irssi/src/core/levels.h>
-#include <irssi/src/fe-text/module-formats.h> // need to explicitly grab from fe-text
+#include <irssi/src/fe-ansi/module-formats.h> 
 #include <irssi/src/fe-common/core/themes.h>
 #include <irssi/src/core/core.h>
 #include <irssi/src/fe-common/core/fe-common-core.h>

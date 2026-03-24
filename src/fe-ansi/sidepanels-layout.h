@@ -24,8 +24,8 @@
 
 #include <glib.h>
 #include <irssi/src/common.h>
-#include <irssi/src/fe-text/term.h>
-#include <irssi/src/fe-text/mainwindows.h>
+#include <irssi/src/fe-ansi/term.h>
+#include <irssi/src/fe-ansi/mainwindows.h>
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include "sidepanels-types.h"
 

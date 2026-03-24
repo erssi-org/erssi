@@ -26,11 +26,11 @@
 #include <irssi/src/core/servers.h>
 #include <irssi/src/core/settings.h>
 #include <irssi/src/core/signals.h>
-#include <irssi/src/fe-text/module-formats.h>
-#include <irssi/src/fe-text/textbuffer-formats.h>
+#include <irssi/src/fe-ansi/module-formats.h>
+#include <irssi/src/fe-ansi/textbuffer-formats.h>
 
 #include <irssi/src/fe-common/core/printtext.h>
-#include <irssi/src/fe-text/gui-windows.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
 
 static int activity_hide_window_hidelevel;
 

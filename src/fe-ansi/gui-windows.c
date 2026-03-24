@@ -25,10 +25,10 @@
 #include <irssi/src/core/special-vars.h>
 #include <irssi/src/core/levels.h>
 
-#include <irssi/src/fe-text/term.h>
-#include <irssi/src/fe-text/gui-entry.h>
-#include <irssi/src/fe-text/gui-windows.h>
-#include <irssi/src/fe-text/gui-printtext.h>
+#include <irssi/src/fe-ansi/term.h>
+#include <irssi/src/fe-ansi/gui-entry.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
+#include <irssi/src/fe-ansi/gui-printtext.h>
 
 static int window_create_override;
 static int wcwidth_impl;

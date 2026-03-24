@@ -19,7 +19,7 @@
 */
 
 #include "module.h"
-#include <irssi/src/fe-text/module-formats.h>
+#include <irssi/src/fe-ansi/module-formats.h>
 #include <irssi/src/core/signals.h>
 #include <irssi/src/core/commands.h>
 #include <irssi/src/core/settings.h>
@@ -27,7 +27,7 @@
 #include <irssi/src/lib-config/iconfig.h>
 #include <irssi/src/core/misc.h>
 
-#include <irssi/src/fe-text/statusbar.h>
+#include <irssi/src/fe-ansi/statusbar.h>
 #include <irssi/src/fe-common/core/printtext.h>
 
 static void read_statusbar_config_from_node(CONFIG_NODE *node);

@@ -25,9 +25,9 @@
 #include <irssi/src/core/settings.h>
 #include <irssi/src/core/levels.h>
 
-#include <irssi/src/fe-text/mainwindows.h>
-#include <irssi/src/fe-text/gui-windows.h>
-#include <irssi/src/fe-text/textbuffer-view.h>
+#include <irssi/src/fe-ansi/mainwindows.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
+#include <irssi/src/fe-ansi/textbuffer-view.h>
 
 static void sig_layout_window_save(WINDOW_REC *window, CONFIG_NODE *node)
 {

@@ -19,11 +19,11 @@
 #include <irssi/src/core/iregex.h>
 #include <irssi/src/fe-common/core/printtext.h>
 #include <irssi/src/fe-common/core/fe-windows.h>
-#include <irssi/src/fe-text/gui-windows.h>
-#include <irssi/src/fe-text/textbuffer.h>
-#include <irssi/src/fe-text/textbuffer-view.h>
-#include <irssi/src/fe-text/gui-mouse.h>
-#include <irssi/src/fe-text/mainwindows.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
+#include <irssi/src/fe-ansi/textbuffer.h>
+#include <irssi/src/fe-ansi/textbuffer-view.h>
+#include <irssi/src/fe-ansi/gui-mouse.h>
+#include <irssi/src/fe-ansi/mainwindows.h>
 
 #include <string.h>
 #include <stdarg.h>

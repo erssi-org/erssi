@@ -9,10 +9,10 @@
 #include <irssi/src/core/special-vars.h>
 #include <irssi/src/fe-common/core/printtext.h>
 #include <irssi/src/fe-common/core/themes.h>
-#include <irssi/src/fe-text/gui-printtext.h>
-#include <irssi/src/fe-text/gui-windows.h>
-#include <irssi/src/fe-text/textbuffer-formats.h>
-#include <irssi/src/fe-text/textbuffer-view.h>
+#include <irssi/src/fe-ansi/gui-printtext.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
+#include <irssi/src/fe-ansi/textbuffer-formats.h>
+#include <irssi/src/fe-ansi/textbuffer-view.h>
 
 TEXT_BUFFER_REC *color_buf;
 gboolean scrollback_format;

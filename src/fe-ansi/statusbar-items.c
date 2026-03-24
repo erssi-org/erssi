@@ -24,9 +24,9 @@
 #include <irssi/src/core/servers.h>
 
 #include <irssi/src/fe-common/core/themes.h>
-#include <irssi/src/fe-text/statusbar.h>
-#include <irssi/src/fe-text/gui-entry.h>
-#include <irssi/src/fe-text/gui-windows.h>
+#include <irssi/src/fe-ansi/statusbar.h>
+#include <irssi/src/fe-ansi/gui-entry.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
 
 /* how often to redraw lagging time (seconds) */
 #define LAG_REFRESH_TIME 10

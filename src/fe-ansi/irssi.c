@@ -19,7 +19,7 @@
 */
 
 #include "module.h"
-#include <irssi/src/fe-text/module-formats.h>
+#include <irssi/src/fe-ansi/module-formats.h>
 #include <irssi/src/core/modules-load.h>
 #include <irssi/src/core/args.h>
 #include <irssi/src/core/signals.h>
@@ -34,19 +34,19 @@
 #include <irssi/src/fe-common/core/fe-settings.h>
 #include <irssi/src/fe-common/core/themes.h>
 
-#include <irssi/src/fe-text/term.h>
-#include <irssi/src/fe-text/gui-entry.h>
-#include <irssi/src/fe-text/mainwindows.h>
-#include <irssi/src/fe-text/sidepanels-render.h>
-#include <irssi/src/fe-text/gui-printtext.h>
-#include <irssi/src/fe-text/gui-readline.h>
-#include <irssi/src/fe-text/statusbar.h>
-#include <irssi/src/fe-text/gui-windows.h>
+#include <irssi/src/fe-ansi/term.h>
+#include <irssi/src/fe-ansi/gui-entry.h>
+#include <irssi/src/fe-ansi/mainwindows.h>
+#include <irssi/src/fe-ansi/sidepanels-render.h>
+#include <irssi/src/fe-ansi/gui-printtext.h>
+#include <irssi/src/fe-ansi/gui-readline.h>
+#include <irssi/src/fe-ansi/statusbar.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
 #include <irssi/irssi-version.h>
-#include <irssi/src/fe-text/sidepanels.h>
-#include <irssi/src/fe-text/gui-mouse.h>
-#include <irssi/src/fe-text/gui-gestures.h>
-#include <irssi/src/fe-text/resize-debug.h>
+#include <irssi/src/fe-ansi/sidepanels.h>
+#include <irssi/src/fe-ansi/gui-mouse.h>
+#include <irssi/src/fe-ansi/gui-gestures.h>
+#include <irssi/src/fe-ansi/resize-debug.h>
 
 #ifdef HAVE_IMAGE_PREVIEW
 #include <irssi/src/image-preview/image-preview.h>

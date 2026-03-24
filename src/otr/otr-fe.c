@@ -27,7 +27,7 @@
 #include <irssi/src/irc/core/irc.h>
 #include <irssi/src/irc/core/irc-servers.h>
 #include <irssi/src/irc/core/irc-queries.h>
-#include <irssi/src/fe-text/statusbar-item.h>
+#include <irssi/src/fe-ansi/statusbar-item.h>
 
 #include <irssi/src/otr/otr.h>
 #include <irssi/src/otr/otr-formats.h>

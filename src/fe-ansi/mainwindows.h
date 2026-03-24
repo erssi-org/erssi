@@ -2,7 +2,7 @@
 #define IRSSI_FE_TEXT_MAINWINDOWS_H
 
 #include <irssi/src/fe-common/core/fe-windows.h>
-#include <irssi/src/fe-text/term.h>
+#include <irssi/src/fe-ansi/term.h>
 
 #define WINDOW_MIN_SIZE 2
 #define NEW_WINDOW_WIDTH 20 /* must be >= MIN_SCREEN_WIDTH defined in term.c */

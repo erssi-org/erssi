@@ -30,7 +30,7 @@
 #include <irssi/src/core/nicklist.h>
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/fe-common/core/window-items.h>
-#include <irssi/src/fe-text/mainwindows.h>
+#include <irssi/src/fe-ansi/mainwindows.h>
 #include "sidepanels-types.h"
 
 /* Window and item change handlers */

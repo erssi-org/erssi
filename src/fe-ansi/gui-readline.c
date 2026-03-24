@@ -19,7 +19,7 @@
 */
 
 #include "module.h"
-#include <irssi/src/fe-text/module-formats.h>
+#include <irssi/src/fe-ansi/module-formats.h>
 #include <irssi/src/core/signals.h>
 #include <irssi/src/core/misc.h>
 #include <irssi/src/core/settings.h>
@@ -32,10 +32,10 @@
 #include <irssi/src/fe-common/core/keyboard.h>
 #include <irssi/src/fe-common/core/printtext.h>
 
-#include <irssi/src/fe-text/term.h>
-#include <irssi/src/fe-text/gui-entry.h>
-#include <irssi/src/fe-text/gui-windows.h>
-#include <irssi/src/fe-text/sidepanels.h>
+#include <irssi/src/fe-ansi/term.h>
+#include <irssi/src/fe-ansi/gui-entry.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
+#include <irssi/src/fe-ansi/sidepanels.h>
 #include <irssi/src/core/utf8.h>
 
 #include <string.h>

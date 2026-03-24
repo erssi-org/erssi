@@ -25,10 +25,10 @@
 
 #include <irssi/src/fe-common/core/themes.h>
 
-#include <irssi/src/fe-text/statusbar.h>
-#include <irssi/src/fe-text/statusbar-config.h>
-#include <irssi/src/fe-text/gui-windows.h>
-#include <irssi/src/fe-text/gui-printtext.h>
+#include <irssi/src/fe-ansi/statusbar.h>
+#include <irssi/src/fe-ansi/statusbar-config.h>
+#include <irssi/src/fe-ansi/gui-windows.h>
+#include <irssi/src/fe-ansi/gui-printtext.h>
 
 void statusbar_items_init(void);
 void statusbar_items_deinit(void);

@@ -19,8 +19,8 @@
 #include <irssi/src/fe-common/core/window-items.h>
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/fe-common/core/window-activity.h>
-#include <irssi/src/fe-text/sidepanels-activity.h>
-#include <irssi/src/fe-text/sidepanels-render.h>
+#include <irssi/src/fe-ansi/sidepanels-activity.h>
+#include <irssi/src/fe-ansi/sidepanels-render.h>
 #include <stdio.h>
 #include <string.h>
 

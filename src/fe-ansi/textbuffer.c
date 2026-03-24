@@ -26,8 +26,8 @@
 #include <irssi/src/core/utf8.h>
 #include <irssi/src/core/iregex.h>
 
-#include <irssi/src/fe-text/textbuffer-formats.h>
-#include <irssi/src/fe-text/textbuffer.h>
+#include <irssi/src/fe-ansi/textbuffer-formats.h>
+#include <irssi/src/fe-ansi/textbuffer.h>
 
 #define TEXT_CHUNK_USABLE_SIZE (LINE_TEXT_CHUNK_SIZE-2-(int)sizeof(char*))
 
