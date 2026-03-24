@@ -24,7 +24,7 @@ signal_emit("event PRIVMSG")      Line 389 (4 args: server, args, nick, addr)
          ↓
 signal_emit("message public")     (rendered output)
          ↓
-    fe-text/gui-printtext.c       (display)
+    fe-ansi/gui-printtext.c       (display)
     or
     fe-web/fe-web-signals.c       (web broadcast)
 ```
@@ -205,7 +205,7 @@ Signal "setup changed" fires automatically.
 - Multi-line event assembly (WHOIS example)
 - Real-world pattern for complex modules
 
-### Sidepanels (src/fe-text/sidepanels-*.c)
+### Sidepanels (src/fe-ansi/sidepanels-*.c)
 - 5 separate files
 - Modular architecture example
 - Optimization patterns (batched updates)
@@ -257,7 +257,7 @@ int main(void) {
 | Handle JOIN | `src/irc/core/channel-events.c` + your handler |
 | Parse IRC | `src/irc/core/irc.c:286-336` (event_get_params) |
 | Window management | `src/fe-common/core/fe-windows.c` |
-| Terminal display | `src/fe-text/gui-printtext.c` |
+| Terminal display | `src/fe-ansi/gui-printtext.c` |
 | WebSocket | `src/fe-web/fe-web-server.c` |
 
 ---
@@ -408,7 +408,7 @@ G_MESSAGES_DEBUG=all erssi
 
 ### Use GDB
 ```bash
-gdb ./Build/src/fe-text/irssi
+gdb ./Build/src/fe-ansi/erssi
 (gdb) break yourmodule.c:123
 (gdb) run
 ```

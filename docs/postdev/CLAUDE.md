@@ -33,7 +33,7 @@ rm -rf Build
 ## Key Architecture Components
 
 ### Core Systems
-- **Sidepanel System** (`src/fe-text/sidepanels*`): Modular architecture with separate left (window list) and right (nicklist) panels
+- **Sidepanel System** (`src/fe-ansi/sidepanels*`): Modular architecture with separate left (window list) and right (nicklist) panels
   - `sidepanels-core.c`: Main coordination and settings management
   - `sidepanels-render.c`: Rendering logic with optimized redraw functions
   - `sidepanels-activity.c`: Activity tracking and batch processing
@@ -41,7 +41,7 @@ rm -rf Build
   - `sidepanels-layout.c`: Panel layout and positioning
 
 ### Enhanced Features
-- **Mouse Gesture System** (`src/fe-text/gui-mouse.c`): SGR protocol parsing with configurable swipe gestures for window navigation
+- **Mouse Gesture System** (`src/fe-ansi/gui-mouse.c`): SGR protocol parsing with configurable swipe gestures for window navigation
 - **Nick Display Enhancement** (`src/fe-common/core/fe-expandos.c`): Hash-based coloring, alignment, and truncation
 - **Performance Optimizations**: Granular panel redraws instead of full screen refreshes
 
@@ -89,8 +89,8 @@ rm -rf Build
 ```
 
 ## Important Files for Development
-- `src/fe-text/sidepanels-core.c` - Main sidepanel coordination
-- `src/fe-text/gui-mouse.c` - Mouse event handling and gestures  
+- `src/fe-ansi/sidepanels-core.c` - Main sidepanel coordination
+- `src/fe-ansi/gui-mouse.c` - Mouse event handling and gestures
 - `src/fe-common/core/fe-expandos.c` - Nick display formatting
 - `meson.build` - Primary build configuration
 - `install-irssi.sh` - Main installation script with cross-platform support

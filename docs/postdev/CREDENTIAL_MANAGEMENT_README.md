@@ -93,7 +93,7 @@ sudo ninja -C build install
 ninja -C build
 
 # Test basic functionality
-./build/src/fe-text/irssi --version
+./build/src/fe-ansi/erssi --version
 ```
 
 ## Quick Start Guide
@@ -719,10 +719,10 @@ Before submitting changes:
 ninja -C build
 
 # Test basic commands
-./build/src/fe-text/irssi --config=/dev/null --home=/tmp/test
+./build/src/fe-ansi/erssi --config=/dev/null --home=/tmp/test
 
 # Verify no memory leaks (if available)
-valgrind ./build/src/fe-text/irssi --config=/dev/null --home=/tmp/test
+valgrind ./build/src/fe-ansi/erssi --config=/dev/null --home=/tmp/test
 ```
 
 ## License

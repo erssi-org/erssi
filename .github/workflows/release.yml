@@ -50,7 +50,6 @@ jobs:
             libglib2.0-dev \
             libssl-dev \
             libgcrypt20-dev \
-            libncurses-dev \
             libcurl4-openssl-dev \
             libchafa-dev
           pip install meson
@@ -99,7 +98,6 @@ jobs:
             ninja \
             glib \
             openssl@3 \
-            ncurses \
             utf8proc \
             libgcrypt \
             libotr \
@@ -110,7 +108,7 @@ jobs:
 
       - name: Configure build
         run: |
-          export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix ncurses)/lib/pkgconfig:$(brew --prefix utf8proc)/lib/pkgconfig:$(brew --prefix libgcrypt)/lib/pkgconfig:$(brew --prefix chafa)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix utf8proc)/lib/pkgconfig:$(brew --prefix libgcrypt)/lib/pkgconfig:$(brew --prefix chafa)/lib/pkgconfig:$PKG_CONFIG_PATH"
           export LDFLAGS="-L$(brew --prefix utf8proc)/lib"
           export CPPFLAGS="-I$(brew --prefix utf8proc)/include"
           meson setup Build \
@@ -134,7 +132,6 @@ jobs:
 
           # Copy binaries
           cp Build/src/fe-ansi/erssi "${PKG_NAME}/bin/"
-          cp Build/src/fe-text/erssi-nc "${PKG_NAME}/bin/"
 
           # Copy dynamic modules (.so and .bundle files)
           find Build/src -name "*.so" -type f -exec cp {} "${PKG_NAME}/lib/irssi/modules/" \;
@@ -200,7 +197,6 @@ jobs:
               pkg-config \
               libglib2.0-dev \
               libssl-dev \
-              libncurses-dev \
               libutf8proc-dev \
               libgcrypt20-dev \
               libotr5-dev \
@@ -230,7 +226,6 @@ jobs:
               mkdir -p ${PKG_NAME}/share/erssi && \
               mkdir -p ${PKG_NAME}/share/doc/erssi && \
               cp Build/src/fe-ansi/erssi ${PKG_NAME}/bin/ && \
-              cp Build/src/fe-text/erssi-nc ${PKG_NAME}/bin/ && \
               find Build/src -name '*.so' -type f -exec cp {} ${PKG_NAME}/lib/irssi/modules/ \; && \
               cp -r themes ${PKG_NAME}/share/erssi/ && \
               cp irssi.conf ${PKG_NAME}/share/erssi/default.conf && \
@@ -288,7 +283,6 @@ jobs:
               pkg-config \
               libglib2.0-dev \
               libssl-dev \
-              libncurses-dev \
               libutf8proc-dev \
               libgcrypt20-dev \
               libotr5-dev \
@@ -325,7 +319,6 @@ jobs:
 
               # Copy files to /opt/erssi
               cp Build/src/fe-ansi/erssi ${PKG_NAME}/opt/erssi/bin/
-              cp Build/src/fe-text/erssi-nc ${PKG_NAME}/opt/erssi/bin/
               find Build/src -name '*.so' -type f -exec cp {} ${PKG_NAME}/opt/erssi/lib/irssi/modules/ \;
               cp -r themes/* ${PKG_NAME}/opt/erssi/share/erssi/themes/
               cp irssi.conf ${PKG_NAME}/opt/erssi/share/erssi/default.conf
@@ -333,7 +326,6 @@ jobs:
 
               # Create symlinks in /usr/bin
               ln -s /opt/erssi/bin/erssi ${PKG_NAME}/usr/bin/erssi
-              ln -s /opt/erssi/bin/erssi-nc ${PKG_NAME}/usr/bin/erssi-nc
 
               # Create control file
               cat > ${PKG_NAME}/DEBIAN/control << CTRL
@@ -342,7 +334,7 @@ jobs:
           Section: net
           Priority: optional
           Architecture: ${ARCH}
-          Depends: libglib2.0-0, libssl3, libncurses6, libutf8proc2, libgcrypt20, libotr5, libcurl4, libchafa0
+          Depends: libglib2.0-0, libssl3, libutf8proc2, libgcrypt20, libotr5, libcurl4, libchafa0
           Maintainer: erssi-org <https://github.com/erssi-org>
           Description: Enhanced/Evolved IRC Client
            erssi is a modernized IRC client built on irssi's foundation,
@@ -404,7 +396,6 @@ jobs:
               pkg-config \
               glib2-devel \
               openssl-devel \
-              ncurses-devel \
               utf8proc-devel \
               libgcrypt-devel \
               libotr-devel \
@@ -445,7 +436,7 @@ jobs:
           License:        GPLv2+
           URL:            https://erssi.org
 
-          Requires:       glib2 openssl ncurses-libs utf8proc libgcrypt libotr libcurl chafa-libs
+          Requires:       glib2 openssl utf8proc libgcrypt libotr libcurl chafa-libs
 
           %description
           erssi is a modernized IRC client built on irssi's foundation,
@@ -460,23 +451,19 @@ jobs:
           mkdir -p %{buildroot}/usr/bin
 
           cp /build/Build/src/fe-ansi/erssi %{buildroot}/opt/erssi/bin/
-          cp /build/Build/src/fe-text/erssi-nc %{buildroot}/opt/erssi/bin/
           find /build/Build/src -name '*.so' -type f -exec cp {} %{buildroot}/opt/erssi/lib/irssi/modules/ \;
           cp -r /build/themes/* %{buildroot}/opt/erssi/share/erssi/themes/
           cp /build/irssi.conf %{buildroot}/opt/erssi/share/erssi/default.conf
           cp /build/README.md /build/NEWS /build/COPYING %{buildroot}/opt/erssi/share/doc/erssi/
           ln -s /opt/erssi/bin/erssi %{buildroot}/usr/bin/erssi
-          ln -s /opt/erssi/bin/erssi-nc %{buildroot}/usr/bin/erssi-nc
 
           %files
           /opt/erssi/bin/erssi
-          /opt/erssi/bin/erssi-nc
           /opt/erssi/lib/irssi/modules/*
           /opt/erssi/share/erssi/themes/*
           %config(noreplace) /opt/erssi/share/erssi/default.conf
           %doc /opt/erssi/share/doc/erssi/*
           /usr/bin/erssi
-          /usr/bin/erssi-nc
           SPEC
 
               # Build RPM (binary only, no source)

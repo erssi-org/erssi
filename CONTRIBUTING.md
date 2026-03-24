@@ -46,7 +46,7 @@ git checkout -b fix/issue-description
 ninja -C Build test
 
 # Test the build
-./Build/src/fe-text/irssi --version
+./Build/src/fe-ansi/erssi --version
 ```
 
 ## Commit Message Guidelines
@@ -242,7 +242,7 @@ static void process_message(MESSAGE_REC *msg, const char *text)
 ### Bug Reports
 
 Include:
-- **erssi version**: `./Build/src/fe-text/irssi --version`
+- **erssi version**: `erssi --version`
 - **Operating system**: macOS/Linux distribution and version
 - **Steps to reproduce**
 - **Expected behavior**
@@ -277,7 +277,7 @@ Include:
 
 - `src/core/` - Core IRC protocol
 - `src/irc/` - IRC-specific features
-- `src/fe-text/` - Terminal UI (including sidepanels)
+- `src/fe-ansi/` - ANSI Terminal UI (including sidepanels)
 - `src/fe-web/` - Web interface
 - `src/perl/` - Perl integration
 - `tests/` - Test suites
@@ -290,10 +290,10 @@ ninja -C Build test
 
 # Run specific test
 ./Build/tests/irc/core/test-irc
-./Build/tests/fe-text/test-paste-join-multiline
+./Build/tests/fe-ansi/test-paste-join-multiline
 
 # Run under valgrind (memory leak detection)
-valgrind --leak-check=full ./Build/src/fe-text/irssi
+valgrind --leak-check=full ./Build/src/fe-ansi/erssi
 ```
 
 ### Useful Commands
@@ -310,7 +310,7 @@ ninja -C Build
 ninja -C Build install
 
 # Run erssi
-./Build/src/fe-text/irssi
+./Build/src/fe-ansi/erssi
 ```
 
 ## Questions?

@@ -9,7 +9,7 @@ The mouse gesture system provides intuitive window navigation through horizontal
 
 #### Core Components
 
-**Location**: `/src/fe-text/sidepanels.c` and `/src/fe-text/sidepanels.h`
+**Location**: `/src/fe-ansi/sidepanels.c` and `/src/fe-ansi/sidepanels.h`
 
 1. **Gesture Types** (`MouseGestureType` enum):
    ```c

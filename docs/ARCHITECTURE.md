@@ -5,7 +5,7 @@
 Erssi is a modernized IRC client built on irssi's foundation with a clean three-layer architecture:
 - **Core Layer**: IRC protocol handling (`src/core/`, `src/irc/`)
 - **Frontend-Agnostic Layer**: Common UI logic (`src/fe-common/`)
-- **Frontend Layers**: TUI (`src/fe-text/`), Web (`src/fe-web/`), Headless (`src/fe-none/`)
+- **Frontend Layers**: ANSI TUI (`src/fe-ansi/`), Web (`src/fe-web/`), Headless (`src/fe-none/`)
 
 This document provides everything needed to understand and create an anti-flood module by examining existing patterns, particularly the `src/irc/flood/` module as a reference.
 
@@ -46,7 +46,7 @@ erssi/
 │   │   │   ├── hilight-text.c # Highlighting
 │   │   │   └── ...
 │   │   └── irc/              # IRC-specific UI helpers
-│   ├── fe-text/              # Terminal UI (TUI)
+│   ├── fe-ansi/              # ANSI Terminal UI (pure ANSI/VT100)
 │   │   ├── irssi.c           # Main entry point & init order
 │   │   ├── mainwindows.c     # Window management
 │   │   ├── gui-printtext.c   # Text rendering
@@ -54,7 +54,7 @@ erssi/
 │   │   ├── sidepanels-*.c    # Advanced sidepanel system
 │   │   ├── gui-gestures.c    # Mouse gesture navigation
 │   │   ├── gui-mouse.c       # Mouse protocol handling
-│   │   ├── term.c            # Terminal control
+│   │   ├── term-ansi.c       # Pure ANSI terminal abstraction
 │   │   └── ...
 │   ├── fe-web/               # WebSocket web interface
 │   │   ├── fe-web.c          # Coordinator
@@ -72,7 +72,7 @@ erssi/
 │   └── fe-none/              # Headless mode
 ├── tests/                    # Test suite
 │   ├── irc/core/
-│   ├── fe-text/
+│   ├── fe-ansi/
 │   └── fe-common/core/
 ├── themes/                   # Color themes
 ├── docs/                     # Documentation
@@ -195,7 +195,7 @@ signal_emit("module unloaded", 2, module_name, module_rec);
 
 ### Signal Registration Order (Critical!)
 
-From `src/fe-text/irssi.c::textui_finish_init()`:
+From `src/fe-ansi/irssi.c::textui_finish_init()`:
 
 ```c
 gui_printtext_init();
@@ -663,7 +663,7 @@ static void test_flood_detection(void) {
 │                         Application Startup                          │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
-                      src/fe-text/irssi.c
+                      src/fe-ansi/irssi.c
                       irssi_main() → main_loop
                               ↓
          core_preinit() → modules loaded → core_init()
@@ -983,7 +983,7 @@ Or via command:
 | See settings system | `/Users/k/dev/erssi/src/core/settings.c` (lines 52-150) |
 | Check fe-web pattern | `/Users/k/dev/erssi/src/fe-web/fe-web.h` (types) |
 | Web signal handlers | `/Users/k/dev/erssi/src/fe-web/fe-web-signals.c` (1519+) |
-| Module init order | `/Users/k/dev/erssi/src/fe-text/irssi.c` (lines 240+) |
+| Module init order | `/Users/k/dev/erssi/src/fe-ansi/irssi.c` (lines 240+) |
 | IRC event names | `/Users/k/dev/erssi/src/core/module.h` (event list) |
 
 ---

@@ -4,7 +4,7 @@ on:
     paths:
     - 'src/core/**/*.c'
     - 'src/fe-common/core/**/*.c'
-    - 'src/fe-text/gui-*.c'
+    - 'src/fe-ansi/gui-*.c'
     - 'src/irc/**/*.c'
     - 'src/fe-common/irc/**/*.c'
     - 'src/lib-config/**/*.c'

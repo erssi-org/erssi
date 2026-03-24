@@ -111,5 +111,5 @@ if (pending_resize_windows) {
    - Sprawdzenie poprawności formatowania
 
 ## Files Modified
-- `src/fe-text/sidepanels-signals.c` - główna implementacja fix'u
+- `src/fe-ansi/sidepanels-signals.c` - główna implementacja fix'u
 - Dodano external declarations dla `get_ctx` i `position_tw`
