@@ -1,5 +1,5 @@
 #include <irssi/src/common.h>
-#include <irssi/src/fe-text/gui-readline.c>
+#include <irssi/src/fe-ansi/gui-readline.c>
 
 typedef struct {
 	char const *const description;

@@ -1,4 +1,3 @@
-option('without-textui',    type : 'combo',  description : 'Build without text frontend',             	  choices : ['no', 'yes'])
 option('with-bot',          type : 'combo',  description : 'Build irssi-bot',                         	  choices : ['no', 'yes'])
 option('with-fuzzer',       type : 'combo',  description : 'Build irssi-fuzzer',                      	  choices : ['no', 'yes'])
 option('with-fuzzer-lib',   type : 'string', description : 'Specify path to fuzzer library', value : '-fsanitize=fuzzer')
@@ -8,8 +7,6 @@ option('with-perl-lib',     type : 'string', description : 'Specify where to ins
 option('with-perl',         type : 'combo',  description : 'Build with Perl support',                     choices : ['auto', 'yes', 'no'])
 option('with-otr',          type : 'combo',  description : 'Build with OTR support',                      choices : ['auto', 'yes', 'no'])
 option('with-fe-web',       type : 'combo',  description : 'Build with Web Interface (WebSocket) support', choices : ['auto', 'yes', 'no'])
-option('with-fe-notcurses', type : 'combo',  description : 'Build notcurses frontend (erssi-nc)',          choices : ['auto', 'yes', 'no'])
-option('with-fe-ansi',      type : 'combo',  description : 'Build pure ANSI frontend (erssi-ansi)',        choices : ['auto', 'yes', 'no'])
 option('with-image-preview', type : 'combo', description : 'Build with image preview (requires libcurl)',   choices : ['auto', 'yes', 'no'])
 option('disable-utf8proc',  type : 'combo',  description : 'Build without Julia\'s utf8proc',             choices : ['auto', 'yes', 'no'])
 option('with-capsicum',     type : 'combo',  description : 'Build with Capsicum support',                 choices : ['auto', 'yes', 'no'])

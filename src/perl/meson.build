@@ -70,9 +70,7 @@ foreach s : chat_modules
   subdir(s)
 endforeach
 subdir('ui')
-if want_textui
-  subdir('textui')
-endif
+subdir('textui')
 
 # noinst_headers = files(
 #   'module-fe.h',
