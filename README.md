@@ -10,7 +10,7 @@
 
 ## What is erssi?
 
-**erssi v1.2.8** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
+**erssi v1.3.0** is a next-generation IRC client that builds upon the robust foundation of classic irssi, introducing modern features and enhanced user experience without sacrificing the simplicity and power that made irssi legendary.
 
 🎯 **Mission**: Modernizing IRC, one feature at a time, while preserving the soul of irssi.
 
@@ -84,9 +84,19 @@
 
 ---
 
-## ✨ Latest Release - v1.2.8
+## ✨ Latest Release - v1.3.0
 
-### 🔧 CI/CD Workflow Synchronization
+### 🔄 Upstream Sync with irssi/irssi master
+
+The v1.3.0 release brings erssi fully in sync with upstream irssi:
+
+- **Async DNS Resolution**: Replaced fork-based `getaddrinfo()` with GLib's GResolver for non-blocking DNS lookups
+- **Multi-address Fallback**: DNS results now try all resolved IPs before failing
+- **Perl DCC Separation**: `Irssi::Irc::Dcc` is now a standalone module, improving modularity
+- **Build Modernization**: Migrated all `shared_module()` to `shared_library()`
+- **Updated Bundled Scripts**: autoop, mail, scriptassist updated to latest versions
+
+### 🔧 CI/CD Workflow Synchronization (v1.2.8)
 
 The v1.2.8 release synchronizes CI/CD workflows with install.sh build options:
 

@@ -1,3 +1,30 @@
+erssi-v1.3.0 2026-03-24  erssi-org team <https://github.com/erssi-org>
+	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
+	https://erssi.org && https://erssi.dev
+	ERSSI - Enhanced/Evolved IRC Client
+	Upstream sync with irssi/irssi master.
+
+	+ Core
+	  - Replaced fork-based DNS resolution with async GIO GResolver
+	  - New dependencies: gobject-2.0, gio-2.0
+	  - Multi-address DNS fallback (tries all resolved IPs before failing)
+	  - Removed resolve_prefer_ipv6 setting (OS decides per RFC 6724)
+	  - Added irssiproxy_prefer_ipv6 for proxy-specific control
+
+	+ Perl
+	  - Separated Irssi::Irc::Dcc into standalone module
+	  - Irssi::Irc now usable without DCC support
+	  - ABI version bump 56→58, Perl API base updated
+
+	+ Build
+	  - Migrated all shared_module() to shared_library()
+	  - Updated bundled scripts (autoop, mail, scriptassist)
+	  - Updated INSTALL with additional compile dependencies
+
+	+ Documentation
+	  - Added New-users guide and Q&A docs
+	  - Updated clang-format-xs tooling
+
 erssi-v1.2.8 2026-01-16  erssi-org team <https://github.com/erssi-org>
 	Lead Developer: Jerzy (kofany) Dąbrowski <https://github.com/kofany>
 	https://erssi.org && https://erssi.dev

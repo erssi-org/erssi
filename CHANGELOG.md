@@ -5,6 +5,33 @@ All notable changes to erssi will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-24
+
+### ⚡ Core
+
+- Replaced fork-based DNS resolution with async GIO GResolver
+- Multi-address DNS fallback (tries all resolved IPs before failing)
+- Removed `resolve_prefer_ipv6` setting (OS decides per RFC 6724)
+- Added `irssiproxy_prefer_ipv6` for proxy-specific control
+- New dependencies: gobject-2.0, gio-2.0
+
+### 🔌 Perl
+
+- Separated `Irssi::Irc::Dcc` into standalone module
+- `Irssi::Irc` now usable without DCC support
+- ABI version bump 56→58, Perl API base updated
+
+### 🔨 Build
+
+- Migrated all `shared_module()` to `shared_library()`
+- Updated bundled scripts (autoop, mail, scriptassist)
+- Updated INSTALL with additional compile dependencies
+
+### 📚 Documentation
+
+- Added New-users guide and Q&A docs
+- Updated clang-format-xs tooling
+
 ## [1.2.8] - 2026-01-16
 
 ### 📚 Documentation
