@@ -157,4 +157,8 @@ void mentions_window_deinit(void)
 {
 	signal_remove("setup changed", (SIGNAL_FUNC) sig_setup_changed);
 	signal_remove("message public", (SIGNAL_FUNC) sig_message_public_mentions);
+
+	/* Destroy the window on module unload to prevent orphaned
+	 * duplicates if the module is reloaded. */
+	remove_mentions_window();
 }
