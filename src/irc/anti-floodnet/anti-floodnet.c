@@ -436,10 +436,7 @@ void irc_anti_floodnet_init(void)
     floodnet->last_protection_notice = 0;
     floodnet->blocked_since_notice = 0;
 
-    /* Read initial settings */
-    read_settings();
-
-    /* Add settings */
+    /* Add settings first, THEN read them */
     settings_add_bool("anti_floodnet", "anti_floodnet_enabled", TRUE);
     settings_add_int("anti_floodnet", "anti_floodnet_tilde_threshold", DEFAULT_TILDE_THRESHOLD);
     settings_add_int("anti_floodnet", "anti_floodnet_duplicate_threshold", DEFAULT_DUPLICATE_THRESHOLD);
@@ -449,6 +446,9 @@ void irc_anti_floodnet_init(void)
     settings_add_int("anti_floodnet", "anti_floodnet_time_window", DEFAULT_TIME_WINDOW);
     settings_add_int("anti_floodnet", "anti_floodnet_nickchange_window", DEFAULT_NICKCHANGE_WINDOW);
     settings_add_int("anti_floodnet", "anti_floodnet_notice_interval", 60);
+
+    /* Read settings AFTER they are registered */
+    read_settings();
 
     /* Initialize component modules */
     ctcp_flood_init();
