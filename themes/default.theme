@@ -45,6 +45,15 @@
 # at start, the normal behaviour of %n would occur. If you _really_ want
 # to use the terminal's default color, use %N.
 
+# Nightfall theme - Tokyo Night inspired palette
+# Synced with repartee (rustirc) default.theme
+#
+# Palette:
+#   bg:       #1a1b26  fg:       #a9b1d6  fg_muted: #565f89
+#   fg_dim:   #292e42  accent:   #7aa2f7  success:  #9ece6a
+#   error:    #f7768e  warning:  #e0af68  info:     #7dcfff
+#   purple:   #bb9af7  light_fg: #c0caf5  muted_ts: #6e738d
+
 
 # default foreground color (%N) - -1 is the "default terminal color"
 default_color = "-1";
@@ -53,8 +62,7 @@ default_color = "-1";
 info_eol = "false";
 
 # these characters are automatically replaced with specified color
-# (dark grey by default)
-replaces = { "[]=" = "%K$*%n"; };
+replaces = { "[]=" = "%Z565f89$*%n"; };
 
 abstracts = {
   ##
@@ -64,28 +72,28 @@ abstracts = {
   # text to insert at the beginning of each non-message line
   line_start = "%N";
 
-  # timestamp styling, nothing by default
-  timestamp = "%b$*%C>%N";
+  # timestamp styling - muted gray timestamp, accent blue middle dot
+  timestamp = "%Z6e738d$*%Z7aa2f7·%N";
 
-  # any kind of text that needs hilighting, orange for visibility
-  hilight = "%ZFF9955%_$*%_%N";
-  # any kind of error message, default is bright red
-  error = "%R$*%n";
+  # any kind of text that needs hilighting - plasma purple bold
+  hilight = "%Zbb9af7%_$*%_%N";
+  # any kind of error message - rose/crimson
+  error = "%Zf7768e! $*%N";
 
-  # channel name is printed
-  channel = "%_$*%_";
+  # channel name is printed - accent blue bold
+  channel = "%Z7aa2f7%_$*%_%N";
 
-  # nick is printed
+  # nick is printed - bold
   nick = "%_$*%_";
 
-  # nick host is printed
-  nickhost = "[$*]";
+  # nick host is printed - muted in brackets
+  nickhost = "%Z565f89[$*]%N";
 
-  # server name is printed
-  server = "%_$*%_";
+  # server name is printed - accent blue bold
+  server = "%Z7aa2f7%_$*%_%N";
 
-  # some kind of comment is printed
-  comment = "[$*]";
+  # some kind of comment is printed - muted brackets
+  comment = "%Z565f89[$*]%N";
 
   # reason for something is printed (part, quit, kick, ..)
   reason = "{comment $*}";
@@ -98,82 +106,71 @@ abstracts = {
   ##
 
   # highlighted nick/host is printed (joins)
-  channick_hilight = "%C$*%n";
-  chanhost_hilight = "{nickhost %c$*%n}";
+  channick_hilight = "%Z9ece6a$*%n";
+  chanhost_hilight = "{nickhost %Z565f89$*%n}";
 
   # nick/host is printed (parts, quits, etc.)
-  channick = "%c$*%n";
+  channick = "%Za9b1d6$*%n";
   chanhost = "{nickhost $*}";
 
   # highlighted channel name is printed
-  channelhilight = "%c$*%n";
+  channelhilight = "%Z7aa2f7$*%n";
 
   # ban/ban exception/invite list mask is printed
-  ban = "%c$*%n";
+  ban = "%Ze0af68$*%n";
 
   ##
   ## messages
   ##
 
   # the basic styling of how to print message, $0 = nick mode, $1 = nick
-  msgnick = "%K<%n$0$1-%K>%n %|";
+  # muted mode prefix, accent blue chevron separator
+  msgnick = "%Z565f89$0$1%Z7aa2f7❯%N%| ";
 
   # message from you is printed. "msgownnick" specifies the styling of the
   # nick ($0 part in msgnick) and "ownmsgnick" specifies the styling of the
   # whole line.
 
-  # Example1: You want the message text to be green:
-  #  ownmsgnick = "{msgnick $0 $1-}%g";
-  # Example2.1: You want < and > chars to be yellow:
-  #  ownmsgnick = "%Y{msgnick $0 $1-%Y}%n";
-  #  (you'll also have to remove <> from replaces list above)
-  # Example2.2: But you still want to keep <> grey for other messages:
-  #  pubmsgnick = "%K{msgnick $0 $1-%K}%n";
-  #  pubmsgmenick = "%K{msgnick $0 $1-%K}%n";
-  #  pubmsghinick = "%K{msgnick $1 $0$2-%n%K}%n";
-  #  ownprivmsgnick = "%K{msgnick  $*%K}%n";
-  #  privmsgnick = "%K{msgnick  %R$*%K}%n";
-
   # $0 = nick mode, $1 = nick
-  ownmsgnick = "{msgnick %B$0$1-}";
-  ownnick = "%_%Y$*%n";
+  ownmsgnick = "{msgnick $0 $1-}";
+  ownnick = "%Z9ece6a%_$*%_%N";
 
   # public message in channel, $0 = nick mode, $1 = nick
-  pubmsgnick = "{msgnick %M$0%N$1-%n}";
-  pubnick = "%G$*%n";
+  pubmsgnick = "{msgnick $0 $1-}";
+  pubnick = "%Z7aa2f7%_$*%_%N";
 
   # public message in channel meant for me, $0 = nick mode, $1 = nick
-  # Orange text for mentions (same as nexus.theme)
-  pubmsgmenick = "{msgnick %ZFF9955$0$1-}%ZFF9955";
-  menick = "%ZFF9955$*%n";
+  # plasma purple for mentions
+  pubmsgmenick = "{msgnick %Zbb9af7$0$1-}%Zbb9af7";
+  menick = "%Zbb9af7%_$*%_%N";
 
   # public highlighted message in channel
   # $0 = highlight color, $1 = nick mode, $2 = nick
-  # Orange text for highlighted messages to stand out
-  pubmsghinick = "{msgnick %ZFF9955$1 $0$2-%n}%ZFF9955";
+  # rose/crimson for highlighted messages
+  pubmsghinick = "{msgnick %Zf7768e$1 %Zf7768e%_$0$2-%_%N}%Zf7768e";
 
   # channel name is printed with message
-  msgchannel = "%K:%c$*%n";
+  msgchannel = "%Z565f89:%Z7aa2f7$*%n";
 
   # private message, $0 = nick, $1 = host
-  privmsg = "[%R$0%K(%r$1-%K)%n] ";
+  privmsg = "%Z7dcfff[%Zf7768e$0%Z565f89(%Za9b1d6$1-%Z565f89)%Z7dcfff]%N ";
 
   # private message from you, $0 = "msg", $1 = target nick
-  ownprivmsg = "[%r$0%K(%R$1-%K)%n] ";
+  ownprivmsg = "%Z7dcfff[%Z9ece6a$0%Z565f89(%Z7aa2f7$1-%Z565f89)%Z7dcfff]%N ";
 
   # own private message in query
   ownprivmsgnick = "{msgnick  $*}";
-  ownprivnick = "%_$*%n";
+  ownprivnick = "%Z9ece6a%_$*%_%N";
 
   # private message in query
-  privmsgnick = "{msgnick  %R$*%n}";
+  privmsgnick = "{msgnick  %Zf7768e$*%N}";
 
   ##
   ## Actions (/ME stuff)
   ##
 
-  # used internally by this theme
-  action_core = "%_ * $*%n";
+  # used internally by this theme - warm amber
+  action_core = "%Ze0af68* $*%N";
 
   # generic one that's used by most actions
   action = "{action_core $*} ";
@@ -182,10 +179,10 @@ abstracts = {
   ownaction = "{action $*}";
 
   # own action with target, both private/public
-  ownaction_target = "{action_core $0}%K:%c$1%n ";
+  ownaction_target = "{action_core $0}%Z565f89:%Z7aa2f7$1%N ";
 
   # private action sent by others
-  pvtaction = "%_ (*) $*%n ";
+  pvtaction = "%Ze0af68 (*) $*%N ";
   pvtaction_query = "{action $*}";
 
   # public action sent by others
@@ -198,26 +195,26 @@ abstracts = {
   # whois
   whois = "%# $[8]0 : $1-";
 
-  # notices
-  ownnotice = "[%r$0%K(%R$1-%K)]%n ";
-  notice = "%K-%M$*%K-%n ";
-  pubnotice = "%K-%M$0$1-%K-%n %|";
-  pubnotice_channel = "%K:%m$*";
-  pvtnotice_host = "%K(%m$*%K)";
-  servernotice = "%g!$*%n ";
+  # notices - cyan dashes, accent blue nick
+  ownnotice = "%Z7dcfff[%Z9ece6a$0%Z565f89(%Z7aa2f7$1-%Z565f89)%Z7dcfff]%N ";
+  notice = "%Z7dcfff-%Z7aa2f7$*%Z7dcfff-%N ";
+  pubnotice = "%Z7dcfff-%Z7aa2f7$0$1-%Z7dcfff-%N %|";
+  pubnotice_channel = "%Z565f89:%Zbb9af7$*";
+  pvtnotice_host = "%Z565f89(%Zbb9af7$*%Z565f89)";
+  servernotice = "%Z9ece6a!$*%N ";
 
   # CTCPs
-  ownctcp = "[%r$0%K(%R$1-%K)] ";
-  ctcp = "%g$*%n";
+  ownctcp = "%Z7dcfff[%Z9ece6a$0%Z565f89(%Z7aa2f7$1-%Z565f89)%Z7dcfff] ";
+  ctcp = "%Z9ece6a$*%N";
 
   # wallops
-  wallop = "%_$*%n: ";
-  wallop_nick = "%n$*";
-  wallop_action = "%_ * $*%n ";
+  wallop = "%_$*%N: ";
+  wallop_nick = "%N$*";
+  wallop_action = "%Ze0af68 * $*%N ";
 
   # netsplits
-  netsplit = "%R$*%n";
-  netjoin = "%C$*%n";
+  netsplit = "%Zf7768e$*%N";
+  netjoin = "%Z9ece6a$*%N";
 
   # /names list
   names_prefix = "";
@@ -225,56 +222,45 @@ abstracts = {
   names_nick_op = "{names_nick $*}";
   names_nick_halfop = "{names_nick $*}";
   names_nick_voice = "{names_nick $*}";
-  names_users = "[%g$*%n]";
-  names_channel = "%G$*%n";
+  names_users = "[%Z9ece6a$*%N]";
+  names_channel = "%Z7aa2f7$*%N";
 
   # DCC
-  dcc = "%g$*%n";
+  dcc = "%Z9ece6a$*%N";
   dccfile = "%_$*%_";
 
   # DCC chat, own msg/action
-  dccownmsg = "[%r$0%K($1-%K)%n] ";
-  dccownnick = "%R$*%n";
-  dccownquerynick = "%_$*%n";
+  dccownmsg = "%Z7dcfff[%Z9ece6a$0%Z565f89($1-%Z565f89)%Z7dcfff]%N ";
+  dccownnick = "%Z9ece6a$*%N";
+  dccownquerynick = "%_$*%N";
   dccownaction = "{action $*}";
-  dccownaction_target = "{action_core $0}%K:%c$1%n ";
+  dccownaction_target = "{action_core $0}%Z565f89:%Z7aa2f7$1%N ";
 
   # DCC chat, others
-  dccmsg = "[%G$1-%K(%g$0%K)%n] ";
-  dccquerynick = "%G$*%n";
-  dccaction = "%_ (*dcc*) $*%n %|";
+  dccmsg = "%Z7dcfff[%Z7aa2f7$1-%Z565f89(%Z9ece6a$0%Z565f89)%Z7dcfff]%N ";
+  dccquerynick = "%Z7aa2f7$*%N";
+  dccaction = "%Ze0af68 (*dcc*) $*%N %|";
 
   ##
   ## statusbar
   ##
 
-  # Statusbar background and styling elements
-  sb_background = "%K";
-  # Void black background
-  window_border = "%B|%N";
-  # Electric blue cyberpunk border character
-  sb_topic_bg = "%B%W";
-  # Electric blue + white for topic
-  sb = " %c[%n$*%c]%n";
-  # Electric blue lightning + bullet
-  sbmode = "(%c+%n$*)";
-  # Mode display
+  # Statusbar background - dark
+  sb_background = "%Z1a1b26";
+  # Window border - accent blue pipe
+  window_border = "%Z7aa2f7|%N";
+  # Topic bar - accent blue + light fg
+  sb_topic_bg = "%Z7aa2f7%Zc0caf5";
+  sb = " %Z7aa2f7[%N$*%Z7aa2f7]%N";
+  sbmode = "(%Z7aa2f7+%N$*)";
   sbservertag = ":$0 (change with ^X)";
-  # Server tag with green hint
-  sbmore = " %R<%r<%k< %Nmore %k>%r>%R> ";
-  # Triple-layered more indicator
-  sblag = "%R!%N %RLAG%N %w$0-%N seconds";
-  # Exclamation + lag in crimson red
-  sb_default_bg = "%K";
-  # Default void black background
-  sb_info1_bg = "%B";
-  # Electric blue info1 background
-  sb_window_bg = "%B%W";
-  # Electric blue + white window bg
-  sb_window2_bg = "%B%W";
-  # Electric blue + white window2 bg
-  sb_info2_bg = "%C";
-  # Cyan steel info2 background
+  sbmore = " %Zf7768e<%Ze0af68<%Z565f89< %Nmore %Z565f89>%Ze0af68>%Zf7768e> ";
+  sblag = "%Zf7768e!%N %Zf7768eLAG%N %Za9b1d6$0-%N seconds";
+  sb_default_bg = "%Z1a1b26";
+  sb_info1_bg = "%Z7aa2f7";
+  sb_window_bg = "%Z7aa2f7%Zc0caf5";
+  sb_window2_bg = "%Z7aa2f7%Zc0caf5";
+  sb_info2_bg = "%Z7dcfff";
 
   # text at the beginning of statusbars. "sb" already puts a space there,
   # so we don't use anything by default.
@@ -286,36 +272,36 @@ abstracts = {
   topicsbstart = "{sbstart $*}";
   topicsbend = "{sbend $*}";
 
-  prompt = "[$*] ";
+  prompt = "%Z7aa2f7[%N$*%Z7aa2f7]%N ";
 
-  sbaway = " (%GzZzZ%n)";
+  sbaway = " (%Z9ece6azZzZ%N)";
   sbnickmode = "$0";
 
   # activity in statusbar
 
-  # Shadow gray separator
-  sb_act_sep = "%k/%N";
-  # Silver white activity text
-  sb_act_text = "%w$*";
-  # Sky blue activity messages
-  sb_act_msg = "%b$*";
-  # Lime green activity highlights
-  sb_act_hilight = "%g$*";
-  # Sky blue highlight with color
-  sb_act_hilight_color = "%b$0$1-%N";
+  # muted separator
+  sb_act_sep = "%Z565f89/%N";
+  # muted activity text
+  sb_act_text = "%Z565f89$*";
+  # accent blue activity messages
+  sb_act_msg = "%Z7aa2f7$*";
+  # success green activity highlights
+  sb_act_hilight = "%Z9ece6a$*";
+  # accent blue highlight with color
+  sb_act_hilight_color = "%Z7aa2f7$0$1-%N";
 
 };
 formats = {
   "fe-common/core" = {
 
-    own_msg = "{ownmsgnick $2 {ownnick $0}}$1";
-    own_msg_channel = "{ownmsgnick $3 {ownnick $0}{msgchannel $1}}$2";
-    pubmsg_me = "{pubmsgmenick $2 {menick $0}}$1";
-    pubmsg_me_channel = "{pubmsgmenick $3 {menick $0}{msgchannel $1}}$2";
+    own_msg = "{ownmsgnick $2 {ownnick $0}}%Zc0caf5$1%N";
+    own_msg_channel = "{ownmsgnick $3 {ownnick $0}{msgchannel $1}}%Zc0caf5$2%N";
+    pubmsg_me = "{pubmsgmenick $2 {menick $0}}%Zbb9af7$1%N";
+    pubmsg_me_channel = "{pubmsgmenick $3 {menick $0}{msgchannel $1}}%Zbb9af7$2%N";
     pubmsg_hilight = "{pubmsghinick $0 $3 $1}$2";
     pubmsg_hilight_channel = "{pubmsghinick $0 $4 $1{msgchannel $2}}$3";
-    pubmsg = "{pubmsgnick $2 {pubnick $0}}$1";
-    pubmsg_channel = "{pubmsgnick $3 {pubnick $0}{msgchannel $1}}$2";
+    pubmsg = "{pubmsgnick $2 {pubnick $0}}%Za9b1d6$1%N";
+    pubmsg_channel = "{pubmsgnick $3 {pubnick $0}{msgchannel $1}}%Za9b1d6$2%N";
     msg_private = "{privmsg $0 $1}$2";
     msg_private_query = "{privmsgnick $0}$2";
 
@@ -323,41 +309,42 @@ formats = {
   "fe-text" = {
     # === LEFT PANEL (Window List) ===
     # Format: $0 = window number, $1 = window name
-    
-    # Server headers - electric blue number and name (consistent with theme primary)
-    sidepanel_header = "%B$0.%N %B$1%N";
 
-    # Normal items - steel gray number and name (consistent with theme secondary text)
-    sidepanel_item = "%W$0.%N %W$1%N";
+    # Server header - accent blue bold
+    sidepanel_header = "%Z7aa2f7%_$0.%N %Z7aa2f7%_$1%_%N";
 
-    # Selected items - neon green number and bright white name (consistent with theme highlights)
-    sidepanel_item_selected = "%g$0.%N %W$1%N";
+    # Normal items - muted number, dim name
+    sidepanel_item = "%Z565f89$0.%N %Z6e738d$1%N";
+
+    # Selected items - warm amber number, light fg bold name
+    sidepanel_item_selected = "%Ze0af68$0.%N %Zc0caf5%_$1%_%N";
 
     # === ACTIVITY HIERARCHY (by priority) ===
 
-    # PRIORITY 4 (Highest): NICK MENTION - magenta number and name (when your nick is mentioned on channel)
-    sidepanel_item_nick_mention = "%M$0.%N %M$1%N";
+    # PRIORITY 4 (Highest): NICK MENTION - purple (plasma)
+    sidepanel_item_nick_mention = "%Z565f89$0.%N %Zbb9af7$1%N";
 
-    # PRIORITY 4 (Highest): QUERY MESSAGE - magenta number and name (new messages in query/private)
-    sidepanel_item_query_msg = "%M$0.%N %M$1%N";
+    # PRIORITY 4 (Highest): QUERY MESSAGE - rose/crimson
+    sidepanel_item_query_msg = "%Z565f89$0.%N %Zf7768e$1%N";
 
-    # PRIORITY 3: CHANNEL ACTIVITY - yellow number and name (messages on channel without mention)
-    sidepanel_item_activity = "%y$0.%N %y$1%N";
+    # PRIORITY 3: CHANNEL ACTIVITY - success green
+    sidepanel_item_activity = "%Z565f89$0.%N %Z9ece6a$1%N";
 
-    # PRIORITY 1 (Lowest): EVENTS - green number and name (join/part/quit/nick changes)
-    sidepanel_item_events = "%G$0.%N %G$1%N";
+    # PRIORITY 1 (Lowest): EVENTS - dim (no change from normal)
+    sidepanel_item_events = "%Z565f89$0.%N %Z6e738d$1%N";
 
-    # PRIORITY 2: HIGHLIGHTS - red number and name (keyword highlights, fallback)
-    sidepanel_item_highlight = "%R$0.%N %R$1%N";
+    # PRIORITY 2: HIGHLIGHTS - warm amber
+    sidepanel_item_highlight = "%Z565f89$0.%N %Ze0af68$1%N";
 
-    # New dual-parameter formats - status and nick separated for theme flexibility
-    # Operators - gold status symbol with steel nick (power users)
-    sidepanel_nick_op_status = "%Y$0%N%B$1%N";
+    # === RIGHT PANEL (Nicklist) ===
 
-    # Voice users - cyan status with lighter nick (trusted users)
-    sidepanel_nick_voice_status = "%C$0%N%c$1%N";
+    # Owner - warm amber prefix, light fg nick
+    sidepanel_nick_op_status = "%Ze0af68$0%N%Zc0caf5$1%N";
 
-    # Normal users - subtle gray for clean appearance
-    sidepanel_nick_normal_status = "%k$0%N%w$1%N";
+    # Voice users - cyan prefix, dim nick
+    sidepanel_nick_voice_status = "%Z7dcfff$0%N%Z6e738d$1%N";
+
+    # Normal users - muted
+    sidepanel_nick_normal_status = " %Z565f89$1%N";
   };
 };
