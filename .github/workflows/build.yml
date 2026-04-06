@@ -10,27 +10,6 @@ on:
 permissions:
   contents: write
 
-env:
-  # Common build dependencies for Debian/Ubuntu-based systems
-  apt_build_deps: >-
-    ninja-build
-    libutf8proc-dev
-    libperl-dev
-    libotr5-dev
-    libglib2.0-dev
-    libssl-dev
-    libgcrypt20-dev
-    libcurl4-openssl-dev
-    libchafa-dev
-  # Common meson build options
-  build_options: >-
-    -Dwith-perl=yes
-    -Dwith-otr=yes
-    -Dwith-proxy=yes
-    -Dwith-fe-web=yes
-    -Dwith-image-preview=yes
-    -Ddisable-utf8proc=no
-
 jobs:
   #############################################################################
   # Linux builds (amd64 and arm64)
@@ -54,20 +33,33 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ env.apt_build_deps }}
+          sudo apt-get install -y ninja-build libutf8proc-dev libperl-dev \
+            libotr5-dev libglib2.0-dev libssl-dev libgcrypt20-dev \
+            libcurl4-openssl-dev libchafa-dev
 
       - name: Install meson
-        run: pip3 install meson ninja
+        run: pip3 install --user meson
 
       - name: Setup build
         run: |
-          meson setup Build --prefix=/opt/erssi ${{ env.build_options }}
+          export PATH="$HOME/.local/bin:$PATH"
+          meson setup Build --prefix=/opt/erssi \
+            -Dwith-perl=yes \
+            -Dwith-otr=yes \
+            -Dwith-proxy=yes \
+            -Dwith-fe-web=yes \
+            -Dwith-image-preview=yes \
+            -Ddisable-utf8proc=no
 
       - name: Build
-        run: ninja -C Build
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ninja -C Build
 
       - name: Run tests
-        run: ninja -C Build test
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ninja -C Build test
         continue-on-error: true
 
       - name: Install
@@ -99,9 +91,13 @@ jobs:
 
       - name: Setup build
         run: |
-          meson setup Build --prefix=/opt/erssi ${{ env.build_options }} \
-            -Dc_args="-I$(brew --prefix)/include -I$(brew --prefix openssl@3)/include" \
-            -Dcpp_args="-I$(brew --prefix)/include -I$(brew --prefix openssl@3)/include"
+          meson setup Build --prefix=/opt/erssi \
+            -Dwith-perl=yes \
+            -Dwith-otr=yes \
+            -Dwith-proxy=yes \
+            -Dwith-fe-web=yes \
+            -Dwith-image-preview=yes \
+            -Ddisable-utf8proc=no
         env:
           PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig
 
@@ -113,6 +109,8 @@ jobs:
       - name: Run tests
         run: ninja -C Build test
         continue-on-error: true
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig
 
       - name: Install
         run: sudo ninja -C Build install
@@ -147,7 +145,13 @@ jobs:
           prepare: |
             pkg install -y meson ninja pkgconf glib2 openssl utf8proc libgcrypt libotr perl5 chafa curl
           run: |
-            meson setup Build --prefix=/opt/erssi ${{ env.build_options }}
+            meson setup Build --prefix=/opt/erssi \
+              -Dwith-perl=yes \
+              -Dwith-otr=yes \
+              -Dwith-proxy=yes \
+              -Dwith-fe-web=yes \
+              -Dwith-image-preview=yes \
+              -Ddisable-utf8proc=no
             ninja -C Build
             ninja -C Build test || true
             ninja -C Build install
@@ -179,7 +183,13 @@ jobs:
           prepare: |
             pkg install -y meson ninja pkgconf glib2 openssl utf8proc libgcrypt libotr perl5 chafa curl
           run: |
-            meson setup Build --prefix=/opt/erssi ${{ env.build_options }}
+            meson setup Build --prefix=/opt/erssi \
+              -Dwith-perl=yes \
+              -Dwith-otr=yes \
+              -Dwith-proxy=yes \
+              -Dwith-fe-web=yes \
+              -Dwith-image-preview=yes \
+              -Ddisable-utf8proc=no
             ninja -C Build
             ninja -C Build test || true
             ninja -C Build install
@@ -210,12 +220,17 @@ jobs:
           mem: 8192
           cpu: 4
           prepare: |
-            pkg_add meson ninja glib2 openssl utf8proc libgcrypt libotr perl chafa curl
+            pkg_add meson ninja glib2 openssl utf8proc libgcrypt libotr perl chafa curl pkgconf
           run: |
-            # OpenBSD uses different package names
             export AUTOCONF_VERSION=2.71
             export AUTOMAKE_VERSION=1.16
-            meson setup Build --prefix=/opt/erssi ${{ env.build_options }}
+            meson setup Build --prefix=/opt/erssi \
+              -Dwith-perl=yes \
+              -Dwith-otr=yes \
+              -Dwith-proxy=yes \
+              -Dwith-fe-web=yes \
+              -Dwith-image-preview=yes \
+              -Ddisable-utf8proc=no
             ninja -C Build
             ninja -C Build test || true
             ninja -C Build install
