@@ -317,6 +317,11 @@ FORMAT_REC fecommon_core_formats[] = {
 	{ "tls_cert_fingerprint", "Certificate Fingerprint: {hilight $0} ({hilight $1})", 2, { 0, 0 } },
 	{ "tls_protocol_version", "Protocol: {hilight $0} ({hilight $1} bit, {hilight $2})", 3, { 0, 1, 0 } },
 
+	/* ---- */
+	{ NULL, "Mentions", 0 },
+
+	{ "mention_public", "%c[$0]%n {pubmsghinick $1 $3 $2}$4", 5, { 0, 0, 0, 0, 0 } },
+
 	{ NULL, NULL, 0 }
 	/* clang-format on */
 };

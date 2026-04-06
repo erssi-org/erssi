@@ -37,6 +37,7 @@
 #include <irssi/src/fe-common/core/fe-capsicum.h>
 #endif
 #include <irssi/src/fe-common/core/hilight-text.h>
+#include <irssi/src/fe-common/core/mentions-window.h>
 #include <irssi/src/fe-common/core/command-history.h>
 #include <irssi/src/fe-common/core/completion.h>
 #include <irssi/src/fe-common/core/keyboard.h>
@@ -201,6 +202,7 @@ void fe_common_core_init(void)
 
 	fe_messages_init();
 	hilight_text_init();
+	mentions_window_init();
 	fe_ignore_messages_init();
 	fe_recode_init();
 
@@ -216,6 +218,7 @@ void fe_common_core_init(void)
 
 void fe_common_core_deinit(void)
 {
+	mentions_window_deinit();
 	hilight_text_deinit();
 	command_history_deinit();
 	completion_deinit();
@@ -537,6 +540,7 @@ void fe_common_core_finish_init(void)
 	}
 
 	sig_setup_changed();
+	mentions_window_ensure();
 	signal_add_first("setup changed", (SIGNAL_FUNC) sig_setup_changed);
 
         /* _after_ windows are created.. */
