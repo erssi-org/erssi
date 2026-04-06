@@ -18,10 +18,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: AMD64
+          - arch: amd64
             runner: ubuntu-24.04
             artifact: erssi-linux-amd64
-          - arch: ARM64
+          - arch: arm64
             runner: ubuntu-24.04-arm
             artifact: erssi-linux-arm64
     steps:
@@ -31,7 +31,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libutf8proc-dev libperl-dev libotr5-dev libglib2.0-dev libssl-dev libgcrypt20-dev libcurl4-openssl-dev libchafa-dev python3-pip
-          pip3 install --break-system-packages meson
+
+      - name: Install meson
+        run: pip3 install --break-system-packages meson
+
+      - name: Checkout with tags
+        run: git fetch --tags
 
       - name: Setup build
         run: meson setup Build --prefix=/opt/erssi -Dwith-perl=yes -Dwith-otr=yes -Dwith-proxy=yes -Dwith-fe-web=yes -Dwith-image-preview=yes -Ddisable-utf8proc=no
@@ -49,7 +54,7 @@ jobs:
       - name: Package artifact
         run: |
           cd /opt
-          tar czf ${{ runner.temp }}/erssi-linux-${{ matrix.arch == 'AMD64' && 'amd64' || 'arm64' }}.tar.gz erssi
+          tar czf ${{ runner.temp }}/${{ matrix.artifact }}.tar.gz erssi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -60,21 +65,31 @@ jobs:
   build-macos:
     name: macOS ARM64
     runs-on: macos-26
-    env:
-      PKG_CONFIG_PATH: /opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/utf8proc/lib/pkgconfig:/opt/homebrew/opt/libgcrypt/lib/pkgconfig:/opt/homebrew/opt/libotr/lib/pkgconfig:/opt/homebrew/lib/pkgconfig
     steps:
       - uses: actions/checkout@v6
 
       - name: Install dependencies
-        run: brew install meson ninja glib openssl@3 utf8proc libgcrypt libotr perl chafa curl pkg-config
+        run: |
+          brew install meson ninja glib openssl@3 utf8proc libgcrypt libotr perl chafa curl pkg-config
+
+      - name: Checkout with tags
+        run: git fetch --tags
 
       - name: Setup build
-        run: meson setup Build --prefix=/opt/erssi -Dwith-perl=yes -Dwith-otr=yes -Dwith-proxy=yes -Dwith-fe-web=yes -Dwith-image-preview=yes -Ddisable-utf8proc=no
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig
+        run: |
+          export PKG_CONFIG_PATH="/opt/homebrew/opt/utf8proc/lib/pkgconfig:$PKG_CONFIG_PATH"
+          meson setup Build --prefix=/opt/erssi -Dwith-perl=yes -Dwith-otr=yes -Dwith-proxy=yes -Dwith-fe-web=yes -Dwith-image-preview=yes -Ddisable-utf8proc=no
 
       - name: Build
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/utf8proc/lib/pkgconfig
         run: ninja -C Build
 
       - name: Run tests
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/utf8proc/lib/pkgconfig
         run: ninja -C Build test
         continue-on-error: true
 
@@ -92,9 +107,15 @@ jobs:
           name: erssi-macos-arm64
           path: ${{ runner.temp }}/erssi-macos-arm64.tar.gz
 
-  build-freebsd-amd64:
-    name: FreeBSD AMD64
+  build-freebsd:
+    name: FreeBSD ${{ matrix.arch }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+          - arch: arm64
     steps:
       - uses: actions/checkout@v6
 
@@ -102,87 +123,31 @@ jobs:
         uses: vmactions/freebsd-vm@v1
         with:
           release: "14.2"
+          arch: ${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}
           usesh: true
           mem: 8192
           cpu: 4
-          prepare: pkg install -y meson ninja pkgconf glib2 openssl utf8proc libgcrypt libotr perl5 chafa curl
+          sync: ${{ matrix.arch == 'arm64' && 'scp' || 'rsync' }}
+          prepare: |
+            pkg install -y meson ninja pkgconf glib2 openssl utf8proc libgcrypt libotr perl5 chafa curl
           run: |
+            git fetch --tags
             meson setup Build --prefix=/opt/erssi -Dwith-perl=yes -Dwith-otr=yes -Dwith-proxy=yes -Dwith-fe-web=yes -Dwith-image-preview=yes -Ddisable-utf8proc=no
             ninja -C Build
             ninja -C Build test || true
             ninja -C Build install
             cd /opt
-            tar czf erssi-freebsd-amd64.tar.gz erssi
-            cp erssi-freebsd-amd64.tar.gz /root/erssi-freebsd-amd64.tar.gz
+            tar czf erssi-freebsd-${{ matrix.arch }}.tar.gz erssi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: erssi-freebsd-amd64
-          path: erssi-freebsd-amd64.tar.gz
-
-  build-freebsd-arm64:
-    name: FreeBSD ARM64
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Build in FreeBSD VM
-        uses: vmactions/freebsd-vm@v1
-        with:
-          release: "14.2"
-          arch: aarch64
-          usesh: true
-          mem: 8192
-          cpu: 4
-          sync: scp
-          prepare: pkg install -y meson ninja pkgconf glib2 openssl utf8proc libgcrypt libotr perl5 chafa curl
-          run: |
-            meson setup Build --prefix=/opt/erssi -Dwith-perl=yes -Dwith-otr=yes -Dwith-proxy=yes -Dwith-fe-web=yes -Dwith-image-preview=yes -Ddisable-utf8proc=no
-            ninja -C Build
-            ninja -C Build test || true
-            ninja -C Build install
-            cd /opt
-            tar czf erssi-freebsd-arm64.tar.gz erssi
-            cp erssi-freebsd-arm64.tar.gz /root/erssi-freebsd-arm64.tar.gz
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: erssi-freebsd-arm64
-          path: erssi-freebsd-arm64.tar.gz
-
-  build-openbsd-amd64:
-    name: OpenBSD AMD64
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Build in OpenBSD VM
-        uses: vmactions/openbsd-vm@v1
-        with:
-          release: "7.6"
-          usesh: true
-          mem: 8192
-          cpu: 4
-          prepare: pkg_add meson ninja glib2 openssl utf8proc libgcrypt libotr p5-Chafa curl pkgconf
-          run: |
-            meson setup Build --prefix=/opt/erssi -Dwith-perl=yes -Dwith-otr=yes -Dwith-proxy=yes -Dwith-fe-web=yes -Dwith-image-preview=yes -Ddisable-utf8proc=no
-            ninja -C Build
-            ninja -C Build test || true
-            ninja -C Build install
-            cd /opt
-            tar czf erssi-openbsd-amd64.tar.gz erssi
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: erssi-openbsd-amd64
-          path: erssi-openbsd-amd64.tar.gz
+          name: erssi-freebsd-${{ matrix.arch }}
+          path: erssi-freebsd-${{ matrix.arch }}.tar.gz
 
   release:
     name: Create Release
-    needs: [build-linux, build-macos, build-freebsd-amd64, build-freebsd-arm64]
+    needs: [build-linux, build-macos, build-freebsd]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     steps:
