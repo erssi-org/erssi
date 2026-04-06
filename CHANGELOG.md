@@ -5,10 +5,15 @@ All notable changes to erssi will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [1.3.1] - 2026-04-06
+
+### 🐛 Bug Fixes
+
+- **anti-floodnet**: Read settings after they are registered
 
 ### 📚 Documentation
 
+- Update CHANGELOG.md for v1.3.0 [skip ci]
 - Update CHANGELOG.md for v1.3.0 [skip ci]
 - Update CHANGELOG.md for v1.3.0 [skip ci]
 
