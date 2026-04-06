@@ -1,0 +1,256 @@
+name: Build erssi
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+env:
+  # Common build dependencies for Debian/Ubuntu-based systems
+  apt_build_deps: >-
+    ninja-build
+    libutf8proc-dev
+    libperl-dev
+    libotr5-dev
+    libglib2.0-dev
+    libssl-dev
+    libgcrypt20-dev
+    libcurl4-openssl-dev
+    libchafa-dev
+  # Common meson build options
+  build_options: >-
+    -Dwith-perl=yes
+    -Dwith-otr=yes
+    -Dwith-proxy=yes
+    -Dwith-fe-web=yes
+    -Dwith-fe-ansi=yes
+    -Dwith-image-preview=yes
+    -Ddisable-utf8proc=no
+
+jobs:
+  #############################################################################
+  # Linux builds (amd64 and arm64)
+  #############################################################################
+  build-linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: AMD64
+            runner: ubuntu-24.04
+            artifact: erssi-linux-amd64
+          - arch: ARM64
+            runner: ubuntu-24.04-arm
+            artifact: erssi-linux-arm64
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ env.apt_build_deps }}
+
+      - name: Install meson
+        run: pip3 install meson ninja
+
+      - name: Setup build
+        run: |
+          meson setup Build --prefix=/opt/erssi ${{ env.build_options }}
+
+      - name: Build
+        run: ninja -C Build
+
+      - name: Run tests
+        run: ninja -C Build test
+        continue-on-error: true
+
+      - name: Install
+        run: sudo ninja -C Build install
+
+      - name: Package artifact
+        run: |
+          cd /opt
+          tar czf ${{ runner.temp }}/erssi-linux-${{ matrix.arch == 'AMD64' && 'amd64' || 'arm64' }}.tar.gz erssi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ runner.temp }}/${{ matrix.artifact }}.tar.gz
+
+  #############################################################################
+  # macOS builds (arm64 - Apple Silicon)
+  #############################################################################
+  build-macos:
+    name: macOS ARM64
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          brew install meson ninja glib openssl@3 utf8proc libgcrypt libotr perl chafa curl
+
+      - name: Setup build
+        run: |
+          meson setup Build --prefix=/opt/erssi ${{ env.build_options }} \
+            -Dc_args="-I$(brew --prefix)/include -I$(brew --prefix openssl@3)/include" \
+            -Dcpp_args="-I$(brew --prefix)/include -I$(brew --prefix openssl@3)/include"
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig
+
+      - name: Build
+        run: ninja -C Build
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig
+
+      - name: Run tests
+        run: ninja -C Build test
+        continue-on-error: true
+
+      - name: Install
+        run: sudo ninja -C Build install
+
+      - name: Package artifact
+        run: |
+          cd /opt
+          tar czf ${{ runner.temp }}/erssi-macos-arm64.tar.gz erssi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: erssi-macos-arm64
+          path: ${{ runner.temp }}/erssi-macos-arm64.tar.gz
+
+  #############################################################################
+  # FreeBSD builds (amd64 and arm64)
+  #############################################################################
+  build-freebsd-amd64:
+    name: FreeBSD AMD64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build in FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: "14.2"
+          usesh: true
+          mem: 8192
+          cpu: 4
+          prepare: |
+            pkg install -y meson ninja pkgconf glib2 openssl utf8proc libgcrypt libotr perl5 chafa curl
+          run: |
+            meson setup Build --prefix=/opt/erssi ${{ env.build_options }}
+            ninja -C Build
+            ninja -C Build test || true
+            ninja -C Build install
+            cd /opt
+            tar czf erssi-freebsd-amd64.tar.gz erssi
+            cp erssi-freebsd-amd64.tar.gz /root/erssi-freebsd-amd64.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: erssi-freebsd-amd64
+          path: erssi-freebsd-amd64.tar.gz
+
+  build-freebsd-arm64:
+    name: FreeBSD ARM64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build in FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: "14.2"
+          arch: aarch64
+          usesh: true
+          mem: 8192
+          cpu: 4
+          sync: scp
+          prepare: |
+            pkg install -y meson ninja pkgconf glib2 openssl utf8proc libgcrypt libotr perl5 chafa curl
+          run: |
+            meson setup Build --prefix=/opt/erssi ${{ env.build_options }}
+            ninja -C Build
+            ninja -C Build test || true
+            ninja -C Build install
+            cd /opt
+            tar czf erssi-freebsd-arm64.tar.gz erssi
+            cp erssi-freebsd-arm64.tar.gz /root/erssi-freebsd-arm64.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: erssi-freebsd-arm64
+          path: erssi-freebsd-arm64.tar.gz
+
+  #############################################################################
+  # OpenBSD build (amd64)
+  #############################################################################
+  build-openbsd-amd64:
+    name: OpenBSD AMD64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build in OpenBSD VM
+        uses: vmactions/openbsd-vm@v1
+        with:
+          release: "7.6"
+          usesh: true
+          mem: 8192
+          cpu: 4
+          prepare: |
+            pkg_add meson ninja glib2 openssl utf8proc libgcrypt libotr perl chafa curl
+          run: |
+            # OpenBSD uses different package names
+            export AUTOCONF_VERSION=2.71
+            export AUTOMAKE_VERSION=1.16
+            meson setup Build --prefix=/opt/erssi ${{ env.build_options }}
+            ninja -C Build
+            ninja -C Build test || true
+            ninja -C Build install
+            cd /opt
+            tar czf erssi-openbsd-amd64.tar.gz erssi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: erssi-openbsd-amd64
+          path: erssi-openbsd-amd64.tar.gz
+
+  #############################################################################
+  # Release job (runs on tag push only)
+  #############################################################################
+  release:
+    name: Create Release
+    needs: [build-linux, build-macos, build-freebsd-amd64, build-freebsd-arm64]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/*.tar.gz
