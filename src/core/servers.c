@@ -76,10 +76,15 @@ static char *server_create_address_tag(const char *address)
 		start = end = NULL;
 	} else if (g_ascii_strncasecmp(address, "irc", 3) == 0 ||
 	    g_ascii_strncasecmp(address, "chat", 4) == 0) {
-		/* irc-2.cs.hut.fi -> hut, chat.bt.net -> bt */
+		/* irc-2.cs.hut.fi -> hut, chat.bt.net -> bt
+		   For short addresses like IRC.al, use the full prefix */
 		end = strrchr(address, '.');
 		start = end-1;
 		while (start > address && *start != '.') start--;
+		if (start == address) {
+			/* Only one dot (e.g., IRC.al) - use full prefix */
+			return g_strndup(address, (int)(end - address));
+		}
 	} else {
 		/* efnet.cs.hut.fi -> efnet */
 		end = strchr(address, '.');
@@ -574,6 +579,7 @@ int server_unref(SERVER_REC *server)
 	server_connect_unref(server->connrec);
 	if (server->rawlog != NULL) rawlog_destroy(server->rawlog);
 	g_free(server->version);
+	g_free(server->network);
 	g_free(server->away_reason);
 	g_free(server->nick);
 	g_free(server->tag);

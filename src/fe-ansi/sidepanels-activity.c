@@ -49,6 +49,23 @@ GHashTable *window_priorities = NULL;
 /* External functions we need */
 extern void sp_logf(const char *fmt, ...);
 
+/*
+ * Get the best display name for a server.
+ * Returns ISUPPORT NETWORK value if available, otherwise falls back to server tag.
+ */
+static const char *server_get_display_name(SERVER_REC *server)
+{
+	if (!server)
+		return NULL;
+
+	/* Prefer ISUPPORT NETWORK (human-readable network name from server) */
+	if (server->network && *server->network != '\0')
+		return server->network;
+
+	/* Fall back to server tag */
+	return server->tag ? server->tag : "server";
+}
+
 /* Forward declarations */
 static int window_sort_compare(gconstpointer a, gconstpointer b);
 
@@ -124,11 +141,11 @@ GSList *build_sorted_window_list(void)
 				sort_rec->sort_key = g_strdup(win_name);
 			} else {
 				/* 2. Server status windows - no active channel/query */
-				const char *server_name;
+				const char *display_name;
 				sort_rec->sort_group = 1;
-				/* Use server tag as display name instead of chatnet/address */
-				server_name = sort_rec->server->tag ? sort_rec->server->tag : "server";
-				sort_rec->sort_key = g_strdup(server_name);
+				/* Use ISUPPORT NETWORK name if available, otherwise server tag */
+				display_name = server_get_display_name(SERVER(sort_rec->server));
+				sort_rec->sort_key = g_strdup(display_name);
 			}
 		} else if (win->active && win->active->server) {
 			/* Windows with active channel/query items */

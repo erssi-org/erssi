@@ -1177,6 +1177,15 @@ void irc_server_init_isupport(IRC_SERVER_REC *server)
 	}
 	parse_prefix(server, sptr);
 
+	/* Parse ISUPPORT NETWORK - human-readable network name */
+	if ((sptr = g_hash_table_lookup(server->isupport, "NETWORK"))) {
+		if (*sptr != '\0') {
+			g_free_not_null(SERVER(server)->network);
+			SERVER(server)->network = g_strdup(sptr);
+			signal_emit("server network changed", 1, server);
+		}
+	}
+
 	if ((sptr = g_hash_table_lookup(server->isupport, "MODES"))) {
 		server->max_modes_in_cmd = atoi(sptr);
 		if (server->max_modes_in_cmd < 1)

@@ -541,6 +541,8 @@ void sidepanels_signals_register(void)
 	signal_add("nick mode changed", (SIGNAL_FUNC) sig_nick_mode_filter);
 	/* Live activity notifications */
 	signal_add("print text", (SIGNAL_FUNC) sig_print_text);
+	/* Network name changes (ISUPPORT NETWORK) */
+	signal_add("server network changed", (SIGNAL_FUNC) redraw_left_panels_only);
 }
 
 void sidepanels_signals_unregister(void)
@@ -579,6 +581,8 @@ void sidepanels_signals_unregister(void)
 	signal_remove("nick mode changed", (SIGNAL_FUNC) sig_nick_mode_filter);
 	/* Live activity notifications */
 	signal_remove("print text", (SIGNAL_FUNC) sig_print_text);
+	/* Network name changes (ISUPPORT NETWORK) */
+	signal_remove("server network changed", (SIGNAL_FUNC) redraw_left_panels_only);
 }
 
 void sidepanels_signals_init(void)

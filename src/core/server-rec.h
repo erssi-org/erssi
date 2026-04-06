@@ -28,6 +28,7 @@ RAWLOG_REC *rawlog;
 GHashTable *module_data;
 
 char *version; /* server version */
+char *network; /* network name from ISUPPORT NETWORK= */
 char *away_reason;
 char *last_invite; /* channel where you were last invited */
 unsigned int server_operator:1;
