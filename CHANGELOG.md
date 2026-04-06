@@ -5,32 +5,65 @@ All notable changes to erssi will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - 2026-03-24
+## [1.3.0] - 2026-04-06
 
-### ⚡ Core
+### ♻️ Refactoring
 
-- Replaced fork-based DNS resolution with async GIO GResolver
-- Multi-address DNS fallback (tries all resolved IPs before failing)
-- Removed `resolve_prefer_ipv6` setting (OS decides per RFC 6724)
-- Added `irssiproxy_prefer_ipv6` for proxy-specific control
-- New dependencies: gobject-2.0, gio-2.0
+- **image-preview**: Simplify terminal detection using tmux display-message
+- Move shared TUI code from fe-text to fe-ansi
+- Update all include paths from fe-text to fe-ansi
+- Remove USE_NOTCURSES and USE_ANSI_BACKEND guards
+- Remove ncurses/notcurses, ANSI-only frontend
 
-### 🔌 Perl
+### ⚡ Features
 
-- Separated `Irssi::Irc::Dcc` into standalone module
-- `Irssi::Irc` now usable without DCC support
-- ABI version bump 56→58, Perl API base updated
+- **image-preview**: Add byte-based auto-scaling for tmux compatibility
+- **perl**: Separate Irssi::Irc::Dcc into standalone module
+- **core**: Port GIO resolver from upstream irssi
+- **sidepanel**: Display ISUPPORT NETWORK name instead of server tag
+- **config**: Update default statusbar colors to match Tokyo Night theme
 
-### 🔨 Build
+### 🎨 Styling
 
-- Migrated all `shared_module()` to `shared_library()`
-- Updated bundled scripts (autoop, mail, scriptassist)
-- Updated INSTALL with additional compile dependencies
+- **theme**: Change timestamp separator from chevron to middle dot
+
+### 🐛 Bug Fixes
+
+- **image-preview**: Correct aspect ratio with proper cell geometry
+- **image-preview**: Respect max_width/max_height settings in popup
+- **build**: Link libm for sqrtf on Linux
+- **image-preview**: Add periodic flush for tmux stability
+- **image-preview**: Wrap each Kitty chunk in separate DCS passthrough
+- **image-preview**: Add delay after clear graphics in tmux
+- **build**: Add _GNU_SOURCE for strcasestr on glibc
+- **mouse**: Prevent SGR mouse sequences from leaking as text input
+- **mouse**: Discard incomplete SGR sequence when ESC pressed during parsing
+- Fix clang-format-xs boot code
+
+- **ci**: Remove deprecated -Dwith-fe-ansi option
+- **ci**: Fix meson installation and package issues
+
+### 👷 CI/CD
+
+- Add multi-platform build workflow for Linux, macOS, and BSD
 
 ### 📚 Documentation
 
-- Added New-users guide and Q&A docs
-- Updated clang-format-xs tooling
+- Update CHANGELOG.md for v1.2.8 [skip ci]
+- Update documentation and scripts for ANSI-only frontend
+
+### 🔧 Build System
+
+- Replace shared_module with shared_library
+- **fe-ansi**: Consolidate all TUI sources into fe-ansi
+- Remove ncurses/notcurses options and dependencies
+
+### 🔨 Miscellaneous
+
+- Update default settings for image preview
+- Add .worktrees/ to gitignore
+- Sync upstream irssi changes and improvements
+- **release**: Bump version to 1.3.0
 
 ## [1.2.8] - 2026-01-16
 
