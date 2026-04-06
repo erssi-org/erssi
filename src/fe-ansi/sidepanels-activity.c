@@ -133,6 +133,10 @@ GSList *build_sorted_window_list(void)
 			/* 1. Notices window - always first */
 			sort_rec->sort_group = 0;
 			sort_rec->sort_key = g_strdup("Notices");
+		} else if (win->name && g_ascii_strcasecmp(win->name, "(mentions)") == 0) {
+			/* 1b. Mentions window - pinned right after Notices */
+			sort_rec->sort_group = 0;
+			sort_rec->sort_key = g_strdup("~mentions");
 		} else if (sort_rec->server && !win->active) {
 			/* Check if this is a kicked channel (has server, no active, but name is a channel) */
 			if (win_name && server_ischannel(SERVER(sort_rec->server), win_name)) {
@@ -205,11 +209,14 @@ static int window_sort_compare(gconstpointer a, gconstpointer b)
 	const char *server_tag1, *server_tag2;
 	int server_cmp;
 
-	/* 1. Notices always comes first */
+	/* 1. Pinned windows (Notices, Mentions) always come first */
+	if (w1->sort_group == 0 && w2->sort_group == 0)
+		return g_ascii_strcasecmp(w1->sort_key ? w1->sort_key : "",
+		                          w2->sort_key ? w2->sort_key : "");
 	if (w1->sort_group == 0)
-		return -1; /* w1 is Notices */
+		return -1;
 	if (w2->sort_group == 0)
-		return 1; /* w2 is Notices */
+		return 1;
 
 	/* 2. Sort by server (alphabetically) */
 	if (w1->server && w2->server) {
