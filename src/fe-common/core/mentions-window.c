@@ -23,9 +23,11 @@
 #include <irssi/src/core/levels.h>
 #include <irssi/src/core/servers.h>
 #include <irssi/src/core/channels.h>
+#include <irssi/src/core/ignore.h>
 #include <irssi/src/core/nicklist.h>
 #include <irssi/src/core/settings.h>
 #include <irssi/src/core/signals.h>
+#include <irssi/src/fe-common/core/fe-messages.h>
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/fe-common/core/formats.h>
 #include <irssi/src/fe-common/core/printtext.h>
@@ -84,15 +86,20 @@ static void sig_setup_changed(void)
 
 /* Capture "message public" — raw IRC message before formatting.
  * Check if our nick is mentioned, then print to mentions window
- * using the themed mention_public format for proper colours. */
+ * using the themed mention_public format for proper colours.
+ *
+ * This mirrors the hilight logic in fe-messages.c sig_message_public()
+ * including ignore_check_plus, emphasis expansion, show_nickmode, and
+ * printnick resolution for duplicate nicks. */
 static void sig_message_public_mentions(SERVER_REC *server, const char *msg,
 					const char *nick, const char *address,
 					const char *target, NICK_REC *nickrec)
 {
 	WINDOW_REC *mentions_win;
 	CHANNEL_REC *chanrec;
-	char *nickmode, *color;
-	int for_me;
+	const char *printnick;
+	char *nickmode, *color, *freemsg = NULL;
+	int for_me, level;
 	HILIGHT_REC *hilight;
 
 	mentions_win = window_find_name(MENTIONS_WINDOW_NAME);
@@ -117,16 +124,34 @@ static void sig_message_public_mentions(SERVER_REC *server, const char *msg,
 	if (!for_me && hilight == NULL)
 		return;
 
+	/* Respect /ignore rules — ignore_check_plus may strip HILIGHT
+	 * via MSGLEVEL_NOHILIGHT (e.g. /ignore -except patterns). */
+	level = MSGLEVEL_PUBLIC;
+	if (for_me)
+		level |= MSGLEVEL_HILIGHT;
+	ignore_check_plus(server, nick, address, target, msg, &level, FALSE);
+	if (level & MSGLEVEL_NOHILIGHT) {
+		for_me = FALSE;
+		hilight = NULL;
+	}
+	if (!for_me && hilight == NULL)
+		return;
+
 	color = hilight != NULL ? hilight_get_color(hilight) : NULL;
 
-	/* Build nick prefix (@, +, etc.) */
-	if (nickrec == NULL || nickrec->prefixes[0] == '\0')
-		nickmode = g_strdup("");
-	else {
-		nickmode = g_malloc(2);
-		nickmode[0] = nickrec->prefixes[0];
-		nickmode[1] = '\0';
-	}
+	/* Expand *bold* / _underline_ if emphasis is enabled */
+	if (settings_get_bool("emphasis"))
+		msg = freemsg = expand_emphasis((WI_ITEM_REC *) chanrec, msg);
+
+	/* Use channel_get_nickmode() which respects show_nickmode and
+	 * show_nickmode_empty settings, matching channel output. */
+	nickmode = channel_get_nickmode(chanrec, nick);
+
+	/* Resolve printnick for duplicate nick disambiguation */
+	printnick = nickrec == NULL ? nick :
+		    g_hash_table_lookup(printnicks, nickrec);
+	if (printnick == NULL)
+		printnick = nick;
 
 	/* Use themed format: %c[channel]%n {pubmsghinick color nickmode nick}msg
 	 * This gives identical colours to channel hilight messages.
@@ -137,12 +162,13 @@ static void sig_message_public_mentions(SERVER_REC *server, const char *msg,
 			   TXT_MENTION_PUBLIC,
 			   target,
 			   color != NULL ? color : "",
-			   nick,
+			   printnick,
 			   nickmode,
 			   msg);
 
 	g_free(nickmode);
 	g_free(color);
+	g_free(freemsg);
 }
 
 void mentions_window_init(void)
