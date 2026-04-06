@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 📚 Documentation
 
 - Update CHANGELOG.md for v1.3.0 [skip ci]
+- Update CHANGELOG.md for v1.3.0 [skip ci]
 
 ## [1.3.0] - 2026-04-06
 
