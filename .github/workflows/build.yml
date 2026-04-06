@@ -68,6 +68,10 @@ jobs:
   build-macos:
     name: macOS ARM64
     runs-on: macos-26
+    env:
+      LDFLAGS: -L/opt/homebrew/opt/utf8proc/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/libgcrypt/lib -L/opt/homebrew/opt/libotr/lib
+      CPPFLAGS: -I/opt/homebrew/opt/utf8proc/include -I/opt/homebrew/opt/openssl@3/include
+      PKG_CONFIG_PATH: /opt/homebrew/opt/utf8proc/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/lib/pkgconfig
     steps:
       - uses: actions/checkout@v6
 
@@ -78,18 +82,12 @@ jobs:
         run: git fetch --tags
 
       - name: Setup build
-        env:
-          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/utf8proc/lib/pkgconfig
         run: meson setup Build --prefix=/opt/erssi -Dwith-perl=yes -Dwith-otr=yes -Dwith-proxy=yes -Dwith-fe-web=yes -Dwith-image-preview=yes -Ddisable-utf8proc=no
 
       - name: Build
-        env:
-          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/utf8proc/lib/pkgconfig
         run: ninja -C Build
 
       - name: Run tests
-        env:
-          PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/utf8proc/lib/pkgconfig
         run: ninja -C Build test
         continue-on-error: true
 
