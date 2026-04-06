@@ -50,11 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add multi-platform build workflow for Linux, macOS, and BSD
 - **build**: Simplify workflow - focus on Linux/macOS first, fix UTF8proc path
 - **build**: Fix meson install with system venv, fix macOS PKG_CONFIG_PATH
+- **build**: Add LDFLAGS/CPPFLAGS for macOS homebrew library paths
 
 ### 📚 Documentation
 
 - Update CHANGELOG.md for v1.2.8 [skip ci]
 - Update documentation and scripts for ANSI-only frontend
+- Update CHANGELOG.md for v1.3.0 [skip ci]
 - Update CHANGELOG.md for v1.3.0 [skip ci]
 - Update CHANGELOG.md for v1.3.0 [skip ci]
 
