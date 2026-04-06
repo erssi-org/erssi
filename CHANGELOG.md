@@ -5,12 +5,6 @@ All notable changes to erssi will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
-
-### 📚 Documentation
-
-- Update CHANGELOG.md for v1.3.0 [skip ci]
-
 ## [1.3.0] - 2026-04-06
 
 ### ♻️ Refactoring
@@ -48,15 +42,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **ci**: Remove deprecated -Dwith-fe-ansi option
 - **ci**: Fix meson installation and package issues
+- **ci**: Use pip --break-system-packages and proper PKG_CONFIG_PATH
+- **ci**: Put meson options on single line to fix YAML parsing
 
 ### 👷 CI/CD
 
 - Add multi-platform build workflow for Linux, macOS, and BSD
+- **build**: Simplify workflow - focus on Linux/macOS first, fix UTF8proc path
+- **build**: Fix meson install with system venv, fix macOS PKG_CONFIG_PATH
 
 ### 📚 Documentation
 
 - Update CHANGELOG.md for v1.2.8 [skip ci]
 - Update documentation and scripts for ANSI-only frontend
+- Update CHANGELOG.md for v1.3.0 [skip ci]
+- Update CHANGELOG.md for v1.3.0 [skip ci]
 
 ### 🔧 Build System
 
