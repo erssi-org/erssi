@@ -7,7 +7,7 @@ executable('irssi-fuzz',
   files(
     'null-logger.c',
     'irssi.c',
-    '../fe-text/module-formats.c',
+    '../fe-ansi/module-formats.c',
   ),
   link_with : [
     libconfig_a,
@@ -26,7 +26,7 @@ executable('server-fuzz',
   files(
     'null-logger.c',
     'server.c',
-    '../fe-text/module-formats.c',
+    '../fe-ansi/module-formats.c',
   ),
   link_with : [
     libconfig_a,
@@ -47,5 +47,5 @@ executable('server-fuzz',
 
 # noinst_headers = files(
 #   'null-logger.h',
-#   '../fe-text/module-formats.h',
+#   '../fe-ansi/module-formats.h',
 # )

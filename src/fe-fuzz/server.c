@@ -83,7 +83,7 @@ void event_connected(IRC_SERVER_REC *server, const char *data, const char *from)
 	server->real_connect_time = time(NULL);
 
 	/* let the queue send now that we are identified */
-	g_get_current_time(&server->wait_cmd);
+	server->wait_cmd = g_get_real_time();
 
 	if (server->connrec->usermode != NULL) {
 		/* Send the user mode, before the autosendcmd.

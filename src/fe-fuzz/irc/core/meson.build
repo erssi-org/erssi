@@ -4,7 +4,7 @@ executable('event-get-params-fuzz',
   files(
     '../../null-logger.c',
     'event-get-params.c',
-    '../../../fe-text/module-formats.c',
+    '../../../fe-ansi/module-formats.c',
   ),
   link_with : [
     libconfig_a,
@@ -21,5 +21,5 @@ executable('event-get-params-fuzz',
 )
 
 # noinst_headers = files(
-#   '../../../fe-text/module-formats.h',
+#   '../../../fe-ansi/module-formats.h',
 # )
