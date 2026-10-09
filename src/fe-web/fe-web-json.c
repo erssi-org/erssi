@@ -15,6 +15,23 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <limits.h>
+
+/* Value of the 4 hex digits at p, or -1 */
+static int json_hex4(const char *p)
+{
+	int i, value = 0;
+
+	for (i = 0; i < 4; i++) {
+		int digit = g_ascii_xdigit_value(p[i]);
+
+		if (digit < 0)
+			return -1;
+		value = value * 16 + digit;
+	}
+	return value;
+}
 
 /* Helper: Unescape JSON string (\\, \", \n, \r, \t, \b, \f, \uXXXX) */
 static char *fe_web_json_unescape(const char *str)
@@ -58,36 +75,28 @@ static char *fe_web_json_unescape(const char *str)
 				g_string_append_c(result, '\t');
 				break;
 			case 'u': {
-				/* Unicode escape: \uXXXX */
-				char hex[5] = { 0 };
-				unsigned int code;
-				int i;
+				/* \uXXXX is a UTF-16 unit: a surrogate pair is one
+				 * character, and a lone surrogate or a NUL (which a
+				 * C string cannot hold) becomes U+FFFD */
+				int code = json_hex4(p + 1);
 
-				/* Read 4 hex digits */
-				for (i = 0; i < 4 && *(p + 1 + i) != '\0'; i++) {
-					hex[i] = *(p + 1 + i);
+				if (code < 0) {
+					/* not 4 hex digits: keep it as it is */
+					g_string_append_c(result, 'u');
+					break;
 				}
+				p += 4;
+				if (code >= 0xD800 && code <= 0xDBFF && p[1] == '\\' && p[2] == 'u') {
+					int low = json_hex4(p + 3);
 
-				if (i == 4) {
-					code = (unsigned int) strtol(hex, NULL, 16);
-					/* Simple UTF-8 encoding (BMP only) */
-					if (code < 0x80) {
-						g_string_append_c(result, (char) code);
-					} else if (code < 0x800) {
-						g_string_append_c(result,
-						                  (char) (0xC0 | (code >> 6)));
-						g_string_append_c(result,
-						                  (char) (0x80 | (code & 0x3F)));
-					} else {
-						g_string_append_c(result,
-						                  (char) (0xE0 | (code >> 12)));
-						g_string_append_c(
-						    result, (char) (0x80 | ((code >> 6) & 0x3F)));
-						g_string_append_c(result,
-						                  (char) (0x80 | (code & 0x3F)));
+					if (low >= 0xDC00 && low <= 0xDFFF) {
+						code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
+						p += 6;
 					}
-					p += 4; /* Skip the 4 hex digits */
 				}
+				if (code == 0 || (code >= 0xD800 && code <= 0xDFFF))
+					code = 0xFFFD;
+				g_string_append_unichar(result, code);
 				break;
 			}
 			default:
@@ -135,7 +144,7 @@ char *fe_web_json_get_string(const char *json, const char *key)
 	pos++;
 
 	/* Skip whitespace */
-	while (*pos != '\0' && isspace(*pos)) {
+	while (*pos != '\0' && isspace((unsigned char) *pos)) {
 		pos++;
 	}
 
@@ -178,7 +187,8 @@ int fe_web_json_get_int(const char *json, const char *key, int default_value)
 {
 	char *search_str;
 	char *pos;
-	int value;
+	char *end;
+	long value;
 
 	if (json == NULL || key == NULL) {
 		return default_value;
@@ -201,16 +211,23 @@ int fe_web_json_get_int(const char *json, const char *key, int default_value)
 	pos++;
 
 	/* Skip whitespace */
-	while (*pos != '\0' && isspace(*pos)) {
+	while (*pos != '\0' && isspace((unsigned char) *pos)) {
 		pos++;
 	}
 
-	/* Parse integer */
-	if (sscanf(pos, "%d", &value) == 1) {
-		return value;
-	}
+	/* JSON booleans, as server_list sends them (use_tls, autoconnect) */
+	if (strncmp(pos, "true", 4) == 0)
+		return 1;
+	if (strncmp(pos, "false", 5) == 0)
+		return 0;
 
-	return default_value;
+	/* Parse integer: one that does not fit an int is not taken
+	 * (sscanf("%d") is undefined for it) */
+	errno = 0;
+	value = strtol(pos, &end, 10);
+	if (end == pos || errno == ERANGE || value < INT_MIN || value > INT_MAX)
+		return default_value;
+	return (int) value;
 }
 
 /* Check if JSON has a key */
@@ -230,6 +247,20 @@ int fe_web_json_has_key(const char *json, const char *key)
 	return pos != NULL;
 }
 
+/* Append "key":"value", (escaped) or "key":null, */
+static void json_append_string(GString *json, const char *key, const char *value)
+{
+	char *escaped;
+
+	if (value == NULL) {
+		g_string_append_printf(json, "\"%s\":null,", key);
+		return;
+	}
+	escaped = fe_web_escape_json(value);
+	g_string_append_printf(json, "\"%s\":\"%s\",", key, escaped);
+	g_free(escaped);
+}
+
 /* Build JSON string for a network (IRC_CHATNET_REC) */
 GString *fe_web_build_network_json(IRC_CHATNET_REC *rec)
 {
@@ -242,72 +273,21 @@ GString *fe_web_build_network_json(IRC_CHATNET_REC *rec)
 	json = g_string_new("{");
 
 	/* Required fields */
-	g_string_append_printf(json, "\"name\":\"%s\",", fe_web_escape_json(rec->name));
+	json_append_string(json, "name", rec->name != NULL ? rec->name : "");
 	g_string_append(json, "\"chat_type\":\"IRC\",");
 
 	/* Optional fields */
-	if (rec->nick != NULL) {
-		g_string_append_printf(json, "\"nick\":\"%s\",", fe_web_escape_json(rec->nick));
-	} else {
-		g_string_append(json, "\"nick\":null,");
-	}
-
-	if (rec->alternate_nick != NULL) {
-		g_string_append_printf(json, "\"alternate_nick\":\"%s\",",
-		                       fe_web_escape_json(rec->alternate_nick));
-	} else {
-		g_string_append(json, "\"alternate_nick\":null,");
-	}
-
-	if (rec->username != NULL) {
-		g_string_append_printf(json, "\"username\":\"%s\",",
-		                       fe_web_escape_json(rec->username));
-	} else {
-		g_string_append(json, "\"username\":null,");
-	}
-
-	if (rec->realname != NULL) {
-		g_string_append_printf(json, "\"realname\":\"%s\",",
-		                       fe_web_escape_json(rec->realname));
-	} else {
-		g_string_append(json, "\"realname\":null,");
-	}
-
-	if (rec->own_host != NULL) {
-		g_string_append_printf(json, "\"own_host\":\"%s\",",
-		                       fe_web_escape_json(rec->own_host));
-	} else {
-		g_string_append(json, "\"own_host\":null,");
-	}
-
-	if (rec->autosendcmd != NULL) {
-		g_string_append_printf(json, "\"autosendcmd\":\"%s\",",
-		                       fe_web_escape_json(rec->autosendcmd));
-	} else {
-		g_string_append(json, "\"autosendcmd\":null,");
-	}
-
-	if (rec->usermode != NULL) {
-		g_string_append_printf(json, "\"usermode\":\"%s\",",
-		                       fe_web_escape_json(rec->usermode));
-	} else {
-		g_string_append(json, "\"usermode\":null,");
-	}
+	json_append_string(json, "nick", rec->nick);
+	json_append_string(json, "alternate_nick", rec->alternate_nick);
+	json_append_string(json, "username", rec->username);
+	json_append_string(json, "realname", rec->realname);
+	json_append_string(json, "own_host", rec->own_host);
+	json_append_string(json, "autosendcmd", rec->autosendcmd);
+	json_append_string(json, "usermode", rec->usermode);
 
 	/* SASL fields */
-	if (rec->sasl_mechanism != NULL) {
-		g_string_append_printf(json, "\"sasl_mechanism\":\"%s\",",
-		                       fe_web_escape_json(rec->sasl_mechanism));
-	} else {
-		g_string_append(json, "\"sasl_mechanism\":null,");
-	}
-
-	if (rec->sasl_username != NULL) {
-		g_string_append_printf(json, "\"sasl_username\":\"%s\",",
-		                       fe_web_escape_json(rec->sasl_username));
-	} else {
-		g_string_append(json, "\"sasl_username\":null,");
-	}
+	json_append_string(json, "sasl_mechanism", rec->sasl_mechanism);
+	json_append_string(json, "sasl_username", rec->sasl_username);
 
 	/* Mask password - never send actual password */
 	if (rec->sasl_password != NULL) {
@@ -342,16 +322,11 @@ GString *fe_web_build_server_json(IRC_SERVER_SETUP_REC *rec)
 	json = g_string_new("{");
 
 	/* Required fields */
-	g_string_append_printf(json, "\"address\":\"%s\",", fe_web_escape_json(rec->address));
+	json_append_string(json, "address", rec->address != NULL ? rec->address : "");
 	g_string_append_printf(json, "\"port\":%d,", rec->port);
 
 	/* Optional fields */
-	if (rec->chatnet != NULL) {
-		g_string_append_printf(json, "\"chatnet\":\"%s\",",
-		                       fe_web_escape_json(rec->chatnet));
-	} else {
-		g_string_append(json, "\"chatnet\":null,");
-	}
+	json_append_string(json, "chatnet", rec->chatnet);
 
 	/* Password - never send actual password */
 	if (rec->password != NULL) {
@@ -366,19 +341,8 @@ GString *fe_web_build_server_json(IRC_SERVER_SETUP_REC *rec)
 	g_string_append_printf(json, "\"tls_verify\":%s,", rec->tls_verify ? "true" : "false");
 
 	/* TLS certificate fields */
-	if (rec->tls_cert != NULL) {
-		g_string_append_printf(json, "\"tls_cert\":\"%s\",",
-		                       fe_web_escape_json(rec->tls_cert));
-	} else {
-		g_string_append(json, "\"tls_cert\":null,");
-	}
-
-	if (rec->tls_pkey != NULL) {
-		g_string_append_printf(json, "\"tls_pkey\":\"%s\",",
-		                       fe_web_escape_json(rec->tls_pkey));
-	} else {
-		g_string_append(json, "\"tls_pkey\":null,");
-	}
+	json_append_string(json, "tls_cert", rec->tls_cert);
+	json_append_string(json, "tls_pkey", rec->tls_pkey);
 
 	/* Mask TLS password */
 	if (rec->tls_pass != NULL) {
@@ -387,48 +351,14 @@ GString *fe_web_build_server_json(IRC_SERVER_SETUP_REC *rec)
 		g_string_append(json, "\"tls_pass\":null,");
 	}
 
-	if (rec->tls_cafile != NULL) {
-		g_string_append_printf(json, "\"tls_cafile\":\"%s\",",
-		                       fe_web_escape_json(rec->tls_cafile));
-	} else {
-		g_string_append(json, "\"tls_cafile\":null,");
-	}
-
-	if (rec->tls_capath != NULL) {
-		g_string_append_printf(json, "\"tls_capath\":\"%s\",",
-		                       fe_web_escape_json(rec->tls_capath));
-	} else {
-		g_string_append(json, "\"tls_capath\":null,");
-	}
-
-	if (rec->tls_ciphers != NULL) {
-		g_string_append_printf(json, "\"tls_ciphers\":\"%s\",",
-		                       fe_web_escape_json(rec->tls_ciphers));
-	} else {
-		g_string_append(json, "\"tls_ciphers\":null,");
-	}
-
-	if (rec->tls_pinned_cert != NULL) {
-		g_string_append_printf(json, "\"tls_pinned_cert\":\"%s\",",
-		                       fe_web_escape_json(rec->tls_pinned_cert));
-	} else {
-		g_string_append(json, "\"tls_pinned_cert\":null,");
-	}
-
-	if (rec->tls_pinned_pubkey != NULL) {
-		g_string_append_printf(json, "\"tls_pinned_pubkey\":\"%s\",",
-		                       fe_web_escape_json(rec->tls_pinned_pubkey));
-	} else {
-		g_string_append(json, "\"tls_pinned_pubkey\":null,");
-	}
+	json_append_string(json, "tls_cafile", rec->tls_cafile);
+	json_append_string(json, "tls_capath", rec->tls_capath);
+	json_append_string(json, "tls_ciphers", rec->tls_ciphers);
+	json_append_string(json, "tls_pinned_cert", rec->tls_pinned_cert);
+	json_append_string(json, "tls_pinned_pubkey", rec->tls_pinned_pubkey);
 
 	/* Network binding */
-	if (rec->own_host != NULL) {
-		g_string_append_printf(json, "\"own_host\":\"%s\",",
-		                       fe_web_escape_json(rec->own_host));
-	} else {
-		g_string_append(json, "\"own_host\":null,");
-	}
+	json_append_string(json, "own_host", rec->own_host);
 
 	/* Numeric settings */
 	g_string_append_printf(json, "\"family\":%d,", rec->family);
@@ -468,8 +398,9 @@ GString *fe_web_build_command_result_json(gboolean success, const char *message,
 	}
 
 	if (error_code != NULL) {
-		g_string_append_printf(json, "\"error_code\":\"%s\"",
-		                       fe_web_escape_json(error_code));
+		char *escaped_code = fe_web_escape_json(error_code);
+		g_string_append_printf(json, "\"error_code\":\"%s\"", escaped_code);
+		g_free(escaped_code);
 	} else {
 		g_string_append(json, "\"error_code\":null");
 	}

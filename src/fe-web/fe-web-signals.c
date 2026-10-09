@@ -15,6 +15,7 @@
 #include <irssi/src/core/signals.h>
 #include <irssi/src/core/levels.h>
 #include <irssi/src/core/nicklist.h>
+#include <irssi/src/core/channels.h>
 #include <irssi/src/core/queries.h>
 #include <irssi/src/core/misc.h>
 #include <irssi/src/core/settings.h>
@@ -68,6 +69,13 @@ static GHashTable *active_whois = NULL;
 static char *whois_key(IRC_SERVER_REC *server, const char *nick)
 {
 	return g_strdup_printf("%s:%s", server->tag, nick);
+}
+
+/* Helper: is a WHOIS key one of the server whose "tag:" is prefix */
+static gboolean whois_key_has_prefix(gpointer key, gpointer value, gpointer prefix)
+{
+	(void) value;
+	return g_str_has_prefix(key, prefix);
 }
 
 /* Helper: Create new WHOIS record */
@@ -200,12 +208,38 @@ static void fe_web_send_nicklist_update(IRC_SERVER_REC *server, IRC_CHANNEL_REC 
 	fe_web_message_free(msg);
 }
 
+/* Is this channel message a highlight for us? Same rules as the terminal
+ * (fe-common/core/fe-messages.c): our own nick per hilight_nick_matches /
+ * hilight_nick_matches_everywhere, then any /HILIGHT rule. Previously only
+ * /HILIGHT rules were checked, so "alice: hello" reached web clients
+ * unflagged unless the user had added their own nick as a /HILIGHT. */
+static int fe_web_is_highlight(IRC_SERVER_REC *server, const char *target, const char *nick,
+                               const char *address, const char *msg)
+{
+	CHANNEL_REC *chanrec;
+	int for_me = FALSE;
+
+	if (msg == NULL)
+		return FALSE;
+
+	if (server->nick != NULL && settings_get_bool("hilight_nick_matches")) {
+		chanrec = channel_find(SERVER(server), target);
+		for_me = settings_get_bool("hilight_nick_matches_everywhere") ?
+		             nick_match_msg_everywhere(chanrec, msg, server->nick) :
+		             nick_match_msg(chanrec, msg, server->nick);
+	}
+	if (for_me)
+		return TRUE;
+
+	return hilight_match(SERVER(server), target, nick, address, MSGLEVEL_PUBLIC, msg, NULL,
+	                     NULL) != NULL;
+}
+
 /* Signal: "message public" */
 static void sig_message_public(IRC_SERVER_REC *server, const char *msg, const char *nick,
                                const char *address, const char *target)
 {
 	WEB_MESSAGE_REC *web_msg;
-	HILIGHT_REC *hilight;
 
 	if (server == NULL) {
 		return;
@@ -220,10 +254,8 @@ static void sig_message_public(IRC_SERVER_REC *server, const char *msg, const ch
 	web_msg->level = MSGLEVEL_PUBLIC;
 	web_msg->is_own = FALSE;
 
-	/* Check if message is a highlight (mentions user's nick) */
-	hilight =
-	    hilight_match(SERVER(server), target, nick, address, MSGLEVEL_PUBLIC, msg, NULL, NULL);
-	web_msg->is_highlight = (hilight != NULL);
+	/* Highlight: our nick (as in the terminal) or a /HILIGHT rule */
+	web_msg->is_highlight = fe_web_is_highlight(server, target, nick, address, msg);
 
 	fe_web_send_to_server_clients(server, web_msg);
 	fe_web_message_free(web_msg);
@@ -315,6 +347,9 @@ static void sig_message_irc_action(IRC_SERVER_REC *server, const char *msg, cons
 	web_msg->text = g_strdup(msg);
 	web_msg->level = MSGLEVEL_ACTIONS; /* Mark as ACTION */
 	web_msg->is_own = FALSE;
+	/* "/me waves at alice" on a channel is a mention too */
+	web_msg->is_highlight = target != NULL && server_ischannel(SERVER(server), target) &&
+	                        fe_web_is_highlight(server, target, nick, address, msg);
 
 	fe_web_send_to_server_clients(server, web_msg);
 	fe_web_message_free(web_msg);
@@ -825,6 +860,28 @@ static void sig_server_disconnected(IRC_SERVER_REC *server)
 
 	fe_web_send_to_all_clients(web_msg);
 	fe_web_message_free(web_msg);
+
+	/* WHOIS replies the server never ended (no 318, or the 312 of a
+	 * WHOWAS) are of no use any more */
+	if (active_whois != NULL && server->tag != NULL) {
+		char *prefix = g_strconcat(server->tag, ":", NULL);
+		g_hash_table_foreach_remove(active_whois, whois_key_has_prefix, prefix);
+		g_free(prefix);
+	}
+}
+
+/* Signal: "server destroyed" - web clients must not keep pointing at it
+ * (a command with a target but no server tag would use freed memory) */
+static void sig_server_destroyed(SERVER_REC *server)
+{
+	GSList *tmp;
+
+	for (tmp = web_clients; tmp != NULL; tmp = tmp->next) {
+		WEB_CLIENT_REC *client = tmp->data;
+
+		if ((SERVER_REC *) client->server == server)
+			client->server = NULL;
+	}
 }
 
 /* Signal: "channel joined" - YOU joined a channel */
@@ -1002,10 +1059,11 @@ static void event_whois_idle(IRC_SERVER_REC *server, const char *data)
 	rec = whois_get_or_create(server, nick);
 	if (rec != NULL) {
 		g_free(rec->idle);
-		g_free(rec->signon);
 		rec->idle = g_strdup(secstr);
-		/* Only set signon if "signon time" is in rest */
+		/* Only set signon if "signon time" is in rest - and only then
+		 * free the old one, which would otherwise stay dangling */
 		if (strstr(rest, "signon time") != NULL) {
+			g_free(rec->signon);
 			rec->signon = g_strdup(signonstr);
 		}
 	}
@@ -1270,10 +1328,12 @@ static void event_end_of_whois(IRC_SERVER_REC *server, const char *data)
 
 		fe_web_send_to_server_clients(server, msg);
 		fe_web_message_free(msg);
-
-		/* Remove from active_whois */
-		g_hash_table_remove(active_whois, key);
 	}
+
+	/* This WHOIS is over, also when it had nothing to send (e.g. only
+	 * 312 or 313): kept, the record would grow into the next one */
+	if (rec != NULL)
+		g_hash_table_remove(active_whois, key);
 
 	g_free(key);
 	g_free(params);
@@ -1537,6 +1597,7 @@ void fe_web_signals_init(void)
 	/* Server events */
 	signal_add("server connected", (SIGNAL_FUNC) sig_server_connected);
 	signal_add("server disconnected", (SIGNAL_FUNC) sig_server_disconnected);
+	signal_add("server destroyed", (SIGNAL_FUNC) sig_server_destroyed);
 
 	/* Channel lifecycle (YOU joined/parted) */
 	/* Use signal_add_last to run AFTER fe-common activates the window */
@@ -1609,6 +1670,7 @@ void fe_web_signals_deinit(void)
 	/* Server events */
 	signal_remove("server connected", (SIGNAL_FUNC) sig_server_connected);
 	signal_remove("server disconnected", (SIGNAL_FUNC) sig_server_disconnected);
+	signal_remove("server destroyed", (SIGNAL_FUNC) sig_server_destroyed);
 
 	/* Channel lifecycle */
 	signal_remove("channel joined", (SIGNAL_FUNC) sig_channel_joined);

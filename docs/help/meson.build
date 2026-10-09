@@ -25,6 +25,7 @@ install_data(
     'echo',
     'eval',
     'exec',
+    'fe_web',
     'flushbuffer',
     'format',
     'hash',

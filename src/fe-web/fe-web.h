@@ -68,9 +68,19 @@ typedef struct {
 
 	/* Network */
 	NET_SENDBUF_REC *handle;
-	GString *output_buffer;
+	/* What the socket did not take yet, in order: output_buffer->data +
+	 * output_pos up to its end. fe_web_client_send_raw() is the only
+	 * writer to the socket. */
+	GByteArray *output_buffer;
+	gsize output_pos;
+	int send_tag;             /* writable watch while output is queued */
+	guint close_tag;          /* deferred or lingering close */
+	unsigned int output_want_read : 1; /* TLS has to read before it can write */
+	unsigned int output_failed : 1;    /* write error or too much queued: closing */
+	unsigned int closing : 1;          /* last frame queued, closing once written */
 	GByteArray *input_buffer; /* For incomplete WebSocket frames */
 	int recv_tag;
+	guint handshake_tag; /* closes the client if it does not log in in time */
 
 	/* SSL/TLS */
 	FE_WEB_SSL_CHANNEL *ssl_channel; /* SSL wrapper (if SSL enabled) */
@@ -141,7 +151,7 @@ WEB_CLIENT_REC *fe_web_client_create(int fd, const char *addr);
 void fe_web_client_destroy(WEB_CLIENT_REC *client);
 void fe_web_client_handle_message(WEB_CLIENT_REC *client, const char *json);
 void fe_web_client_sync_server(WEB_CLIENT_REC *client, const char *server_tag);
-void fe_web_client_execute_command(WEB_CLIENT_REC *client, const char *command);
+void fe_web_client_execute_command(WEB_CLIENT_REC *client, const char *command, WI_ITEM_REC *item);
 
 /* Signal handlers */
 void fe_web_signals_init(void);
@@ -155,6 +165,7 @@ WEB_MESSAGE_REC *fe_web_message_new(WEB_MESSAGE_TYPE type);
 void fe_web_message_free(WEB_MESSAGE_REC *msg);
 
 /* Message sending */
+gboolean fe_web_client_send_raw(WEB_CLIENT_REC *client, const void *data, gsize len);
 void fe_web_send_message(WEB_CLIENT_REC *client, WEB_MESSAGE_REC *msg);
 void fe_web_send_to_server_clients(IRC_SERVER_REC *server, WEB_MESSAGE_REC *msg);
 void fe_web_send_to_all_clients(WEB_MESSAGE_REC *msg);
@@ -188,10 +199,21 @@ void fe_web_dump_state(WEB_CLIENT_REC *client);
 
 /* WebSocket protocol (RFC 6455) */
 char *fe_web_websocket_compute_accept(const char *client_key);
+/* Largest WebSocket frame accepted from a client */
+#define FE_WEB_MAX_FRAME (16 * 1024 * 1024)
+
 int fe_web_websocket_parse_frame(const guchar *data, gsize data_len, int *fin, int *opcode,
                                  int *masked, guint64 *payload_len, guchar mask_key[4],
                                  const guchar **payload);
 void fe_web_websocket_unmask(guchar *payload, guint64 payload_len, const guchar mask_key[4]);
+/* WebSocket opcodes (RFC 6455, section 5.2) */
+#define WS_OPCODE_CONTINUATION 0x0
+#define WS_OPCODE_TEXT 0x1
+#define WS_OPCODE_BINARY 0x2
+#define WS_OPCODE_CLOSE 0x8
+#define WS_OPCODE_PING 0x9
+#define WS_OPCODE_PONG 0xA
+
 guchar *fe_web_websocket_create_frame(int opcode, const guchar *payload, guint64 payload_len,
                                       gsize *frame_len);
 

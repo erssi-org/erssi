@@ -1,0 +1,76 @@
+
+%9Syntax:%9
+
+@SYNTAX:fe_web@
+
+%9Parameters:%9
+
+    STATUS:     Displays whether the server is enabled, the number of
+                connected clients and, for each client, its address, its
+                server tag and the number of messages sent and received.
+
+    Without any parameter, the status is displayed.
+
+%9Description:%9
+
+    Shows the status of fe-web, the WebSocket server that lets a web client
+    show and use this erssi session from a browser.
+    The fe_web module is loaded at startup by default (it is listed in the
+    autoload_modules setting) when erssi is built with fe-web support.
+
+    The server itself is controlled by the settings below. Changing any of
+    them starts, stops or restarts the server, which disconnects the web
+    clients; changing other settings does not touch it.
+
+        fe_web_enabled (default: OFF)
+            Runs the server.
+        fe_web_port (default: 9001)
+            The TCP port to listen on.
+        fe_web_bind (default: 127.0.0.1)
+            The address to listen on.
+        fe_web_socket (default: empty)
+            A Unix socket to listen on instead of fe_web_bind and
+            fe_web_port; empty listens on TCP. "~/" stands for the home
+            directory and a relative path is relative to the erssi
+            directory (~/.erssi), so "fe-web.sock" is
+            ~/.erssi/fe-web.sock.
+        fe_web_password (default: empty)
+            The password a client must give. The server refuses to start
+            while it is empty.
+
+    Connections always use TLS (wss://) with a self-signed certificate,
+    and the messages are additionally encrypted with AES-256-GCM using a
+    key derived from fe_web_password. The certificate and its key are made
+    the first time the server starts and kept in ~/.erssi/fe-web-cert.pem
+    and ~/.erssi/fe-web-key.pem (mode 0600); a key that other users can
+    read, or that is not yours, is replaced with a new one. Nothing is
+    written while fe_web_enabled is OFF.
+
+    Keep fe_web_bind on 127.0.0.1 and put the web client behind a TLS proxy
+    or tunnel if it has to be reached from elsewhere.
+
+    On a shared shell box every local user can connect to a port on
+    127.0.0.1. A Unix socket can be reached by you alone: the socket file
+    is made with mode 0600 and, on Linux and the BSDs, connections from
+    processes of other users are refused as well. TLS and the password
+    work on it exactly as on TCP; the web client connects to the socket
+    path and checks the certificate for the name localhost.
+
+    The directory of the socket must be yours and writable by nobody else
+    (a missing one is made with mode 0700), otherwise the server does not
+    start. A socket left behind by an erssi that did not exit cleanly is
+    replaced; any other file at the path is left alone and the server does
+    not start. The socket is removed when the server stops.
+
+%9Examples:%9
+
+    /SET fe_web_password a-long-random-secret
+    /SET fe_web_bind 127.0.0.1
+    /SET fe_web_enabled ON
+    /SET fe_web_socket ~/.erssi/fe-web.sock
+    /SET -clear fe_web_socket
+    /FE_WEB
+    /FE_WEB STATUS
+
+%9See also:%9 LOAD, SET
+

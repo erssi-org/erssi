@@ -327,6 +327,7 @@ static void sig_message_irc_notice(SERVER_REC *server, const char *msg,
 		nickmode = channel_get_nickmode(channel_find(server, target), nick);
 		printformat(server, target, level, IRCTXT_NOTICE_PUBLIC, nick, oldtarget, msg,
 		            nickmode);
+		g_free(nickmode);
 	} else {
 		if (context_channel == NULL) {
 			/* private notice */

@@ -417,6 +417,11 @@ void fe_web_handle_server_add(WEB_CLIENT_REC *client, const char *json_str)
 	
 	if (is_new) {
 		rec = g_new0(IRC_SERVER_SETUP_REC, 1);
+		/* as server_setup_read() makes them: without the type the
+		 * SERVER_SETUP() cast below is NULL, and server_setup_add()
+		 * puts a NULL in setupservers and dereferences it */
+		rec->type = module_get_uniq_id("SERVER SETUP", 0);
+		rec->chat_type = IRC_PROTOCOL;
 		rec->address = g_strdup(address);
 		rec->port = port;
 		rec->chatnet = chatnet != NULL ? g_strdup(chatnet) : NULL;
@@ -426,11 +431,12 @@ void fe_web_handle_server_add(WEB_CLIENT_REC *client, const char *json_str)
 
 	/* Update fields from JSON (simplified parsing) */
 	password = fe_web_json_get_string(json_str, "password");
+	/* "***" is the mask server_list sends: keep the password */
 	if (password != NULL && g_strcmp0(password, "***") != 0) {
 		g_free_not_null(rec->password);
 		rec->password = g_strdup(password);
-		g_free(password);
 	}
+	g_free(password);
 	
 	if (fe_web_json_has_key(json_str, "autoconnect")) {
 		rec->autoconnect = fe_web_json_get_int(json_str, "autoconnect", 0);

@@ -18,13 +18,6 @@
 /* WebSocket magic GUID for handshake */
 #define WS_GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
-/* WebSocket opcodes */
-#define WS_OPCODE_CONTINUATION 0x0
-#define WS_OPCODE_TEXT         0x1
-#define WS_OPCODE_BINARY       0x2
-#define WS_OPCODE_CLOSE        0x8
-#define WS_OPCODE_PING         0x9
-#define WS_OPCODE_PONG         0xA
 
 /* Compute WebSocket accept key from client key */
 char *fe_web_websocket_compute_accept(const char *client_key)
@@ -66,8 +59,12 @@ int fe_web_websocket_parse_frame(const guchar *data, gsize data_len,
 	guint64 len;
 	const guchar *p;
 
-	if (data == NULL || data_len < 2) {
+	if (data == NULL) {
 		return -1;
+	}
+	/* A header cut between two reads is not an error: wait for the rest */
+	if (data_len < 2) {
+		return 0;
 	}
 
 	p = data;
@@ -82,16 +79,22 @@ int fe_web_websocket_parse_frame(const guchar *data, gsize data_len,
 	len = *p & 0x7F;
 	p++;
 
+	/* RFC 6455 5.5: control frames (close, ping, pong) carry at most 125
+	 * bytes and are never fragmented */
+	if ((*opcode & 0x08) != 0 && (len > 125 || !*fin)) {
+		return -1;
+	}
+
 	/* Extended payload length */
 	if (len == 126) {
 		if (data_len < 4) {
-			return -1;
+			return 0;
 		}
 		len = (p[0] << 8) | p[1];
 		p += 2;
 	} else if (len == 127) {
 		if (data_len < 10) {
-			return -1;
+			return 0;
 		}
 		len = ((guint64)p[0] << 56) | ((guint64)p[1] << 48) |
 		      ((guint64)p[2] << 40) | ((guint64)p[3] << 32) |
@@ -105,7 +108,7 @@ int fe_web_websocket_parse_frame(const guchar *data, gsize data_len,
 	/* Masking key */
 	if (*masked) {
 		if (p + 4 > data + data_len) {
-			return -1;
+			return 0;
 		}
 		memcpy(mask_key, p, 4);
 		p += 4;
@@ -113,8 +116,14 @@ int fe_web_websocket_parse_frame(const guchar *data, gsize data_len,
 
 	header_len = p - data;
 
+	/* Larger than any message a web client sends: refuse instead of
+	 * buffering it (and keep the length check below from overflowing) */
+	if (len > FE_WEB_MAX_FRAME) {
+		return -1;
+	}
+
 	/* Check if we have complete frame */
-	if (header_len + len > data_len) {
+	if (len > data_len - header_len) {
 		return 0; /* Incomplete frame */
 	}
 

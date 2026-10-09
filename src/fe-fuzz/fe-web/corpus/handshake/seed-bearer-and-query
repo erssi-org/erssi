@@ -1,0 +1,8 @@
+GET /?password=fuzz-password&v=1 HTTP/1.1
+Host: 127.0.0.1:9001
+authorization:	Bearer fuzz-password
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+

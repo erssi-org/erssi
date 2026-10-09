@@ -42,7 +42,8 @@ WEB_CLIENT_REC *fe_web_client_create(int fd, const char *addr)
 	client->wants_all_servers = FALSE;
 	client->handle = NULL;
 	client->recv_tag = -1;
-	client->output_buffer = g_string_new("");
+	client->send_tag = -1;
+	client->output_buffer = g_byte_array_new();
 	client->input_buffer = g_byte_array_new();
 	client->messages_sent = 0;
 	client->messages_received = 0;
@@ -74,7 +75,7 @@ void fe_web_client_destroy(WEB_CLIENT_REC *client)
 	}
 
 	if (client->output_buffer != NULL) {
-		g_string_free(client->output_buffer, TRUE);
+		g_byte_array_free(client->output_buffer, TRUE);
 	}
 
 	if (client->input_buffer != NULL) {
@@ -122,28 +123,59 @@ void fe_web_client_handle_message(WEB_CLIENT_REC *client, const char *json)
 	} else if (g_strcmp0(type, "command") == 0) {
 		char *command;
 		char *server_tag;
+		char *target;
 
 		command = fe_web_json_get_string(json, "command");
 		server_tag = fe_web_json_get_string(json, "server");
+		/* Optional: the channel/query the command was typed in. */
+		target = fe_web_json_get_string(json, "target");
 
 		if (command != NULL) {
-			/* If server is specified, use it for this command */
+			WI_ITEM_REC *item = NULL;
+			IRC_SERVER_REC *previous = client->server;
+			IRC_SERVER_REC *server = NULL;
+
+			/* A command for a named server runs there or not at all: with
+			 * an unknown tag (e.g. while it reconnects) it must not fall
+			 * back to whatever network the client used last. */
 			if (server_tag != NULL) {
-				IRC_SERVER_REC *server;
 				server = IRC_SERVER(server_find_tag(server_tag));
-				if (server != NULL) {
-					/* Temporarily assign server for this command */
-					client->server = server;
+				if (server == NULL) {
+					printtext(NULL, NULL, MSGLEVEL_CLIENTERROR,
+					          "fe-web: server %s not connected - web command dropped",
+					          server_tag);
 				}
 			}
 
-			fe_web_client_execute_command(client, command);
-			g_free(command);
+			if (server_tag == NULL || server != NULL) {
+				/* Assign the server for this command only */
+				if (server != NULL)
+					client->server = server;
 
-			if (server_tag != NULL) {
-				g_free(server_tag);
+				/* Run the command in that window item's context, as if
+				 * typed in its window in the terminal - without switching
+				 * windows. Commands such as /topic or /kick read the
+				 * channel from the active item. window_item_find()
+				 * only looks at items of this server. */
+				if (target != NULL && *target != '\0' && client->server != NULL)
+					item = window_item_find(SERVER(client->server), target);
+
+				/* The command may disconnect the client's own server
+				 * (/disconnect, /quit): keep it allocated until the
+				 * command returns and do not point the client back at
+				 * it afterwards. */
+				if (previous != NULL)
+					server_ref(SERVER(previous));
+				fe_web_client_execute_command(client, command, item);
+				client->server =
+				    previous != NULL && !previous->disconnected ? previous : NULL;
+				if (previous != NULL)
+					server_unref(SERVER(previous));
 			}
 		}
+		g_free(command);
+		g_free(server_tag);
+		g_free(target);
 	} else if (g_strcmp0(type, "ping") == 0) {
 		WEB_MESSAGE_REC *msg;
 		msg = fe_web_message_new(WEB_MSG_PONG);
@@ -313,7 +345,7 @@ void fe_web_client_sync_server(WEB_CLIENT_REC *client, const char *server_tag)
 }
 
 /* Execute IRC command for client */
-void fe_web_client_execute_command(WEB_CLIENT_REC *client, const char *command)
+void fe_web_client_execute_command(WEB_CLIENT_REC *client, const char *command, WI_ITEM_REC *item)
 {
 	if (client == NULL || command == NULL) {
 		return;
@@ -325,6 +357,6 @@ void fe_web_client_execute_command(WEB_CLIENT_REC *client, const char *command)
 	 * for protocol-independent commands (protocol == -1).
 	 * Commands that require a server will emit CMDERR_NOT_CONNECTED automatically.
 	 */
-	/* Signal: "send command", cmd, SERVER_REC, active_item */
-	signal_emit("send command", 3, command, client->server, NULL);
+	/* Signal: "send command", cmd, SERVER_REC, active_item (may be NULL) */
+	signal_emit("send command", 3, command, client->server, item);
 }

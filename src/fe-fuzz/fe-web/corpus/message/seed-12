@@ -1,0 +1,1 @@
+{"type":"server_add","id":"a2","address":"irc.example.org","port":6697,"chatnet":"Net","password":"***","autoconnect":1,"use_tls":1,"tls_verify":0,"tls_cert":"c","tls_pkey":"k","tls_cafile":"ca","max_cmds_at_once":5,"cmd_queue_speed":2200,"starttls":0,"no_cap":0}

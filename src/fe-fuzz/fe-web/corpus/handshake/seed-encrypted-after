@@ -1,0 +1,9 @@
+GET / HTTP/1.1
+Host: 127.0.0.1:9001
+Upgrade: websocket
+Connection: Upgrade
+Authorization: Bearer fuzz-password
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+
+@@READ@@‚¿"3D#2E#2E#2EÈ	,2 å‹«ÄW(º›†Ï©stÚ;¡¿.·‹È¡&Õ¸»)2ÂK+ná?V}">(¨

@@ -385,6 +385,10 @@ void fe_web_send_message(WEB_CLIENT_REC *client, WEB_MESSAGE_REC *msg)
 		return;
 	}
 
+	/* a client being closed gets nothing more: no need to build it */
+	if (client->output_failed || client->closing)
+		return;
+
 	/* Serialize to JSON */
 	json = fe_web_message_to_json(msg);
 
@@ -417,28 +421,20 @@ void fe_web_send_message(WEB_CLIENT_REC *client, WEB_MESSAGE_REC *msg)
 		}
 
 		/* Create WebSocket binary frame with encrypted data */
-		frame = fe_web_websocket_create_frame(0x2, encrypted, encrypted_len, &frame_len);
+		frame = fe_web_websocket_create_frame(WS_OPCODE_BINARY, encrypted, encrypted_len, &frame_len);
 		g_free(encrypted);
 	} else {
 		/* Create WebSocket text frame with plain JSON */
-		frame = fe_web_websocket_create_frame(0x1, (const guchar *) json, strlen(json),
+		frame = fe_web_websocket_create_frame(WS_OPCODE_TEXT, (const guchar *) json, strlen(json),
 		                                      &frame_len);
 	}
 
-	/* Send frame - use SSL if enabled */
-	if (client->use_ssl && client->ssl_channel != NULL) {
-		int ssl_ret;
-		ssl_ret = fe_web_ssl_write(client->ssl_channel, (const char *) frame, frame_len);
-		if (ssl_ret < 0) {
-			printtext(NULL, NULL, MSGLEVEL_CLIENTERROR,
-			          "fe-web: [%s] SSL write failed for %s", client->id, type_str);
-			g_free(frame);
-			g_free(json);
-			return;
-		}
-	} else {
-		/* Plain connection */
-		net_sendbuffer_send(client->handle, (const char *) frame, frame_len);
+	/* Send frame: written now or queued in order behind earlier ones; FALSE
+	 * only for a client that is being closed */
+	if (!fe_web_client_send_raw(client, frame, frame_len)) {
+		g_free(frame);
+		g_free(json);
+		return;
 	}
 
 	g_free(frame);

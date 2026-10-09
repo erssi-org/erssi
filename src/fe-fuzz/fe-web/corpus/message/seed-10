@@ -1,0 +1,1 @@
+{"type":"network_add","id":"a1","name":"Net","nick":"me","alternate_nick":"me_","username":"u","realname":"Real \"Name\" \u00e9\n","own_host":"::1","autosendcmd":"/msg x y","usermode":"+i","sasl_mechanism":"PLAIN","sasl_username":"u","sasl_password":"p","max_kicks":4,"max_msgs":3,"max_modes":3,"max_whois":1,"max_cmds_at_once":5,"cmd_queue_speed":2200,"max_query_chans":1}
