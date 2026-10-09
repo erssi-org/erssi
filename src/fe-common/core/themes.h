@@ -43,6 +43,8 @@ void theme_destroy(THEME_REC *rec);
 
 THEME_REC *theme_load(const char *name);
 
+const char *theme_legacy_format_section(const char *module);
+
 #define theme_register(formats) theme_register_module(MODULE_NAME, formats)
 #define theme_unregister() theme_unregister_module(MODULE_NAME)
 void theme_register_module(const char *module, FORMAT_REC *formats);

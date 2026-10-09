@@ -429,9 +429,14 @@ static void display_sorted_nicks(CHANNEL_REC *channel, GSList *nicklist)
 		else
 			nickmode[0] = ' ';
 
-		aligned_nick = get_alignment(rec->nick,
-		                             columns[col]-item_extra,
-		                             ALIGN_PAD, ' ');
+		/* no padding after the last nick of a row: trailing spaces
+		   wrapped into blank lines when the window got narrower */
+		if (col == cols - 1 || tmp->next == NULL)
+			aligned_nick = g_strdup(rec->nick);
+		else
+			aligned_nick = get_alignment(rec->nick,
+			                             columns[col]-item_extra,
+			                             ALIGN_PAD, ' ');
 
 		formatnum = rec->op     ? TXT_NAMES_NICK_OP :
 		            rec->halfop ? TXT_NAMES_NICK_HALFOP :

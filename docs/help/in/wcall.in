@@ -1,0 +1,20 @@
+
+%9Syntax:%9
+
+@SYNTAX:wcall@
+
+%9Description:%9
+
+    Closes all the queries of the active server and prints how many were
+    closed. Queries on other servers are left open. The command needs an
+    active server. Any parameters are ignored.
+
+    A window left empty is closed as well when autoclose_windows is ON,
+    which is the default.
+
+%9Examples:%9
+
+    /WCALL
+
+%9See also:%9 QUERY, UNQUERY, WINDOW
+

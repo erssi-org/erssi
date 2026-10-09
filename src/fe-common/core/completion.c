@@ -28,6 +28,7 @@
 #include <irssi/src/core/settings.h>
 
 #include <irssi/src/fe-common/core/completion.h>
+#include <irssi/src/fe-common/core/fe-settings.h>
 #include <irssi/src/fe-common/core/printtext.h>
 
 static GList *complist; /* list of commands we're currently completing */
@@ -759,7 +760,8 @@ static void sig_complete_set(GList **list, WINDOW_REC *window,
 		*list = completion_get_settings(word, SETTING_TYPE_ANY);
 	else if (*line != '\0' && *word == '\0') {
 		SETTINGS_REC *rec = settings_get_record(line);
-		if (rec != NULL) {
+		/* a secret's value is not put on the input line */
+		if (rec != NULL && !fe_settings_is_secret(rec->key)) {
 			char *value = settings_get_print(rec);
 
 			/* show the current option first */

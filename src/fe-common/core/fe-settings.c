@@ -31,11 +31,44 @@
 #include <irssi/src/fe-common/core/printtext.h>
 #include <irssi/src/fe-common/core/keyboard.h>
 
+/* A setting holding a secret (a password, an API key, a token): /SET and
+ * tab completion do not show its value, which would otherwise end up on
+ * screen, in the window's log and in the web client's history. Names with
+ * password, passwd, secret or token in them or ending in api_key count,
+ * plus the names listed in hidden_settings. Scripts and $variables still
+ * get the real value. */
+gboolean fe_settings_is_secret(const char *key)
+{
+	static const char *const words[] = { "password", "passwd", "secret", "token", NULL };
+	char **extra, **tmp;
+	gboolean found = FALSE;
+	int i;
+
+	if (key == NULL)
+		return FALSE;
+	for (i = 0; words[i] != NULL; i++) {
+		if (strstr(key, words[i]) != NULL)
+			return TRUE;
+	}
+	if (g_str_has_suffix(key, "api_key"))
+		return TRUE;
+
+	extra = g_strsplit_set(settings_get_str("hidden_settings"), " ,", -1);
+	for (tmp = extra; *tmp != NULL && !found; tmp++)
+		found = **tmp != '\0' && g_ascii_strcasecmp(*tmp, key) == 0;
+	g_strfreev(extra);
+	return found;
+}
+
 static void set_print(SETTINGS_REC *rec)
 {
 	char *value;
 
 	value = settings_get_print(rec);
+	if (value != NULL && *value != '\0' && fe_settings_is_secret(rec->key)) {
+		g_free(value);
+		value = g_strdup("(secret, set - not shown)");
+	}
 	printformat(NULL, NULL, MSGLEVEL_CLIENTCRAP, TXT_SET_ITEM,
 		    rec->key, value);
 	g_free(value);
@@ -435,6 +468,7 @@ void fe_settings_init(void)
 	command_bind("reload", NULL, (SIGNAL_FUNC) cmd_reload);
 	command_bind("save", NULL, (SIGNAL_FUNC) cmd_save);
 	command_set_options("set", "clear default section");
+	settings_add_str("misc", "hidden_settings", "");
 
         signal_add("settings errors", (SIGNAL_FUNC) sig_settings_errors);
 }

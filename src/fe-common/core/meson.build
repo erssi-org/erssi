@@ -81,6 +81,7 @@ install_headers(
     'fe-core-commands.h',
     'fe-credential.h',
     'fe-exec.h',
+    'fe-expandos.h',
     'fe-messages.h',
     'fe-queries.h',
     'fe-recode.h',

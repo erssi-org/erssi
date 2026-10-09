@@ -1,0 +1,29 @@
+
+%9Syntax:%9
+
+@SYNTAX:setname@
+
+%9Parameters:%9
+
+    The new real name.
+
+%9Description:%9
+
+    Changes your real name (the 'gecos' shown in WHOIS) on the active server
+    without reconnecting. The name is sent with the SETNAME command, which
+    only servers with the IRCv3 'setname' capability understand; erssi
+    requests that capability when it connects, but sends the command in any
+    case. Such servers pass the change on to the clients that share a
+    channel with you and support the capability.
+
+    Only the current connection is changed; to keep the new name for later
+    connections, change the real_name setting or the -realname of the
+    network.
+
+%9Examples:%9
+
+    /SETNAME Alice Example
+    /SETNAME Away from keyboard
+
+%9See also:%9 NETWORK, SET, WHOIS
+

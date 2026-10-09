@@ -1,0 +1,22 @@
+
+%9Syntax:%9
+
+@SYNTAX:network@
+
+%9Description:%9
+
+    IRCNET is the same command as NETWORK, kept for compatibility with older
+    versions. It takes the same subcommands (LIST, ADD, MODIFY and REMOVE)
+    and options; replace NETWORK with IRCNET in the syntax above. Without a
+    parameter, the list of networks is displayed.
+
+    See /HELP NETWORK for the description of the parameters.
+
+%9Examples:%9
+
+    /IRCNET
+    /IRCNET ADD -nick alice -usermode +i ExampleNet
+    /IRCNET REMOVE ExampleNet
+
+%9See also:%9 NETWORK, SERVER
+

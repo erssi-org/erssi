@@ -467,6 +467,19 @@ static void read_settings(void)
 	}
 }
 
+/* "user" (nick, nick mode, user mode) comes from the theme or config; in a
+   window without a server (Notices, script windows) it would draw an empty
+   box, so it takes no space there. */
+static void item_user(SBAR_ITEM_REC *item, int get_size_only)
+{
+	if (active_win == NULL ||
+	    (active_win->active_server == NULL && active_win->connect_server == NULL)) {
+		item->min_size = item->max_size = 0;
+		return;
+	}
+	statusbar_item_default_handler(item, get_size_only, NULL, "", TRUE);
+}
+
 void statusbar_items_init(void)
 {
 	settings_add_time("misc", "lag_min_show", "1sec");
@@ -475,6 +488,7 @@ void statusbar_items_init(void)
 	settings_add_str("lookandfeel", "actlist_separator", ",");
 	settings_add_bool("lookandfeel", "actlist_prefer_window_name", FALSE);
 
+	statusbar_item_register("user", NULL, item_user);
 	statusbar_item_register("window", NULL, item_window_active);
 	statusbar_item_register("window_empty", NULL, item_window_empty);
 	statusbar_item_register("prompt", NULL, item_window_active);

@@ -1,0 +1,43 @@
+
+%9Syntax:%9
+
+@SYNTAX:nickhash@
+
+%9Parameters:%9
+
+    SHIFT:      Gives the nickname a new color in the channel.
+
+    The channel and the nickname, both exactly as they are displayed; the
+    names are case sensitive.
+
+%9Description:%9
+
+    Changes the color that nick hash coloring gives a nickname on a channel
+    of the active server. The new color is picked at random from
+    nick_hash_colors and differs from the current one. The colors are kept
+    in memory only, so they are lost when erssi is restarted.
+
+    The message 'Shifted color' is printed even when the channel or the
+    nickname has no color yet, in which case nothing changes.
+
+    Nick hash coloring colors the nicknames in messages (themes can also use
+    $nickcolored). Each nickname gets a color from its hash, separately in
+    each channel, and keeps it. The related settings are:
+
+        nick_hash_color_enabled (default: ON)
+            Enables the coloring.
+        nick_hash_colors
+            The colors to pick from, separated by spaces: color letters
+            such as r, g or B, or #rrggbb values.
+        nick_hash_reset_event (default: quit part)
+            When to give a nickname a new random color by itself: 'quit'
+            (in all channels of the server), 'part' (in that channel) and
+            'nickchange' (in all channels, for the old nickname).
+
+%9Examples:%9
+
+    /NICKHASH SHIFT #example alice
+    /SET nick_hash_reset_event quit part nickchange
+
+%9See also:%9 FORMAT, SET
+

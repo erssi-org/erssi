@@ -2,5 +2,6 @@
 #define IRSSI_FE_COMMON_CORE_FE_SETTINGS_H
 
 void fe_settings_set_print(const char *key);
+gboolean fe_settings_is_secret(const char *key);
 
 #endif

@@ -1046,6 +1046,7 @@ void irc_commands_init(void)
 	command_bind_irc("wallops", NULL, (SIGNAL_FUNC) command_1self);
 	command_bind_irc("kickban", NULL, (SIGNAL_FUNC) cmd_kickban);
 	command_bind_irc("knockout", NULL, (SIGNAL_FUNC) cmd_knockout);
+	/* SYNTAX: SETNAME <realname> */
 	command_bind_irc("setname", NULL, (SIGNAL_FUNC) command_1self);
 	command_bind_irc("server purge", NULL, (SIGNAL_FUNC) cmd_server_purge);
 

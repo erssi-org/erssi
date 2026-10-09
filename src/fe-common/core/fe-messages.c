@@ -42,10 +42,8 @@
 #include <irssi/src/fe-common/core/fe-queries.h>
 #include <irssi/src/fe-common/core/hilight-text.h>
 #include <irssi/src/fe-common/core/printtext.h>
+#include <irssi/src/fe-common/core/fe-expandos.h>
 
-/* Forward declarations for nick column functions */
-void update_nick_context(const char *nick, const char *mode);
-void clear_nick_context(void);
 
 #define ishighalnum(c) ((unsigned char) (c) >= 128 || i_isalnum(c))
 /* RFC 2812 section 2.3.1: special = "[" / "\" / "]" / "^" / "_" / "`" / "{" / "|" / "}" / "~" */
@@ -228,10 +226,8 @@ static void sig_message_public(SERVER_REC *server, const char *msg, const char *
 	if (printnick == NULL)
 		printnick = nick;
 
-	/* Update nick context for expandos */
-	if (settings_get_bool("nick_column_enabled")) {
-		update_nick_context(printnick, nickmode);
-	}
+	/* Nick for $nickalign / $nicktrunc / $nickcolored in the format */
+	update_nick_context(printnick, nickmode);
 
 	format_create_dest(&dest, server, target, level, NULL);
 	dest.address = address;
@@ -253,6 +249,7 @@ static void sig_message_public(SERVER_REC *server, const char *msg, const char *
 			printformat_dest(&dest, for_me ? TXT_PUBMSG_ME_CHANNEL : TXT_PUBMSG_CHANNEL,
 			                 printnick, target, msg, nickmode);
 	}
+	clear_nick_context();
 
 	g_free_not_null(nickmode);
 	g_free_not_null(freemsg);
@@ -302,10 +299,8 @@ static void sig_message_own_public(SERVER_REC *server, const char *msg, const ch
 
 	nickmode = channel_get_nickmode(channel, server->nick);
 
-	/* Update nick context for expandos */
-	if (settings_get_bool("nick_column_enabled")) {
-		update_nick_context(server->nick, nickmode);
-	}
+	/* Nick for $nickalign / $nicktrunc / $nickcolored in the format */
+	update_nick_context(server->nick, nickmode);
 
 	window = channel == NULL ? NULL : window_item_window((WI_ITEM_REC *) channel);
 
@@ -325,6 +320,7 @@ static void sig_message_own_public(SERVER_REC *server, const char *msg, const ch
 		printformat(server, target, MSGLEVEL_PUBLIC | MSGLEVEL_NOHILIGHT | MSGLEVEL_NO_ACT,
 		            TXT_OWN_MSG_CHANNEL, server->nick, target, msg, nickmode);
 	}
+	clear_nick_context();
 
 	g_free_not_null(nickmode);
 	g_free_not_null(freemsg);

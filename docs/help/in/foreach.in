@@ -1,0 +1,37 @@
+
+%9Syntax:%9
+
+@SYNTAX:foreach@
+
+%9Parameters:%9
+
+    SERVER:     Runs the command once for every connected server, with that
+                server active.
+    CHANNEL:    Runs the command once for every joined channel, on all
+                servers, with that channel as the active item.
+    QUERY:      Runs the command once for every open query, on all servers,
+                with that query as the active item.
+    WINDOW:     Runs the command once in every window, with that window,
+                its active item and its server active.
+
+    The command to run; the command character is added when it is missing.
+
+%9Description:%9
+
+    Repeats a command for each server, channel, query or window. The command
+    is run as if it had been typed in that context, so commands that act on
+    the active server, channel or window act on each one in turn.
+
+    After FOREACH WINDOW, the window that was active before becomes active
+    again.
+
+%9Examples:%9
+
+    /FOREACH SERVER /NICK alice
+    /FOREACH CHANNEL /SAY I will be back in a few minutes
+    /FOREACH QUERY /SAY Sorry, I have to go now
+    /FOREACH WINDOW /CLEAR
+    /FOREACH WINDOW /WINDOW LEVEL -JOINS -PARTS -QUITS
+
+%9See also:%9 CHANNEL, QUERY, SERVER, WINDOW
+

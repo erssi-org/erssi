@@ -1128,6 +1128,12 @@ static char *get_server_tag(THEME_REC *theme, TEXT_DEST_REC *dest)
 		if (dest->window->active != NULL && dest->window->active->server == dest->server)
 			return NULL;
 
+		/* a window bound to this server (erssi's network windows, /WINDOW
+		   SERVER -sticky) shows only its lines: the tag is noise there */
+		if (dest->window->servertag != NULL && dest->server_tag != NULL &&
+		    g_ascii_strcasecmp(dest->window->servertag, dest->server_tag) == 0)
+			return NULL;
+
 		if (servers != NULL) {
 			count++;
 			if (servers->next != NULL)

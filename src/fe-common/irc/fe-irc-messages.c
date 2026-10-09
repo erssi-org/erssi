@@ -39,6 +39,7 @@
 #include <irssi/src/fe-common/core/window-items.h>
 #include <irssi/src/fe-common/irc/fe-irc-channels.h>
 #include <irssi/src/fe-common/irc/fe-irc-server.h>
+#include <irssi/src/fe-common/core/fe-expandos.h>
 
 static void sig_message_own_public(SERVER_REC *server, const char *msg,
 				   const char *target, const char *origtarget)
@@ -56,11 +57,13 @@ static void sig_message_own_public(SERVER_REC *server, const char *msg,
 		nickmode = channel_get_nickmode(channel_find(server, target),
 						server->nick);
 
+		update_nick_context(server->nick, nickmode);
 		printformat_module("fe-common/core", server, target,
 				   MSGLEVEL_PUBLIC | MSGLEVEL_NOHILIGHT |
 				   MSGLEVEL_NO_ACT,
 				   TXT_OWN_MSG_CHANNEL,
 				   server->nick, oldtarget, msg, nickmode);
+		clear_nick_context();
 		g_free(nickmode);
                 signal_stop();
 	}
@@ -123,6 +126,7 @@ static void sig_message_irc_op_public(SERVER_REC *server, const char *msg,
 	if (settings_get_bool("emphasis"))
 		msg = freemsg = expand_emphasis((WI_ITEM_REC *) chanrec, msg);
 
+	update_nick_context(nick, nickmode);
 	if (color != NULL) {
 		format_create_dest(&dest, server, cleantarget, level, NULL);
 		dest.address = address;
@@ -136,6 +140,7 @@ static void sig_message_irc_op_public(SERVER_REC *server, const char *msg,
 			for_me ? TXT_PUBMSG_ME_CHANNEL : TXT_PUBMSG_CHANNEL,
 			nick, optarget, msg, nickmode);
 	}
+	clear_nick_context();
 
 	g_free(nickmode);
 	g_free(freemsg);
@@ -154,11 +159,13 @@ static void sig_message_own_wall(SERVER_REC *server, const char *msg,
 
 	/* this is always @, skip_prefix is not needed here */
 	optarget = g_strconcat("@", target, NULL);
+	update_nick_context(server->nick, nickmode);
 	printformat_module("fe-common/core", server, target,
 			   MSGLEVEL_PUBLIC | MSGLEVEL_NOHILIGHT |
 			   MSGLEVEL_NO_ACT,
 			   TXT_OWN_MSG_CHANNEL,
 			   server->nick, optarget, msg, nickmode);
+	clear_nick_context();
 	g_free(nickmode);
         g_free(optarget);
 }

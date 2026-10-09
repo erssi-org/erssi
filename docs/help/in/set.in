@@ -21,6 +21,14 @@
     Please remember that you need to use the SAVE command to store the changes
     into your configuration.
 
+    The value of a secret is not shown: settings with password, passwd,
+    secret or token in the name, names ending in api_key and the names
+    listed in hidden_settings (space or comma separated, empty by default)
+    print as '(secret, set - not shown)', and tab completion does not put
+    their value on the input line, so it stays off the screen, the
+    window's log and connected web clients. Scripts and $variables still
+    get the real value; an empty setting prints as empty.
+
 %9Examples:%9
 
     /SET

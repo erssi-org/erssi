@@ -738,6 +738,7 @@ static void event_hybrid_quiet_list(IRC_SERVER_REC *server, const char *data)
 	if (*tims == '\0') {
 		/* probably not a quiet list */
 		event_target_received(server, data, NULL);
+		g_free(params);
 		return;
 	}
 

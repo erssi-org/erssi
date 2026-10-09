@@ -106,7 +106,7 @@ static void sig_server_waiting_info(IRC_SERVER_REC *server, const char *version)
 	if (!IS_IRC_SERVER(server))
 		return;
 
-	printformat(server, NULL, MSGLEVEL_CLIENTCRAP, IRCTXT_SERVER_WAITING_CAP_LS, server,
+	printformat(server, NULL, MSGLEVEL_CLIENTNOTICE, IRCTXT_SERVER_WAITING_CAP_LS, server,
 	            version);
 }
 

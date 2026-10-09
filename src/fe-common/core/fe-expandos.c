@@ -25,6 +25,7 @@
 */
 
 #include "module.h"
+#include <irssi/src/fe-common/core/fe-expandos.h>
 #include <irssi/src/core/expandos.h>
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/core/settings.h>
@@ -210,31 +211,62 @@ static void free_channel_color_context(channel_color_context *ctx)
 	}
 }
 
-static gchar** parse_color_palette(const char *colors_str, int *count)
+/* Normalize one nick_hash_colors entry to the code that follows '%' in a
+ * format string, or NULL when it is not a colour. Accepted forms:
+ *   g  G  %G           - the 16 classic colours (krgybmcw / KRGYBMCW)
+ *   #f59e0b  Zf59e0b   - 24-bit foreground (written as %Zf59e0b)
+ *   %Zf59e0b
+ */
+char *nick_palette_entry_normalize(const char *entry)
 {
-	gchar **colors;
-	int valid_count;
-	
-	colors = g_strsplit(colors_str, " ", -1);
-	valid_count = 0;
-	
-	/* Count valid colors */
-	for (int i = 0; colors[i]; i++) {
-		if (strlen(colors[i]) == 1 && strchr("krgybmcwKRGYBMCW", colors[i][0])) {
-			valid_count++;
+	const char *p = entry;
+	int i;
+
+	if (p == NULL)
+		return NULL;
+	if (*p == '%')
+		p++;
+	if (strlen(p) == 1 && strchr("krgybmcwKRGYBMCW", *p) != NULL)
+		return g_strdup(p);
+	if ((*p == '#' || *p == 'Z') && strlen(p) == 7) {
+		for (i = 1; i < 7; i++) {
+			if (!g_ascii_isxdigit(p[i]))
+				return NULL;
 		}
+		return g_strdup_printf("Z%s", p + 1);
 	}
-	
-	/* If no valid colors, use default palette */
-	if (valid_count == 0) {
-		g_strfreev(colors);
-		colors = g_strsplit("g r b m c y G C", " ", -1);
+	return NULL;
+}
+
+/* Parse nick_hash_colors into a NULL-terminated array holding ONLY valid,
+ * normalized entries, so palette[index] is always a usable colour for every
+ * index < *count. (Previously the array kept invalid tokens and empty
+ * strings from double spaces while *count counted only valid ones, so a
+ * hash could land on junk.) Falls back to the default palette. */
+gchar **parse_color_palette(const char *colors_str, int *count)
+{
+	GPtrArray *valid;
+	gchar **tokens;
+	int i;
+
+	valid = g_ptr_array_new();
+	tokens = g_strsplit(colors_str != NULL ? colors_str : "", " ", -1);
+	for (i = 0; tokens[i] != NULL; i++) {
+		char *code = nick_palette_entry_normalize(tokens[i]);
+		if (code != NULL)
+			g_ptr_array_add(valid, code);
+	}
+	g_strfreev(tokens);
+
+	if (valid->len == 0) {
+		g_ptr_array_free(valid, TRUE);
 		*count = 8;
-	} else {
-		*count = valid_count;
+		return g_strsplit("g r b m c y G C", " ", -1);
 	}
-	
-	return colors;
+
+	*count = valid->len;
+	g_ptr_array_add(valid, NULL);
+	return (gchar **) g_ptr_array_free(valid, FALSE);
 }
 
 static int hash_nick_to_color_index(const char *nick, const char *channel_key, int palette_size)
@@ -318,6 +350,9 @@ static int get_persistent_nick_color(const char *nick, void *item, SERVER_REC *s
 		g_hash_table_insert(ctx->nick_colors, g_strdup(nick), entry);
 	} else {
 		entry->last_seen = time(NULL);
+		/* the palette may have shrunk since this colour was picked */
+		if (entry->color_index < 0 || entry->color_index >= palette_size)
+			entry->color_index = hash_nick_to_color_index(nick, channel_key, palette_size);
 	}
 	
 	color_index = entry->color_index;
@@ -364,6 +399,12 @@ static char *expando_nickcolored(SERVER_REC *server, void *item, int *free_ret)
 	/* Get persistent color index for this nick */
 	color_index = get_persistent_nick_color(current_nick, item, server);
 	
+	if (palette == NULL || palette_size <= 0 || color_index < 0 || color_index >= palette_size) {
+		g_strfreev(palette);
+		*free_ret = TRUE;
+		return (char *)display_nick;
+	}
+
 	/* Return colored nick with proper formatting */
 	*free_ret = TRUE;
 	raw_format = g_strdup_printf("%%%s%%_%s%%_%%n", palette[color_index], display_nick);
@@ -491,6 +532,7 @@ static void cleanup_nick_on_nickchange(SERVER_REC *server, const char *new_nick,
 }
 
 /* /nickhash command handler */
+/* SYNTAX: NICKHASH SHIFT <channel> <nick> */
 
 static void cmd_nickhash(const char *data, SERVER_REC *server, WI_ITEM_REC *item)
 {
@@ -511,7 +553,7 @@ static void cmd_nickhash(const char *data, SERVER_REC *server, WI_ITEM_REC *item
 	
 	subcmd = g_strstrip(params[0]);
 	
-	if (g_strcmp0(subcmd, "shift") == 0) {
+	if (g_ascii_strcasecmp(subcmd, "shift") == 0) {
 		if (!params[1] || !params[2]) {
 			printtext(NULL, NULL, MSGLEVEL_CLIENTCRAP, "Usage: /nickhash shift <#channel> <nick>");
 			g_strfreev(params);
@@ -539,6 +581,34 @@ static void cmd_nickhash(const char *data, SERVER_REC *server, WI_ITEM_REC *item
 	g_strfreev(params);
 }
 
+/* Nick colours are kept per channel so a nick keeps its colour; nicks not
+   seen for a week (and channels left with none) are forgotten, or the
+   tables grow for as long as erssi runs. */
+#define NICK_COLOR_KEEP (7 * 24 * 3600)
+static guint nick_color_prune_tag = 0;
+
+static gboolean nick_color_entry_old(gpointer key, gpointer value, gpointer cutoff)
+{
+	return ((nick_color_entry *) value)->last_seen < *(time_t *) cutoff;
+}
+
+static gboolean channel_context_prune(gpointer key, gpointer value, gpointer cutoff)
+{
+	channel_color_context *ctx = value;
+
+	g_hash_table_foreach_remove(ctx->nick_colors, nick_color_entry_old, cutoff);
+	return g_hash_table_size(ctx->nick_colors) == 0;
+}
+
+static gboolean nick_colors_prune(gpointer data)
+{
+	time_t cutoff = time(NULL) - NICK_COLOR_KEEP;
+
+	if (channel_contexts != NULL)
+		g_hash_table_foreach_remove(channel_contexts, channel_context_prune, &cutoff);
+	return TRUE;
+}
+
 void fe_expandos_init(void)
 {
 	expando_create("winref", expando_winref, "window changed", EXPANDO_ARG_NONE,
@@ -559,6 +629,8 @@ void fe_expandos_init(void)
 	
 	/* Register command */
 	command_bind("nickhash", NULL, (SIGNAL_FUNC) cmd_nickhash);
+
+	nick_color_prune_tag = g_timeout_add_seconds(3600, nick_colors_prune, NULL);
 }
 
 void fe_expandos_deinit(void)
@@ -577,6 +649,11 @@ void fe_expandos_deinit(void)
 	/* Unregister command */
 	command_unbind("nickhash", (SIGNAL_FUNC) cmd_nickhash);
 	
+	if (nick_color_prune_tag != 0) {
+		g_source_remove(nick_color_prune_tag);
+		nick_color_prune_tag = 0;
+	}
+
 	/* Clean up hash coloring data */
 	if (channel_contexts) {
 		g_hash_table_destroy(channel_contexts);

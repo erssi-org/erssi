@@ -1,0 +1,28 @@
+
+%9Syntax:%9
+
+@SYNTAX:sethost@
+
+%9Parameters:%9
+
+    The parameters are sent to the server as they are; which ones it expects
+    depends on the server. The two forms above are the usual ones: a host
+    name and a password for normal users, or a user name and a host name
+    for IRC operators.
+
+%9Description:%9
+
+    Asks the server to change the host name (and possibly the user name)
+    others see for you. Only some IRC servers support this command.
+
+    Since the server usually makes you leave and rejoin your channels when
+    your host changes, the channels you are on are first bound to the
+    windows they are in, so that they come back in the same windows.
+
+%9Examples:%9
+
+    /SETHOST my.example.org MyHostPassword
+    /SETHOST alice staff.example.org
+
+%9See also:%9 OPER, QUOTE, WINDOW
+
