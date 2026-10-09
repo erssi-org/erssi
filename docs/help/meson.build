@@ -25,6 +25,7 @@ install_data(
     'echo',
     'eval',
     'exec',
+    'floodnet',
     'flushbuffer',
     'format',
     'hash',

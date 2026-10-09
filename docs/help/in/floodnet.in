@@ -1,0 +1,76 @@
+
+%9Syntax:%9
+
+@SYNTAX:floodnet@
+
+%9Parameters:%9
+
+    STATUS:     Displays whether the protection is enabled, the number of
+                flood attempts today, the total number of blocked messages,
+                the size of the message window, the number of active blocks,
+                and the thresholds and time windows in use.
+    RESET:      Sets the 'flood attempts today' and 'total messages
+                blocked' counters to zero. Active blocks are kept.
+    DETAILS:    Lists the active blocks: the blocked message texts, the
+                servers whose CTCP requests are ignored and the channels
+                whose nick changes are hidden, each with its remaining time.
+    HELP:       Prints a short list of the subcommands and settings.
+
+    Without any parameter, the status is displayed.
+
+%9Description:%9
+
+    Controls the anti-floodnet module, which hides floods sent by many
+    clients at once (floodnets). It is loaded at startup by default (it is
+    listed in the autoload_modules setting). It watches three things:
+
+    Private messages sent to your nick, on all servers together, during the
+    last anti_floodnet_time_window seconds. When anti_floodnet_tilde_threshold
+    different users without ident (a '~' in the user name) sent them, the
+    message is dropped and every text in the window is blocked for
+    anti_floodnet_block_duration seconds. When at least 5 messages are in the
+    window and anti_floodnet_duplicate_threshold different users sent the
+    same text, that text is blocked and messages with it are dropped. One
+    person pasting lines or repeating a line never counts as a flood, and
+    messages from someone you already have a query with are never checked.
+    Either case starts protection mode: while it is on, every private
+    message from a user without ident or with a blocked text is dropped,
+    and each one extends the block of its text.
+
+    CTCP requests: when anti_floodnet_ctcp_threshold of them arrive from a
+    server within anti_floodnet_time_window seconds, all CTCP requests on that
+    server are ignored for anti_floodnet_block_duration seconds.
+
+    Nick changes: when anti_floodnet_nickchange_threshold nick changes happen
+    on a channel within anti_floodnet_nickchange_window seconds, the nick
+    change messages of users on that channel are hidden for
+    anti_floodnet_block_duration seconds, extended by every further change.
+
+    Unless anti_floodnet_notices is OFF, a notice is printed in the active
+    window when protection mode starts, every anti_floodnet_notice_interval
+    seconds while it lasts, and when it ends - when no message is left in
+    the window and every block has expired.
+
+    Settings and their defaults (a number set to 0 also means the default):
+
+        anti_floodnet_enabled                 ON
+        anti_floodnet_tilde_threshold         5
+        anti_floodnet_duplicate_threshold     3
+        anti_floodnet_ctcp_threshold          5
+        anti_floodnet_nickchange_threshold    5
+        anti_floodnet_time_window             5 (seconds)
+        anti_floodnet_nickchange_window       3 (seconds)
+        anti_floodnet_block_duration          60 (seconds)
+        anti_floodnet_notice_interval         60 (seconds)
+        anti_floodnet_notices                 ON
+
+%9Examples:%9
+
+    /FLOODNET
+    /FLOODNET DETAILS
+    /FLOODNET RESET
+    /SET anti_floodnet_ctcp_threshold 10
+    /SET anti_floodnet_notices OFF
+
+%9See also:%9 IGNORE, SET
+

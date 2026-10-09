@@ -190,6 +190,18 @@ static void cleanup_server_ctcp(gpointer key, gpointer value, gpointer user_data
     g_free(rec);
 }
 
+/* The tables are keyed by the server record: drop it before it is freed */
+static void sig_server_disconnected(SERVER_REC *server)
+{
+    SERVER_CTCP_REC *rec = g_hash_table_lookup(ctcp_tracking, server);
+
+    if (rec != NULL) {
+        g_hash_table_remove(ctcp_tracking, server);
+        cleanup_server_ctcp(server, rec, NULL);
+    }
+    g_hash_table_remove(floodnet->ctcp_blocked_until, server);
+}
+
 /* Initialize CTCP flood protection */
 void ctcp_flood_init(void)
 {
@@ -207,6 +219,7 @@ void ctcp_flood_init(void)
     signal_add_first("ctcp msg userinfo", (SIGNAL_FUNC) sig_ctcp_userinfo);
     signal_add_first("ctcp msg finger", (SIGNAL_FUNC) sig_ctcp_finger);
     signal_add_first("default ctcp msg", (SIGNAL_FUNC) sig_ctcp_default);
+    signal_add("server disconnected", (SIGNAL_FUNC) sig_server_disconnected);
 }
 
 /* Deinitialize CTCP flood protection */
@@ -223,6 +236,7 @@ void ctcp_flood_deinit(void)
     signal_remove("ctcp msg userinfo", (SIGNAL_FUNC) sig_ctcp_userinfo);
     signal_remove("ctcp msg finger", (SIGNAL_FUNC) sig_ctcp_finger);
     signal_remove("default ctcp msg", (SIGNAL_FUNC) sig_ctcp_default);
+    signal_remove("server disconnected", (SIGNAL_FUNC) sig_server_disconnected);
 
     /* Cleanup tracking data */
     g_hash_table_foreach(ctcp_tracking, cleanup_server_ctcp, NULL);

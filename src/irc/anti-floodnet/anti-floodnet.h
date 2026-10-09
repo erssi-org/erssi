@@ -105,6 +105,7 @@ gboolean is_nick_channel_blocked(const char *channel);
 
 /* Cleanup functions */
 void cleanup_old_messages(time_t now);
+void cleanup_expired_blocks(void);
 void reset_daily_stats(void);
 
 /* Protection mode management */

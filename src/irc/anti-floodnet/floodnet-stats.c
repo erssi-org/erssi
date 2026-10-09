@@ -33,7 +33,7 @@ static void check_daily_reset(void)
 }
 
 /* Cleanup expired blocks for statistics */
-static void cleanup_expired_blocks(void)
+void cleanup_expired_blocks(void)
 {
     time_t now = time(NULL);
     GHashTableIter iter;
@@ -113,6 +113,7 @@ static char *format_time_remaining(time_t expiry_time)
 }
 
 /* Main /floodnet status command */
+/* SYNTAX: FLOODNET [STATUS|RESET|DETAILS|HELP] */
 void cmd_floodnet_status(const char *data)
 {
     const char *cmd;

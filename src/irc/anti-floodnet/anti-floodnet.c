@@ -21,6 +21,8 @@
 #include <irssi/src/core/servers.h>
 #include <irssi/src/core/channels.h>
 #include <irssi/src/core/nicklist.h>
+#include <irssi/src/core/queries.h>
+#include <stdarg.h>
 #include <irssi/src/fe-common/core/printtext.h>
 
 /* Function prototypes for component initialization */
@@ -30,6 +32,12 @@ void nick_flood_init(void);
 void nick_flood_deinit(void);
 
 ANTI_FLOODNET_REC *floodnet = NULL;
+
+/* A flood of random text must not grow memory without bound */
+#define MAX_WINDOW_MESSAGES 500
+#define MAX_BLOCKED_PATTERNS 1000
+
+static guint protection_tag = 0;
 
 /* Read settings from irssi configuration */
 static void read_settings(void)
@@ -105,6 +113,18 @@ static void add_message_to_window(const char *nick, const char *userhost,
 
     floodnet->message_window = g_slist_prepend(floodnet->message_window, rec);
     floodnet->message_count++;
+
+    if (floodnet->message_count > MAX_WINDOW_MESSAGES) {
+        GSList *last = g_slist_last(floodnet->message_window);
+        FLOODMSG_REC *oldest = last->data;
+
+        floodnet->message_window = g_slist_delete_link(floodnet->message_window, last);
+        floodnet->message_count--;
+        g_free(oldest->nick);
+        g_free(oldest->userhost);
+        g_free(oldest->text);
+        g_free(oldest);
+    }
 }
 
 /* Free message record */
@@ -137,18 +157,22 @@ void cleanup_old_messages(time_t now)
     }
 }
 
-/* Count tilde ident users in current window */
+/* Count distinct ~ident senders in the current window. A floodnet is many
+ * clients; one person without identd pasting a few lines is not. */
 static int count_tilde_users(void)
 {
+    GHashTable *senders = g_hash_table_new(g_str_hash, g_str_equal);
     GSList *tmp;
-    int count = 0;
+    int count;
 
     for (tmp = floodnet->message_window; tmp != NULL; tmp = tmp->next) {
         FLOODMSG_REC *rec = tmp->data;
         if (rec->has_tilde)
-            count++;
+            g_hash_table_add(senders, rec->userhost);
     }
 
+    count = g_hash_table_size(senders);
+    g_hash_table_destroy(senders);
     return count;
 }
 
@@ -165,11 +189,22 @@ static char *find_most_common_message(int *count)
     gpointer key, value;
     int cnt;
 
-    /* Count message frequencies */
-    for (tmp = floodnet->message_window; tmp != NULL; tmp = tmp->next) {
-        rec = tmp->data;
-        current_count = GPOINTER_TO_INT(g_hash_table_lookup(freqs, rec->text));
+    GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
+    /* Count how many different senders sent each text: the same line from
+     * several clients is a flood, one person repeating it is not. */
+    for (tmp = floodnet->message_window; tmp != NULL; tmp = tmp->next) {
+        char *pair;
+
+        rec = tmp->data;
+        pair = g_strconcat(rec->userhost, "\001", rec->text, NULL);
+        if (g_hash_table_contains(seen, pair)) {
+            g_free(pair);
+            continue;
+        }
+        g_hash_table_add(seen, pair);
+
+        current_count = GPOINTER_TO_INT(g_hash_table_lookup(freqs, rec->text));
         g_hash_table_insert(freqs, g_strdup(rec->text),
                            GINT_TO_POINTER(current_count + 1));
     }
@@ -180,10 +215,12 @@ static char *find_most_common_message(int *count)
         cnt = GPOINTER_TO_INT(value);
         if (cnt > max_count) {
             max_count = cnt;
+            g_free(most_common);
             most_common = g_strdup(key);
         }
     }
 
+    g_hash_table_destroy(seen);
     g_hash_table_destroy(freqs);
     *count = max_count;
     return most_common;
@@ -219,6 +256,11 @@ void block_duplicate_message(const char *text, int duration)
         /* Extend existing block - flood still happening */
         *blocked_until = now + duration;
     } else {
+        if (g_hash_table_size(floodnet->blocked_patterns) >= MAX_BLOCKED_PATTERNS) {
+            cleanup_expired_blocks();
+            if (g_hash_table_size(floodnet->blocked_patterns) >= MAX_BLOCKED_PATTERNS)
+                return;
+        }
         /* Create new block */
         blocked_until = g_new(time_t, 1);
         *blocked_until = now + duration;
@@ -227,10 +269,43 @@ void block_duplicate_message(const char *text, int duration)
     }
 }
 
+/* Status notice in the active window, unless anti_floodnet_notices is OFF.
+ * The notices come from printtext(), not from the server, so /IGNORE and
+ * scripts hooking server events cannot hide them - this setting can. */
+static void floodnet_notice(const char *fmt, ...)
+{
+    va_list args;
+    char *text;
+
+    if (!settings_get_bool("anti_floodnet_notices"))
+        return;
+
+    va_start(args, fmt);
+    text = g_strdup_vprintf(fmt, args);
+    va_end(args);
+    printtext(NULL, NULL, MSGLEVEL_CRAP | MSGLEVEL_NOHILIGHT, "%s", text);
+    g_free(text);
+}
+
+/* While protection is on, its notices and its end do not wait for the
+ * next private message. */
+static gboolean protection_tick(gpointer data)
+{
+    cleanup_old_messages(time(NULL));
+    check_protection_status();
+    if (floodnet->in_protection_mode)
+        return TRUE;
+    protection_tag = 0;
+    return FALSE;
+}
+
 /* Enter flood protection mode */
 void enter_protection_mode(void)
 {
     time_t now = time(NULL);
+
+    if (protection_tag == 0)
+        protection_tag = g_timeout_add_seconds(5, protection_tick, NULL);
 
     if (!floodnet->in_protection_mode) {
         /* First time entering protection mode */
@@ -239,8 +314,7 @@ void enter_protection_mode(void)
         floodnet->last_protection_notice = now;
         floodnet->blocked_since_notice = 0;
 
-        printtext(NULL, NULL, MSGLEVEL_CRAP | MSGLEVEL_NOHILIGHT,
-                 "*** Anti-Floodnet: PROTECTION MODE ACTIVATED - blocking flood");
+        floodnet_notice("*** Anti-Floodnet: PROTECTION MODE ACTIVATED - blocking flood");
     }
 }
 
@@ -252,9 +326,8 @@ void exit_protection_mode(void)
     if (floodnet->in_protection_mode) {
         duration = (int)(time(NULL) - floodnet->protection_started);
         
-        printtext(NULL, NULL, MSGLEVEL_CRAP | MSGLEVEL_NOHILIGHT,
-                 "*** Anti-Floodnet: Protection ended (duration: %ds, blocked: %d messages)",
-                 duration, floodnet->total_messages_blocked);
+        floodnet_notice("*** Anti-Floodnet: Protection ended (duration: %ds, blocked: %d messages)",
+                        duration, floodnet->total_messages_blocked);
 
         floodnet->in_protection_mode = FALSE;
         floodnet->blocked_since_notice = 0;
@@ -276,17 +349,20 @@ void check_protection_status(void)
     if (elapsed >= floodnet->protection_notice_interval) {
         int total_duration = (int)(now - floodnet->protection_started);
         
-        printtext(NULL, NULL, MSGLEVEL_CRAP | MSGLEVEL_NOHILIGHT,
-                 "*** Anti-Floodnet: Still active (%ds elapsed, %d blocked since last notice)",
-                 total_duration, floodnet->blocked_since_notice);
+        floodnet_notice("*** Anti-Floodnet: Still active (%ds elapsed, %d blocked since last notice)",
+                        total_duration, floodnet->blocked_since_notice);
         
         floodnet->last_protection_notice = now;
         floodnet->blocked_since_notice = 0;
     }
 
-    /* Auto-exit if no flood activity in last time_window */
-    if (floodnet->message_count == 0 && 
-        (now - floodnet->protection_started) > (floodnet->block_duration + floodnet->time_window)) {
+    /* End when the flood is over: nothing in the window and every block
+     * (messages, CTCP, nick changes) has expired */
+    cleanup_expired_blocks();
+    if (floodnet->message_count == 0 &&
+        g_hash_table_size(floodnet->blocked_patterns) == 0 &&
+        g_hash_table_size(floodnet->ctcp_blocked_until) == 0 &&
+        g_hash_table_size(floodnet->nick_blocked_channels) == 0) {
         exit_protection_mode();
     }
 }
@@ -301,6 +377,10 @@ void check_message_flood(IRC_SERVER_REC *server, const char *nick,
     FLOODMSG_REC *rec;
 
     if (!settings_get_bool("anti_floodnet_enabled"))
+        return;
+
+    /* Someone you already talk to is not a floodnet */
+    if (query_find(SERVER(server), nick) != NULL)
         return;
 
     /* Check protection status first */
@@ -401,8 +481,10 @@ static void sig_event_privmsg(IRC_SERVER_REC *server, const char *data,
 
     params = event_get_params(data, 2, &target, &text);
 
-    /* Check if this is a private message to us */
-    if (strcmp(target, server->nick) == 0) {
+    /* Check if this is a private message to us - from a client: a
+     * message from a server or service has no user@host */
+    if (nick != NULL && address != NULL && *address != '\0' &&
+        server->nick != NULL && g_ascii_strcasecmp(target, server->nick) == 0) {
         check_message_flood(server, nick, address, text);
     }
 
@@ -446,6 +528,7 @@ void irc_anti_floodnet_init(void)
     settings_add_int("anti_floodnet", "anti_floodnet_time_window", DEFAULT_TIME_WINDOW);
     settings_add_int("anti_floodnet", "anti_floodnet_nickchange_window", DEFAULT_NICKCHANGE_WINDOW);
     settings_add_int("anti_floodnet", "anti_floodnet_notice_interval", 60);
+    settings_add_bool("anti_floodnet", "anti_floodnet_notices", TRUE);
 
     /* Read settings AFTER they are registered */
     read_settings();
@@ -480,6 +563,11 @@ void irc_anti_floodnet_deinit(void)
 
     /* Remove command */
     command_unbind("floodnet", (SIGNAL_FUNC) cmd_floodnet_status);
+
+    if (protection_tag != 0) {
+        g_source_remove(protection_tag);
+        protection_tag = 0;
+    }
 
     /* Free message window */
     g_slist_free_full(floodnet->message_window, (GDestroyNotify) free_floodmsg_rec);

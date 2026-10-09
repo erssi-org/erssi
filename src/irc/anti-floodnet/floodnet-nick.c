@@ -121,11 +121,19 @@ static void extend_channel_block(const char *channel)
     }
 }
 
+/* Nick-change state is per network: "<tag> <channel>" */
+static char *nick_channel_key(CHANNEL_REC *channel)
+{
+    return g_strconcat(channel->server != NULL ? channel->server->tag : "",
+                       " ", channel->name, NULL);
+}
+
 /* Signal handler for "message nick" - block display if nick is on any blocked channel */
 static void sig_message_nick(IRC_SERVER_REC *server, const char *newnick,
                              const char *oldnick, const char *address)
 {
     GSList *tmp;
+    char *key;
 
     if (!settings_get_bool("anti_floodnet_enabled"))
         return;
@@ -141,17 +149,20 @@ static void sig_message_nick(IRC_SERVER_REC *server, const char *newnick,
             continue;
 
         /* Check if this channel is blocked and user is on it */
-        if (is_nick_channel_blocked(channel->name)) {
+        key = nick_channel_key(channel);
+        if (is_nick_channel_blocked(key)) {
             /* Check if the nick that changed is actually on this channel */
             if (nicklist_find(channel, newnick) != NULL) {
                 /* Block display and extend protection */
-                extend_channel_block(channel->name);
+                extend_channel_block(key);
+                g_free(key);
                 floodnet->total_messages_blocked++;
                 floodnet->blocked_since_notice++;
                 signal_stop();
                 return;
             }
         }
+        g_free(key);
     }
 }
 
@@ -161,6 +172,7 @@ static void sig_nicklist_changed(CHANNEL_REC *channel, NICK_REC *nick, const cha
     CHANNEL_NICKFLOOD_REC *rec;
     NICKCHANGE_REC *change;
     time_t now;
+    char *key;
 
     if (!settings_get_bool("anti_floodnet_enabled"))
         return;
@@ -168,14 +180,17 @@ static void sig_nicklist_changed(CHANNEL_REC *channel, NICK_REC *nick, const cha
     if (!channel || !nick || !oldnick)
         return;
 
+    key = nick_channel_key(channel);
+
     /* Don't track if already blocked - just tracking, not blocking display here */
-    if (is_nick_channel_blocked(channel->name)) {
+    if (is_nick_channel_blocked(key)) {
         /* Extend block - flood is still happening */
-        extend_channel_block(channel->name);
+        extend_channel_block(key);
+        g_free(key);
         return;
     }
 
-    rec = get_channel_nickflood_rec(channel->name);
+    rec = get_channel_nickflood_rec(key);
     now = time(NULL);
 
     /* Clean up old entries */
@@ -193,11 +208,12 @@ static void sig_nicklist_changed(CHANNEL_REC *channel, NICK_REC *nick, const cha
     /* Check if threshold exceeded */
     if (rec->change_count >= floodnet->nickchange_threshold) {
         enter_protection_mode();
-        extend_channel_block(channel->name);
+        extend_channel_block(key);
 
         floodnet->flood_attempts_today++;
         /* Note: We don't block here - "message nick" handler will block display */
     }
+    g_free(key);
 }
 
 /* Initialize nick change flood protection */
