@@ -13,6 +13,7 @@
 #include "image-preview.h"
 
 #include <irssi/src/core/settings.h>
+#include <fcntl.h>
 #include <irssi/src/core/signals.h>
 #include <irssi/src/core/commands.h>
 #include <irssi/src/core/levels.h>
@@ -68,9 +69,13 @@ void image_preview_debug_print(const char *fmt, ...)
 		return;
 
 	if (debug_file == NULL) {
+		/* the log holds every clicked URL: only for the owner */
 		char *path = g_strdup_printf("%s/image-preview-debug.log", get_irssi_dir());
-		debug_file = fopen(path, "a");
+		int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0600);
 		g_free(path);
+		debug_file = fd < 0 ? NULL : fdopen(fd, "a");
+		if (debug_file == NULL && fd >= 0)
+			close(fd);
 		if (debug_file == NULL)
 			return;
 		now = g_date_time_new_now_local();
@@ -1244,6 +1249,7 @@ static void sig_textbuffer_line_removed(TEXT_BUFFER_VIEW_REC *view,
 }
 
 /* Command: /IMAGE */
+/* SYNTAX: IMAGE [ON|OFF|CLEAR|STATS] */
 static void cmd_image(const char *data, SERVER_REC *server, void *item)
 {
 	(void)server;
@@ -1303,7 +1309,7 @@ void image_preview_init(void)
 	                        IMAGE_PREVIEW_DEFAULT_MAX_FILE_SIZE);
 	settings_add_int_module("fe-text", "lookandfeel", IMAGE_PREVIEW_MAX_BYTES,
 	                        IMAGE_PREVIEW_DEFAULT_MAX_BYTES);
-	settings_add_bool_module("fe-text", "lookandfeel", IMAGE_PREVIEW_DEBUG_SETTING, TRUE);
+	settings_add_bool_module("fe-text", "lookandfeel", IMAGE_PREVIEW_DEBUG_SETTING, FALSE);
 
 	image_preview_debug = settings_get_bool(IMAGE_PREVIEW_DEBUG_SETTING);
 

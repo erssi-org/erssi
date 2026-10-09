@@ -31,6 +31,7 @@ install_data(
     'help',
     'hilight',
     'ignore',
+    'image',
     'info',
     'invite',
     'irssiproxy',

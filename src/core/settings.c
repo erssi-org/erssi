@@ -687,7 +687,7 @@ static unsigned int file_checksum(const char *fname)
         n = 0;
 	while ((ret = read(f, buf, sizeof(buf))) > 0) {
 		while (ret-- > 0)
-			checksum += buf[ret] << ((n++ & 3)*8);
+			checksum += (unsigned int) (unsigned char) buf[ret] << ((n++ & 3) * 8);
 	}
 	close(f);
 	return checksum;
@@ -761,7 +761,7 @@ static CONFIG_REC *parse_configfile(const char *fname)
         else
 		config_parse_data(config, default_config, "internal");
 
-	config_change_file_name(config, fname, 0660);
+	config_change_file_name(config, fname, 0600);
         irssi_config_save_state(fname);
 	return config;
 }
@@ -836,7 +836,7 @@ int settings_save(const char *fname, int autosave)
 	if (fname == NULL)
 		fname = mainconfig->fname;
 
-	error = config_write(mainconfig, fname, 0660) != 0;
+	error = config_write(mainconfig, fname, 0600) != 0;
 	irssi_config_save_state(fname);
 	config_last_modifycounter = mainconfig->modifycounter;
 	if (error) {

@@ -30,6 +30,9 @@
 
 /* STB image for loading - single header library */
 #define STB_IMAGE_IMPLEMENTATION
+/* A small file can declare a huge image: refuse it instead of allocating
+ * gigabytes on the main loop */
+#define STBI_MAX_DIMENSIONS 8192
 #define STBI_ONLY_JPEG
 #define STBI_ONLY_PNG
 #define STBI_ONLY_GIF
@@ -391,7 +394,13 @@ GString *image_render_chafa(const char *image_path,
 	image_preview_debug_print("CHAFA: Rendering %s (max %dx%d)",
 	                          image_path, max_cols, max_rows);
 
-	/* Load image using stb_image */
+	/* Load image using stb_image - at most 40 megapixels */
+	if (!stbi_info(image_path, &img_width, &img_height, &img_channels) ||
+	    (gint64)img_width * img_height > 40 * 1000 * 1000) {
+		image_preview_debug_print("CHAFA: Not loading %s: unknown format or too large",
+		                          image_path);
+		return NULL;
+	}
 	pixels = stbi_load(image_path, &img_width, &img_height, &img_channels, 4);
 	if (pixels == NULL) {
 		image_preview_debug_print("CHAFA: Failed to load image: %s",

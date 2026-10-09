@@ -271,10 +271,13 @@ static void sig_reconnect(SERVER_REC *server)
 	}
 
 	if (sserver == NULL || conn->chatnet == NULL) {
-		/* not in any chatnet, just reconnect back to same server */
+		/* not in any chatnet, just reconnect back to same server
+		   (without a setup the skeleton already has these) */
                 conn->family = server->connrec->family;
+		g_free(conn->address);
 		conn->address = g_strdup(server->connrec->address);
 		conn->port = server->connrec->port;
+		g_free(conn->password);
 		conn->password = g_strdup(server->connrec->password);
 
 		if (strchr(conn->address, '/') != NULL)

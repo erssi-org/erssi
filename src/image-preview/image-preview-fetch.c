@@ -18,6 +18,9 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 /* Maximum HTML size for og:image extraction (512KB) */
 #define MAX_HTML_SIZE (512 * 1024)
@@ -185,6 +188,90 @@ void image_fetch_debug_dump(void)
 	}
 }
 
+/* A clicked link is someone else's URL: it may only lead to a public web
+ * server - not to this host, the LAN or another protocol, also not after a
+ * redirect or through the page's og:image. */
+static gboolean address_is_public(const struct sockaddr *sa)
+{
+	if (sa->sa_family == AF_INET) {
+		guint32 a = ntohl(((const struct sockaddr_in *)sa)->sin_addr.s_addr);
+
+		return !((a >> 24) == 0 || (a >> 24) == 10 || (a >> 24) == 127 ||
+		         (a >> 16) == 0xA9FE ||            /* 169.254/16 link-local */
+		         (a >> 20) == 0xAC1 ||             /* 172.16/12 */
+		         (a >> 16) == 0xC0A8 ||            /* 192.168/16 */
+		         (a >> 22) == (0x64400000 >> 22) || /* 100.64/10 CGNAT */
+		         (a >> 8) == 0xC00000 ||           /* 192.0.0/24 IETF */
+		         (a >> 17) == (0xC6120000 >> 17) || /* 198.18/15 benchmarking */
+		         (a >> 28) >= 0xE);                /* multicast, reserved */
+	}
+	if (sa->sa_family == AF_INET6) {
+		const struct in6_addr *a6 = &((const struct sockaddr_in6 *)sa)->sin6_addr;
+		const guint8 *b = a6->s6_addr;
+
+		/* IPv6 addresses that carry an IPv4 one lead to that one:
+		 * mapped/compatible, NAT64 64:ff9b::/96 (and the local-use
+		 * 64:ff9b:1::/48) and 6to4 2002::/16 */
+		static const guint8 nat64[12] = { 0x00, 0x64, 0xff, 0x9b };
+		const guint8 *v4addr = NULL;
+
+		if (IN6_IS_ADDR_V4MAPPED(a6) || IN6_IS_ADDR_V4COMPAT(a6) ||
+		    memcmp(b, nat64, 12) == 0)
+			v4addr = b + 12;
+		else if (b[0] == 0x00 && b[1] == 0x64 && b[2] == 0xff && b[3] == 0x9b &&
+		         b[4] == 0x00 && b[5] == 0x01)
+			return FALSE;   /* local-use NAT64: may embed anything */
+		else if (b[0] == 0x20 && b[1] == 0x02)
+			v4addr = b + 2;
+		if (v4addr != NULL) {
+			struct sockaddr_in v4;
+
+			memset(&v4, 0, sizeof(v4));
+			v4.sin_family = AF_INET;
+			memcpy(&v4.sin_addr, v4addr, 4);
+			return address_is_public((struct sockaddr *)&v4);
+		}
+		return !(IN6_IS_ADDR_UNSPECIFIED(a6) || IN6_IS_ADDR_LOOPBACK(a6) ||
+		         (b[0] & 0xFE) == 0xFC ||                   /* fc00::/7 ULA */
+		         (b[0] == 0xFE && (b[1] & 0xC0) == 0x80) || /* fe80::/10 */
+		         (b[0] == 0xFE && (b[1] & 0xC0) == 0xC0) || /* fec0::/10 site-local */
+		         b[0] == 0xFF);                             /* multicast */
+	}
+	return FALSE;
+}
+
+static curl_socket_t open_public_socket(void *clientp, curlsocktype purpose,
+                                        struct curl_sockaddr *address)
+{
+	if (!address_is_public(&address->addr)) {
+		image_preview_debug_print("FETCH: refusing to connect to a local address");
+		return CURL_SOCKET_BAD;
+	}
+	return socket(address->family, address->socktype, address->protocol);
+}
+
+/* Options for every request: web only, public addresses, size and speed
+ * limits */
+static void set_safe_options(CURL *curl)
+{
+#if LIBCURL_VERSION_NUM >= 0x075500
+	curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
+	curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+	curl_easy_setopt(curl, CURLOPT_PROTOCOLS, (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+	curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
+	curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, open_public_socket);
+	/* direct connections only: through http(s)_proxy the check above would
+	 * see the proxy, not the server, and the proxy would reach the LAN */
+	curl_easy_setopt(curl, CURLOPT_PROXY, "");
+	curl_easy_setopt(curl, CURLOPT_MAXFILESIZE_LARGE,
+	                 (curl_off_t)settings_get_int(IMAGE_PREVIEW_MAX_FILE_SIZE) * 1024 * 1024);
+	/* a server sending 1 KB/s must not hold the download for a minute */
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1024L);
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 15L);
+}
+
 /* Track bytes written for debug */
 static gint64 total_bytes_written = 0;
 
@@ -203,6 +290,15 @@ static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *userdat
 
 	if (fetch->fp == NULL) {
 		image_preview_debug_print("FETCH: write_callback fp is NULL!");
+		return 0;
+	}
+
+	/* Content-Length can be missing or wrong (chunked, compressed): count
+	 * what really arrives */
+	if (fetch->received_bytes + (gint64)total >
+	    (gint64)settings_get_int(IMAGE_PREVIEW_MAX_FILE_SIZE) * 1024 * 1024) {
+		image_preview_debug_print("FETCH: image larger than image_preview_max_file_size, cancelling");
+		fetch->cancelled = TRUE;
 		return 0;
 	}
 
@@ -879,6 +975,7 @@ static void image_fetch_start_stage2(IMAGE_FETCH_REC *fetch, const char *og_imag
 	/* Reconfigure curl for image fetch */
 	curl_easy_reset(fetch->curl_handle);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_URL, og_image_url);
+	set_safe_options(fetch->curl_handle);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_WRITEDATA, fetch);
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_HEADERFUNCTION, header_callback);
@@ -1003,6 +1100,7 @@ gboolean image_fetch_start(const char *url, const char *cache_path,
 
 	/* Configure curl */
 	curl_easy_setopt(fetch->curl_handle, CURLOPT_URL, url);
+	set_safe_options(fetch->curl_handle);
 	if (is_page_url) {
 		curl_easy_setopt(fetch->curl_handle, CURLOPT_WRITEFUNCTION, write_callback_html);
 	} else {

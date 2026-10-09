@@ -1,0 +1,75 @@
+
+%9Syntax:%9
+
+@SYNTAX:image@
+
+%9Parameters:%9
+
+    ON:         Enables image preview (sets image_preview ON).
+    OFF:        Disables image preview, cancels running downloads and
+                forgets the previews of all lines.
+    CLEAR:      Deletes the cached images and forgets the previews of all
+                lines.
+    STATS:      Displays the cache directory, the number of cached files,
+                their total size, and the cache hits and misses.
+
+    Without any parameter, a short usage text is displayed.
+
+%9Description:%9
+
+    Controls the image preview, which shows a picture linked in a line in a
+    popup drawn inside the terminal. It is available when erssi is built with
+    image preview support (libcurl and chafa).
+
+    Click a line with the left mouse button to preview an image link in it.
+    Recognised links are http and https URLs ending in .jpg, .jpeg, .png,
+    .gif or .webp, i.imgur.com and i.ibb.co links, and imgur.com, ibb.co and
+    kermit.pw pages, whose image is taken from the page. The image is
+    downloaded in the background and shown when it is ready; a click or
+    most key presses close the popup.
+
+    A link is someone else's URL, so it may only lead to a public web
+    server over http or https: addresses of this host and of local
+    networks are refused, also after a redirect. A download stops at
+    image_preview_max_file_size even when the server does not announce the
+    size, or sends less than 1 KB/s for 15 seconds. Images larger than 8192
+    pixels on a side or 40 megapixels are not shown.
+
+    Downloaded images are kept in the image_cache directory inside the
+    configuration directory. The file of a shown image is deleted again 30
+    seconds after it was displayed, and files older than 7 days are removed.
+
+    Settings:
+
+        image_preview (default: ON)
+            Enables the preview.
+        image_preview_blitter (default: auto)
+            How the image is drawn: kitty, iterm2, sixel or symbols (text
+            characters). 'auto' detects the terminal, also through tmux.
+        image_preview_max_width, image_preview_max_height (default: 0)
+            The largest popup size in columns and lines; 0 uses 80%% of the
+            window.
+        image_preview_max_bytes (default: 2000000)
+            The largest size of the drawn image data; larger images are
+            scaled down.
+        image_preview_max_file_size (default: 10)
+            The largest image to download, in megabytes.
+        image_preview_timeout (default: 60s)
+            The time limit of a download.
+        image_preview_cache_size (default: 100M)
+            The intended largest size of the cache. Going over it only
+            logs a warning; no files are removed for it.
+        image_preview_debug (default: OFF)
+            Writes a debug log, including every clicked URL, to
+            image-preview-debug.log in the configuration directory.
+
+%9Examples:%9
+
+    /IMAGE ON
+    /IMAGE STATS
+    /IMAGE CLEAR
+    /SET image_preview_blitter sixel
+    /SET image_preview_max_file_size 5
+
+%9See also:%9 SET
+

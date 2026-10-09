@@ -123,7 +123,6 @@ char *recode_in(const SERVER_REC *server, const char *str, const char *target)
 	/* Don't use TRANSLIT when both terminal and string are UTF-8
 	 * and no specific conversion is configured - preserves emoji variation selectors */
 	if (from == NULL && term_is_utf8 && str_is_utf8) {
-		g_debug("recode_in: UTF-8 bypass for: %s", str);
 		return g_strdup(str);
 	}
 
@@ -190,7 +189,6 @@ char *recode_out(const SERVER_REC *server, const char *str, const char *target)
 	} else if (term_is_utf8 && str_is_utf8) {
 		/* When no specific charset conversion is configured and both terminal
 		 * and string are UTF-8, don't do any conversion to preserve emoji */
-		g_debug("recode_out: UTF-8 bypass for: %s", str);
 		recoded = g_strdup(str);
 	}
 	g_free(translit_to);
