@@ -372,7 +372,9 @@ char *textbuffer_line_get_text(TEXT_BUFFER_REC *buffer, LINE_REC *line, gboolean
 		if (format_rec->format != NULL) {
 			char *arglist[MAX_FORMAT_PARAMS] = { 0 };
 			formatnum = format_find_tag(format_rec->module, format_rec->format);
-			memcpy(arglist, format_rec->args, format_rec->nargs * sizeof(char *));
+			/* a format without arguments (e.g. the banner) has args NULL */
+			if (format_rec->nargs > 0)
+				memcpy(arglist, format_rec->args, format_rec->nargs * sizeof(char *));
 			text = format_get_text_theme_charargs(theme, format_rec->module, &dest,
 			                                      formatnum, arglist);
 			if (text == NULL) {

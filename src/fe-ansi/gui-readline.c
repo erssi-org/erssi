@@ -872,15 +872,28 @@ static void key_append_next_kill(void)
 	active_entry->append_next_kill = TRUE;
 }
 
+static void smart_flush(GString *accum)
+{
+	if (accum->len > 0) {
+		gui_entry_insert_text(active_entry, accum->str);
+		g_string_truncate(accum, 0);
+	}
+}
+
+/* Several characters read at once (fast typing over ssh, a short paste the
+ * paste detection let through). A grapheme cluster of more than one code
+ * point (emoji with skin tone or ZWJ, a letter with a combining mark) is
+ * inserted whole, so it is never split. Every single code point goes through
+ * "gui key pressed" like irssi does, so key bindings and scripts that watch
+ * keys (spell checkers, history search) see it. Inserting everything as text
+ * hid all of those keys from scripts. Returns FALSE when the buffer has no
+ * multi code point cluster - the caller then handles it key by key. */
 static gboolean process_input_smart(GArray *input_buffer)
 {
-	int pos, cluster_end;
+	int pos, cluster_end, len;
 	unichar *data;
-	char *utf8_cluster;
-	glong items_read, items_written;
-	GError *error;
 	int i;
-	gboolean has_control_chars;
+	gboolean has_cluster;
 	GString *accum;
 
 	if (!input_buffer || input_buffer->len == 0 || !active_entry || !active_entry->utf8) {
@@ -888,66 +901,56 @@ static gboolean process_input_smart(GArray *input_buffer)
 	}
 
 	data = (unichar*)input_buffer->data;
-	has_control_chars = FALSE;
-	error = NULL;
 
-	/* Check if buffer contains control characters (arrows, enter, etc.) */
+	/* Control characters (arrows, enter, ...) - the legacy path handles them */
 	for (i = 0; i < input_buffer->len; i++) {
 		if (data[i] < 32 || data[i] == 127) {
-			has_control_chars = TRUE;
+			return FALSE;
+		}
+	}
+
+	has_cluster = FALSE;
+	for (pos = 0; pos < input_buffer->len; pos = cluster_end) {
+		cluster_end = pos;
+		unichar_array_advance_cluster(data, input_buffer->len, &cluster_end);
+		if (cluster_end <= pos)
+			cluster_end = pos + 1;
+		if (cluster_end - pos > 1) {
+			has_cluster = TRUE;
 			break;
 		}
 	}
-
-	/* If we have control characters, don't process - let legacy system handle */
-	if (has_control_chars) {
+	if (!has_cluster)
 		return FALSE;
-	}
 
-	pos = 0;
 	accum = g_string_new(NULL);
-
-	/* Process input buffer as grapheme clusters, but insert once */
-	while (pos < input_buffer->len) {
+	len = input_buffer->len;
+	pos = 0;
+	while (pos < len) {
 		cluster_end = pos;
-
-		/* Advance to end of current grapheme cluster */
-		unichar_array_advance_cluster(data, input_buffer->len, &cluster_end);
-
-		/* If no advancement, move single character to avoid infinite loop */
-		if (cluster_end == pos) {
+		unichar_array_advance_cluster(data, len, &cluster_end);
+		if (cluster_end <= pos)
 			cluster_end = pos + 1;
-		}
 
-		/* Convert cluster to UTF-8 and append to accumulator */
-		utf8_cluster = g_ucs4_to_utf8(&data[pos], cluster_end - pos,
-		                              &items_read, &items_written, &error);
+		if (cluster_end - pos == 1) {
+			unichar key = data[pos];
 
-		if (error == NULL && utf8_cluster && items_written > 0) {
-			g_string_append(accum, utf8_cluster);
-			g_free(utf8_cluster);
+			smart_flush(accum);
+			signal_emit("gui key pressed", 1, GINT_TO_POINTER(key));
+			/* a key handler may have changed the buffer (paste
+			 * bindings, scripts) - stop rather than read stale data */
+			if (input_buffer->len != len || (unichar *) input_buffer->data != data)
+				break;
 		} else {
-			/* Fallback: append individual printable characters */
 			for (i = pos; i < cluster_end; i++) {
-				if (data[i] >= 32) {
-					char out[10];
-					out[g_unichar_to_utf8(data[i], out)] = '\0';
-					g_string_append(accum, out);
-				}
-			}
-			if (error) {
-				g_error_free(error);
-				error = NULL;
+				char out[7];
+				out[g_unichar_to_utf8(data[i], out)] = '\0';
+				g_string_append(accum, out);
 			}
 		}
-
 		pos = cluster_end;
 	}
-
-	if (accum->len > 0) {
-		/* Insert entire paste as a single text update to mirror history behavior */
-		gui_entry_insert_text(active_entry, accum->str);
-	}
+	smart_flush(accum);
 	g_string_free(accum, TRUE);
 
 	return TRUE;

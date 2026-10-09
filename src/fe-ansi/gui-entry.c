@@ -422,6 +422,14 @@ static void gui_entry_draw_from(GUI_ENTRY_REC *entry, int pos)
 
 		if (entry->hidden) {
                         g_string_append_c(str, ' ');
+		} else if (!unichar_isprint(c) && c != 0) {
+			/* a control character (^B bold, ^C colour, ...): one
+			 * reversed letter, as the cursor position counts it */
+			g_string_append_c(str, 4);
+			g_string_append_c(str, FORMAT_STYLE_REVERSE);
+			g_string_append_c(str, (c & 127)+'A'-1);
+			g_string_append_c(str, 4);
+			g_string_append_c(str, FORMAT_STYLE_REVERSE);
 		} else if (entry->utf8 && cluster_start != i) {
 			/* Render entire grapheme cluster for UTF-8 */
 			for (int j = cluster_start; j < i; j++) {

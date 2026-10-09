@@ -148,6 +148,7 @@ static void dirty_check(void)
 
 		mainwindows_redraw();
 		resize_debug_log("DIRTY_CHECK", "mainwindows_redraw() done");
+		sidepanels_invalidate_caches(); /* the screen under them was cleared */
 		redraw_both_panels_only("screen_clear"); /* Redraw only sidepanels after full screen clear */
 		resize_debug_log("DIRTY_CHECK", "redraw_both_panels_only() done");
 		statusbar_redraw(NULL, TRUE);

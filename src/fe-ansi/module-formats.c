@@ -129,6 +129,7 @@ FORMAT_REC gui_text_formats[] = {
 	{ "sidepanel_nick_halfop_status", "%G$0%N%g$1%N", 2, { 0, 0 } },
 	{ "sidepanel_nick_voice_status", "%C$0%N%c$1%N", 2, { 0, 0 } },
 	{ "sidepanel_nick_normal_status", "%w$0%N%w$1%N", 2, { 0, 0 } },
+	{ "sidepanel_scroll_arrow", "%Y$0%N", 1, { 0 } },
 
 	{ NULL, NULL, 0 }
 	/* clang-format on */

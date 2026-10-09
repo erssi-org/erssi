@@ -1,0 +1,18 @@
+
+%9Syntax:%9
+
+@SYNTAX:redraw@
+
+%9Description:%9
+
+    Redraws the whole screen. This is useful when the display got garbled,
+    for example by output written to the terminal by another program.
+
+    The same is done by the refresh_screen key, bound to Ctrl-L by default.
+
+%9Examples:%9
+
+    /REDRAW
+
+%9See also:%9 BIND, RESIZE, SCROLLBACK
+

@@ -25,6 +25,7 @@
 #include <irssi/src/fe-ansi/mainwindows.h>
 #include <irssi/src/fe-ansi/sidepanels.h>
 #include <irssi/src/fe-ansi/sidepanels-render.h>
+#include <irssi/src/fe-ansi/sidepanels-text.h>
 #include <irssi/src/fe-ansi/sidepanels-activity.h>
 #include <irssi/src/core/servers.h>
 #include <irssi/src/core/channels.h>
@@ -45,10 +46,6 @@
 #include <stdlib.h>
 
 /* SP_MAINWIN_CTX is now defined in sidepanels-types.h */
-
-/* Color attribute masks from textbuffer-view.c */
-#define FGATTR (ATTR_NOCOLORS | ATTR_RESETFG | FG_MASK | ATTR_FGCOLOR24)
-#define BGATTR (ATTR_NOCOLORS | ATTR_RESETBG | BG_MASK | ATTR_BGCOLOR24)
 
 /* Redraw batching system to prevent excessive redraws during mass events */
 gboolean redraw_pending = FALSE;
@@ -182,24 +179,6 @@ static gboolean sp_cache_needs_full_redraw(SP_PANEL_CACHE *cache, int height,
 	return FALSE;
 }
 
-/* UTF-8 character reading function based on textbuffer-view.c */
-static inline unichar read_unichar(const unsigned char *data, const unsigned char **next,
-                                   int *width)
-{
-	unichar chr = g_utf8_get_char_validated((const char *) data, -1);
-	if (chr & 0x80000000) {
-		chr = 0xfffd; /* replacement character for invalid UTF-8 */
-		*next = data + 1;
-		*width = 1;
-	} else {
-		/* Use string_advance for proper grapheme cluster handling */
-		char const *str_ptr = (char const *)data;
-		*width = string_advance(&str_ptr, TREAT_STRING_AS_UTF8);
-		*next = (unsigned char *)str_ptr;
-	}
-	return chr;
-}
-
 void clear_window_full(TERM_WINDOW *tw, int width, int height)
 {
 	int y;
@@ -232,169 +211,73 @@ void draw_border_vertical(TERM_WINDOW *tw, int width, int height, int right_bord
 	term_set_color(tw, ATTR_RESET);
 }
 
-/* 24-bit color handling function from textbuffer-view.c */
-static void unformat_24bit_line_color(const unsigned char **ptr, int off, int *flags, unsigned int *fg, unsigned int *bg)
+typedef struct {
+	TERM_WINDOW *tw;
+	int x, y;
+	int max_width;
+	int col;
+	int last_color;
+	unsigned int last_fg24, last_bg24;
+} SP_DRAW_REC;
+
+static gboolean draw_formatted_char(unichar chr, int width, int color, unsigned int fg24,
+                                    unsigned int bg24, void *data)
 {
-	unsigned int color;
-	unsigned char rgbx[4];
-	unsigned int i;
-	for (i = 0; i < 4; ++i) {
-		if ((*ptr)[i + off] == '\0')
-			return;
-		rgbx[i] = (*ptr)[i + off];
+	SP_DRAW_REC *rec = data;
+
+	if (color != rec->last_color || fg24 != rec->last_fg24 || bg24 != rec->last_bg24) {
+		term_set_color2(rec->tw, color, fg24, bg24);
+		rec->last_color = color;
+		rec->last_fg24 = fg24;
+		rec->last_bg24 = bg24;
 	}
-	rgbx[3] -= 0x20;
-	*ptr += 4;
-	for (i = 0; i < 3; ++i) {
-		if (rgbx[3] & (0x10 << i))
-			rgbx[i] -= 0x20;
+
+	/* The theme may add characters around the (already truncated) name,
+	 * so clip to max_width here and end with an ellipsis instead of
+	 * letting the panel border cut a word in half. */
+	if (rec->max_width > 0 && rec->col + width > rec->max_width) {
+		term_move(rec->tw, rec->x + rec->max_width - 1, rec->y);
+		term_addstr(rec->tw, sidepanel_ellipsis());
+		return FALSE;
 	}
-	color = rgbx[0] << 16 | rgbx[1] << 8 | rgbx[2];
-	if (rgbx[3] & 0x1) {
-		*flags = (*flags & FGATTR) | ATTR_BGCOLOR24;
-		*bg = color;
-	}
-	else {
-		*flags = (*flags & BGATTR) | ATTR_FGCOLOR24;
-		*fg = color;
-	}
+	term_add_unichar(rec->tw, chr);
+	rec->col += width;
+	return TRUE;
 }
 
-/* Format processing function for color codes - exact copy from textbuffer-view.c */
-static inline void unformat(const unsigned char **ptr, int *color, unsigned int *fg24,
-                            unsigned int *bg24)
+/* Draw the output of format_get_text_theme*() - already expanded, it is
+ * not passed through format_string_expand() again (see
+ * sidepanel_text_walk()). */
+static void draw_formatted(TERM_WINDOW *tw, int x, int y, const char *text, int max_width)
 {
-	switch (**ptr) {
-	case FORMAT_STYLE_BLINK:
-		*color ^= ATTR_BLINK;
-		break;
-	case FORMAT_STYLE_UNDERLINE:
-		*color ^= ATTR_UNDERLINE;
-		break;
-	case FORMAT_STYLE_BOLD:
-		*color ^= ATTR_BOLD;
-		break;
-	case FORMAT_STYLE_REVERSE:
-		*color ^= ATTR_REVERSE;
-		break;
-	case FORMAT_STYLE_ITALIC:
-		*color ^= ATTR_ITALIC;
-		break;
-	case FORMAT_STYLE_MONOSPACE:
-		/* *color ^= ATTR_MONOSPACE; */
-		break;
-	case FORMAT_STYLE_DEFAULTS:
-		*color = ATTR_RESET;
-		break;
-	case FORMAT_STYLE_CLRTOEOL:
-		break;
-#define SET_COLOR_EXT_FG_BITS(base, pc)                                                            \
-	*color &= ~ATTR_FGCOLOR24;                                                                 \
-	*color = (*color & BGATTR) | (base + *pc - FORMAT_COLOR_NOCHANGE)
-#define SET_COLOR_EXT_BG_BITS(base, pc)                                                            \
-	*color &= ~ATTR_BGCOLOR24;                                                                 \
-	*color = (*color & FGATTR) | ((base + *pc - FORMAT_COLOR_NOCHANGE) << BG_SHIFT)
-	case FORMAT_COLOR_EXT1:
-		SET_COLOR_EXT_FG_BITS(0x10, ++*ptr);
-		break;
-	case FORMAT_COLOR_EXT1_BG:
-		SET_COLOR_EXT_BG_BITS(0x10, ++*ptr);
-		break;
-	case FORMAT_COLOR_EXT2:
-		SET_COLOR_EXT_FG_BITS(0x60, ++*ptr);
-		break;
-	case FORMAT_COLOR_EXT2_BG:
-		SET_COLOR_EXT_BG_BITS(0x60, ++*ptr);
-		break;
-	case FORMAT_COLOR_EXT3:
-		SET_COLOR_EXT_FG_BITS(0xb0, ++*ptr);
-		break;
-	case FORMAT_COLOR_EXT3_BG:
-		SET_COLOR_EXT_BG_BITS(0xb0, ++*ptr);
-		break;
-#undef SET_COLOR_EXT_BG_BITS
-#undef SET_COLOR_EXT_FG_BITS
-	case FORMAT_COLOR_24:
-		unformat_24bit_line_color(ptr, 1, color, fg24, bg24);
-		break;
-	default:
-		if (**ptr != FORMAT_COLOR_NOCHANGE) {
-			if (**ptr == (unsigned char) 0xff) {
-				*color = (*color & BGATTR) | ATTR_RESETFG;
-			} else {
-				*color = (*color & BGATTR) | (((unsigned char) **ptr - '0') & 0xf);
-			}
-		}
-		if ((*ptr)[1] == '\0')
-			break;
+	SP_DRAW_REC rec;
 
-		(*ptr)++;
-		if (**ptr != FORMAT_COLOR_NOCHANGE) {
-			if (**ptr == (unsigned char) 0xff) {
-				*color = (*color & FGATTR) | ATTR_RESETBG;
-			} else {
-				*color = (*color & FGATTR) |
-				         ((((unsigned char) **ptr - '0') & 0xf) << BG_SHIFT);
-			}
-		}
-	}
-	if (**ptr == '\0')
-		return;
+	term_move(tw, x, y);
+	term_set_color(tw, ATTR_RESET);
 
-	(*ptr)++;
+	rec.tw = tw;
+	rec.x = x;
+	rec.y = y;
+	rec.max_width = max_width;
+	rec.col = 0;
+	rec.last_color = ATTR_RESET;
+	rec.last_fg24 = rec.last_bg24 = UINT_MAX;
+	sidepanel_text_walk(text, draw_formatted_char, &rec);
 }
 
 void draw_str_themed(TERM_WINDOW *tw, int x, int y, WINDOW_REC *wctx, int format_id,
-                            const char *text)
+                            const char *text, int max_width)
 {
 	TEXT_DEST_REC dest;
 	THEME_REC *theme;
-	char *out, *expanded;
-	const unsigned char *ptr;
-	const unsigned char *next_ptr;
-	int color;
-	int char_width;
-	unsigned int fg24, bg24;
-	unichar chr;
+	char *out;
 
 	format_create_dest(&dest, NULL, NULL, 0, wctx);
 	theme = window_get_theme(wctx);
 	out = format_get_text_theme(theme, MODULE_NAME, &dest, format_id, text);
 
 	if (out != NULL && *out != '\0') {
-		/* Convert theme color codes and render with proper color handling */
-		expanded = format_string_expand(out, NULL);
-
-		/* Initialize color state */
-		color = ATTR_RESET;
-		fg24 = bg24 = UINT_MAX;
-		ptr = (const unsigned char *) expanded;
-
-		term_move(tw, x, y);
-		term_set_color(tw, ATTR_RESET);
-
-		/* Process each character with color codes (like textbuffer-view.c) */
-		while (*ptr != '\0') {
-			if (*ptr == 4) {
-				/* Format code - process color change */
-				ptr++;
-				if (*ptr == '\0')
-					break;
-				unformat(&ptr, &color, &fg24, &bg24);
-				term_set_color2(tw, color, fg24, bg24);
-				continue;
-			}
-
-			/* Regular character - read UTF-8 properly */
-			chr = read_unichar(ptr, &next_ptr, &char_width);
-
-			if (unichar_isprint(chr)) {
-				term_add_unichar(tw, chr);
-			}
-			ptr = next_ptr;
-		}
-
-		g_free(expanded);
+		draw_formatted(tw, x, y, out, max_width);
 	} else {
 		/* Fallback: display plain text if theme formatting fails */
 		term_move(tw, x, y);
@@ -426,17 +309,11 @@ void draw_str_themed(TERM_WINDOW *tw, int x, int y, WINDOW_REC *wctx, int format
  * };
  */
 void draw_str_themed_2params(TERM_WINDOW *tw, int x, int y, WINDOW_REC *wctx, int format_id,
-                                    const char *param1, const char *param2)
+                                    const char *param1, const char *param2, int max_width)
 {
 	TEXT_DEST_REC dest;
 	THEME_REC *theme;
-	char *out, *expanded;
-	const unsigned char *ptr;
-	const unsigned char *next_ptr;
-	int color;
-	int char_width;
-	unsigned int fg24, bg24;
-	unichar chr;
+	char *out;
 	char *args[3];
 
 	format_create_dest(&dest, NULL, NULL, 0, wctx);
@@ -450,39 +327,7 @@ void draw_str_themed_2params(TERM_WINDOW *tw, int x, int y, WINDOW_REC *wctx, in
 	out = format_get_text_theme_charargs(theme, MODULE_NAME, &dest, format_id, args);
 
 	if (out != NULL && *out != '\0') {
-		/* Convert theme color codes and render with proper color handling */
-		expanded = format_string_expand(out, NULL);
-
-		/* Initialize color state */
-		color = ATTR_RESET;
-		fg24 = bg24 = UINT_MAX;
-		ptr = (const unsigned char *) expanded;
-
-		term_move(tw, x, y);
-		term_set_color(tw, ATTR_RESET);
-
-		/* Process each character with color codes (like textbuffer-view.c) */
-		while (*ptr != '\0') {
-			if (*ptr == 4) {
-				/* Format code - process color change */
-				ptr++;
-				if (*ptr == '\0')
-					break;
-				unformat(&ptr, &color, &fg24, &bg24);
-				term_set_color2(tw, color, fg24, bg24);
-				continue;
-			}
-
-			/* Regular character - read UTF-8 properly */
-			chr = read_unichar(ptr, &next_ptr, &char_width);
-
-			if (unichar_isprint(chr)) {
-				term_add_unichar(tw, chr);
-			}
-			ptr = next_ptr;
-		}
-
-		g_free(expanded);
+		draw_formatted(tw, x, y, out, max_width);
 	} else {
 		/* Fallback: display plain text if theme formatting fails */
 		term_move(tw, x, y);
@@ -490,6 +335,13 @@ void draw_str_themed_2params(TERM_WINDOW *tw, int x, int y, WINDOW_REC *wctx, in
 		term_addstr(tw, param2 ? param2 : "");
 	}
 	g_free(out);
+}
+
+/* Marker for text cut to fit a panel: a real ellipsis on UTF-8 terminals,
+ * '+' (the classic irssi marker) elsewhere. Both are one column wide. */
+const char *sidepanel_ellipsis(void)
+{
+	return term_type == TERM_TYPE_UTF8 ? "\xe2\x80\xa6" : "+";
 }
 
 char *truncate_nick_for_sidepanel(const char *nick, int max_width)
@@ -527,19 +379,17 @@ char *truncate_nick_for_sidepanel(const char *nick, int max_width)
 			}
 
 			if (p > nick) {
-				/* Create truncated nick with + */
+				/* Truncated nick followed by the ellipsis marker */
 				truncated_len = p - nick;
-				result = g_malloc(truncated_len + 2); /* +1 for +, +1 for \0 */
-				memcpy(result, nick, truncated_len);
-				result[truncated_len] = '+';
-				result[truncated_len + 1] = '\0';
+				result = g_strdup_printf("%.*s%s", truncated_len, nick,
+				                         sidepanel_ellipsis());
 			} else {
-				/* No space for nick, just return + */
-				result = g_strdup("+");
+				/* No space for nick, just the marker */
+				result = g_strdup(sidepanel_ellipsis());
 			}
 		} else {
-			/* max_width is 1, just return + */
-			result = g_strdup("+");
+			/* max_width is 1, just the marker */
+			result = g_strdup(sidepanel_ellipsis());
 		}
 	}
 
@@ -604,6 +454,50 @@ static int get_window_format(WINDOW_REC *win, WINDOW_SORT_REC *sort_rec,
 	return format;
 }
 
+/* A row whose scroll marker is no longer needed is redrawn, which clears
+ * the marker. */
+static void sp_cache_update_markers(SP_PANEL_CACHE *cache, int height,
+                                    gboolean more_above, gboolean more_below)
+{
+	if (cache->marker_above && !more_above)
+		cache->lines[0].valid = FALSE;
+	if (cache->marker_below && !more_below && cache->marker_below_row >= 0 &&
+	    cache->marker_below_row < SP_CACHE_MAX_LINES)
+		cache->lines[cache->marker_below_row].valid = FALSE;
+	cache->marker_above = more_above;
+	cache->marker_below = more_below;
+	cache->marker_below_row = height - 1;
+}
+
+/* Arrows marking more entries above/below the visible part of a panel,
+ * in the theme's sidepanel_scroll_arrow format ($0 is the arrow; the format
+ * must stay one cell wide - colours only, no text around $0) on the
+ * panel background. Returns the number of cells drawn. */
+static int draw_scroll_markers(TERM_WINDOW *tw, WINDOW_REC *wctx, int x, int height,
+                               gboolean more_above, gboolean more_below)
+{
+	/* ASCII outside UTF-8: a non-UTF-8 terminal would get a C1 control
+	 * byte instead of the arrow */
+	gboolean utf8 = term_type == TERM_TYPE_UTF8;
+	int drawn = 0;
+
+	if (x < 0)
+		return 0;
+
+	if (more_above && height > 0) {
+		draw_str_themed(tw, x, 0, wctx, TXT_SIDEPANEL_SCROLL_ARROW,
+		                utf8 ? "\xe2\x86\x91" : "^", 1); /* up arrow */
+		drawn++;
+	}
+	if (more_below && height > 1) {
+		draw_str_themed(tw, x, height - 1, wctx, TXT_SIDEPANEL_SCROLL_ARROW,
+		                utf8 ? "\xe2\x86\x93" : "v", 1); /* down arrow */
+		drawn++;
+	}
+	term_set_color(tw, ATTR_RESET);
+	return drawn;
+}
+
 void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 {
 	TERM_WINDOW *tw;
@@ -630,6 +524,9 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		return;
 
 	height = ctx->left_h;
+	/* the row cache has a fixed size: rows below it stay empty */
+	if (height > SP_CACHE_MAX_LINES)
+		height = SP_CACHE_MAX_LINES;
 	width = ctx->left_w;
 
 	/* Get sorted list using shared function */
@@ -660,6 +557,7 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		ctx->left_cache = sp_cache_create();
 	}
 	cache = ctx->left_cache;
+	sp_cache_update_markers(cache, height, has_more_above, has_more_below);
 
 	/* Check if we need full redraw (dimensions or scroll changed) */
 	full_redraw = sp_cache_needs_full_redraw(cache, height, width, skip);
@@ -717,7 +615,7 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 			/* Draw the new content */
 			draw_str_themed_2params(tw, 0, row, mw->active, format,
-			                        refnum_str, truncated_name);
+			                        refnum_str, truncated_name, width - 1);
 
 			/* Update cache */
 			sp_cache_line_update(&cache->lines[row], truncated_name,
@@ -758,37 +656,9 @@ void draw_left_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 	 * inconsistent UI when auto-hide mode hides the right panel in non-channel windows. */
 	draw_border_vertical(tw, width, height, 1);
 
-	/* Draw scroll indicators (bright cyan = color 6 + bold) */
-	if (has_more_above && height > 0) {
-		/* Show "^" at top-right corner to indicate more content above */
-		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
-		term_move(tw, width - 2, 0);
-		term_addch(tw, '^');
-		lines_changed++;
-	}
-	if (has_more_below && height > 1) {
-		/* Show "v" at bottom-right corner to indicate more content below */
-		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
-		term_move(tw, width - 2, height - 1);
-		term_addch(tw, 'v');
-		lines_changed++;
-	}
-
-	/* Draw scroll indicators (bright cyan = color 6 + bold) */
-	if (has_more_above && height > 0) {
-		/* Show "^" at top-right corner to indicate more content above */
-		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
-		term_move(tw, width - 2, 0);
-		term_addch(tw, '^');
-		lines_changed++;
-	}
-	if (has_more_below && height > 1) {
-		/* Show "v" at bottom-right corner to indicate more content below */
-		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
-		term_move(tw, width - 2, height - 1);
-		term_addch(tw, 'v');
-		lines_changed++;
-	}
+	/* Scroll markers in the column next to the border */
+	lines_changed += draw_scroll_markers(tw, mw->active, width - 2, height, has_more_above,
+	                                     has_more_below);
 
 	/* Only mark dirty if something changed */
 	if (lines_changed > 0) {
@@ -866,6 +736,9 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		return;
 
 	height = ctx->right_h;
+	/* the row cache has a fixed size: rows below it stay empty */
+	if (height > SP_CACHE_MAX_LINES)
+		height = SP_CACHE_MAX_LINES;
 	width = ctx->right_w;
 	aw = mw->active;
 	index = 0;
@@ -930,9 +803,10 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		int format;
 		const char *prefix_str;
 		const char *nick_prefix;
-		/* Calculate available width for nick display */
-		/* Available width = total panel width - 1 (start position) - 1 (status) - 1 (border margin) */
-		int nick_max_width = MAX(1, width - 3);
+		/* Calculate available width for nick display: panel width
+		 * - 1 (start position) - 1 (status) - 1 (themes may put a space
+		 * before the status) - 1 (outer column, for the scroll markers) */
+		int nick_max_width = MAX(1, width - 4);
 
 		/* Safety check for server */
 		if (!server) {
@@ -990,6 +864,7 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 		/* Check if we have more content above/below */
 		has_more_above = (skip > 0);
 		has_more_below = (total_items > skip + height);
+		sp_cache_update_markers(cache, height, has_more_above, has_more_below);
 
 		/* Render sorted nicks with differential rendering */
 		for (cur = sorted_nicks; cur; cur = cur->next) {
@@ -1030,7 +905,7 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 				/* Draw the new content */
 				draw_str_themed_2params(tw, 1, row, mw->active, format,
-				                        prefix_str, truncated_nick);
+				                        prefix_str, truncated_nick, width - 1);
 
 				/* Update cache */
 				sp_cache_line_update(&cache->lines[row], truncated_nick,
@@ -1071,21 +946,11 @@ void draw_right_contents(MAIN_WINDOW_REC *mw, SP_MAINWIN_CTX *ctx)
 
 	draw_border_vertical(tw, width, height, 0);
 
-	/* Draw scroll indicators (bright cyan = color 6 + bold) */
-	if (has_more_above && height > 0) {
-		/* Show "^" at top-left (after border) to indicate more content above */
-		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
-		term_move(tw, 1, 0);
-		term_addch(tw, '^');
-		lines_changed++;
-	}
-	if (has_more_below && height > 1) {
-		/* Show "v" at bottom-left (after border) to indicate more content below */
-		term_set_color(tw, 6 | ATTR_BOLD);  /* Bright cyan */
-		term_move(tw, 1, height - 1);
-		term_addch(tw, 'v');
-		lines_changed++;
-	}
+	/* Scroll markers in the outer (right) column: column 1, right after the
+	 * border, is the nick's mode prefix - a marker there read as part of the
+	 * nick (e.g. "vKnut") */
+	lines_changed += draw_scroll_markers(tw, mw->active, width - 1, height, has_more_above,
+	                                     has_more_below);
 
 	/* Only mark dirty if something changed */
 	if (lines_changed > 0) {
@@ -1229,6 +1094,24 @@ void redraw_left_panels_only(const char *event_name)
 
 	/* Thaw and flush all updates at once */
 	term_refresh_thaw();
+}
+
+/* Forget what the panels drew: after the screen was cleared (full redraw,
+   /REDRAW) the cached lines no longer exist on the terminal, and comparing
+   against them skipped every line - the panels stayed blank, or kept an old
+   line (a nick that had already left). */
+void sidepanels_invalidate_caches(void)
+{
+	GSList *t;
+
+	for (t = mainwindows; t != NULL; t = t->next) {
+		SP_MAINWIN_CTX *ctx = get_ctx(t->data, FALSE);
+
+		if (ctx == NULL)
+			continue;
+		sp_cache_clear(ctx->left_cache);
+		sp_cache_clear(ctx->right_cache);
+	}
 }
 
 void redraw_both_panels_only(const char *event_name)

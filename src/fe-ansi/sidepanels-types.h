@@ -102,6 +102,11 @@ struct _SP_PANEL_CACHE {
 	int panel_height;    /* Cached panel height */
 	int panel_width;     /* Cached panel width */
 	gboolean initialized;
+	/* scroll markers drawn last time, so rows whose marker went away are
+	 * redrawn (the row text itself did not change) */
+	gboolean marker_above;
+	gboolean marker_below;
+	int marker_below_row;
 };
 
 #endif

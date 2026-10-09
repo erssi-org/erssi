@@ -96,6 +96,7 @@ enum {
 #define TXT_SIDEPANEL_NICK_VOICE_STATUS format_find_tag(MODULE_NAME, "sidepanel_nick_voice_status")
 #define TXT_SIDEPANEL_NICK_NORMAL_STATUS                                                           \
 	format_find_tag(MODULE_NAME, "sidepanel_nick_normal_status")
+#define TXT_SIDEPANEL_SCROLL_ARROW format_find_tag(MODULE_NAME, "sidepanel_scroll_arrow")
 
 extern FORMAT_REC gui_text_formats[TXT_COUNT + 1];
 

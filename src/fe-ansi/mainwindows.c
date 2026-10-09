@@ -217,10 +217,15 @@ void mainwindows_recreate(void)
 
 	for (tmp = mainwindows; tmp != NULL; tmp = tmp->next) {
 		MAIN_WINDOW_REC *rec = tmp->data;
+		TERM_WINDOW *old = rec->screen_win;
 
 		rec->screen_win = mainwindow_create_screen(rec);
 		rec->dirty = TRUE;
 		textbuffer_view_set_window(WINDOW_GUI(rec->active)->view, rec->screen_win);
+		/* only the active view used the old one (inactive views have
+		 * none); called at every sidepanel hide, so free it */
+		if (old != NULL)
+			term_window_destroy(old);
 	}
 }
 

@@ -33,7 +33,7 @@ static void get_timestamp(char *buf, size_t len)
 {
 	struct timeval tv;
 	struct tm *tm_info;
-	char time_buf[64];
+	char time_buf[16];  /* "HH:MM:SS" - small enough that the result always fits */
 
 	gettimeofday(&tv, NULL);
 	tm_info = localtime(&tv.tv_sec);

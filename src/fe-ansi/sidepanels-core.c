@@ -420,6 +420,13 @@ static gboolean handle_click_at(int x, int y, int button)
 					if (target_index >= 0 && target_index < count) {
 						NICK_REC *nick = g_slist_nth_data(ctx->right_order,
 						                                  target_index);
+						GSList *current = nicklist_getnicks(ch);
+
+						/* the order is rebuilt a moment after a part or
+						 * quit: the nick may be gone already */
+						if (g_slist_find(current, nick) == NULL)
+							nick = NULL;
+						g_slist_free(current);
 						ctx->right_selected_index = target_index;
 						if (nick && nick->nick)
 							signal_emit("command query", 3, nick->nick,

@@ -9,6 +9,7 @@ test_test_paste_join_multiline = executable('test-paste-join-multiline',
     '../../src/fe-ansi/term-ansi.c',
     '../../src/fe-ansi/sidepanels-core.c',
     '../../src/fe-ansi/sidepanels-render.c',
+    '../../src/fe-ansi/sidepanels-text.c',
     '../../src/fe-ansi/sidepanels-activity.c',
     '../../src/fe-ansi/sidepanels-signals.c',
     '../../src/fe-ansi/sidepanels-layout.c',
@@ -33,5 +34,27 @@ test_test_paste_join_multiline = executable('test-paste-join-multiline',
 )
 
 test('test-paste-join-multiline test', test_test_paste_join_multiline,
+  args : ['--tap'],
+  protocol : 'tap')
+
+test_test_sidepanel_text = executable('test-sidepanel-text',
+  files(
+    '../../src/fe-ansi/sidepanels-text.c',
+    'test-sidepanel-text.c',
+  ),
+  link_with : [
+    libconfig_a,
+    libcore_a,
+    libfe_common_core_a,
+  ],
+  c_args : [
+    '-D' + 'PACKAGE_STRING' + '="' + 'fe-ansi' + '"',
+  ],
+  include_directories : rootinc,
+  implicit_include_directories : false,
+  dependencies : dep,
+)
+
+test('test-sidepanel-text test', test_test_sidepanel_text,
   args : ['--tap'],
   protocol : 'tap')

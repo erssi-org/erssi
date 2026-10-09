@@ -61,13 +61,14 @@ static WINDOW_REC *find_server_separator_window(const char *server_tag)
 		
 	for (tmp = windows; tmp != NULL; tmp = tmp->next) {
 		WINDOW_REC *win = tmp->data;
-		const char *win_name = window_get_active_name(win);
-		
-		/* Check if this is a server separator window:
-		 * - Has server tag but no active channel/query
-		 * - Window name matches server tag */
-		if (win->servertag && g_ascii_strcasecmp(win->servertag, server_tag) == 0 && 
-		    !win->active && win_name && g_ascii_strcasecmp(win_name, server_tag) == 0) {
+
+		/* A server separator window: the window itself is named after the
+		 * server tag and is sticky to that server. Its items do not matter -
+		 * a script may keep one there (e.g. a query); judging
+		 * by the active item's name created a second network window on every
+		 * reconnect. */
+		if (win->servertag != NULL && g_ascii_strcasecmp(win->servertag, server_tag) == 0 &&
+		    win->name != NULL && g_ascii_strcasecmp(win->name, server_tag) == 0) {
 			return win;
 		}
 	}
@@ -81,19 +82,43 @@ void initialize_notices_window(void)
 	
 	sp_logf("AUTO-SEPARATOR: Initializing Notices window programmatically");
 	
-	/* Get window 1 - it should already exist */
-	window1 = window_find_refnum(1);
+	/* Pick the Notices window without clobbering anyone else's window.
+	 * Scripts loaded at startup (e.g. a "Mentions" or "hilight" window)
+	 * may already sit at refnum 1 after sidepanel sorting; renaming it
+	 * would silently destroy that window's identity. Order:
+	 *   1. an existing window already named "Notices",
+	 *   2. the startup window wherever sorting put it: lowest refnum that is
+	 *      unnamed or the irssi status window "(status)" and holds no
+	 *      channel/query,
+	 *   3. a new window - sidepanel sorting moves "Notices" to the top. */
+	window1 = window_find_name("Notices");
+	if (window1 == NULL) {
+		GSList *tmp;
+
+		for (tmp = windows; tmp != NULL; tmp = tmp->next) {
+			WINDOW_REC *win = tmp->data;
+			gboolean unnamed = win->name == NULL || *win->name == '\0' ||
+			                   g_strcmp0(win->name, "(status)") == 0;
+
+			if (unnamed && win->items == NULL &&
+			    (window1 == NULL || win->refnum < window1->refnum))
+				window1 = win;
+		}
+	}
+	if (window1 == NULL) {
+		sp_logf("AUTO-SEPARATOR: no free startup window - creating a separate Notices window");
+		window1 = window_create(NULL, TRUE);
+	}
 	if (!window1) {
-		sp_logf("AUTO-SEPARATOR: Window 1 not found - this should not happen");
+		sp_logf("AUTO-SEPARATOR: no window available for Notices");
 		return;
 	}
-	
-	sp_logf("AUTO-SEPARATOR: Setting up window 1 as Notices window using direct functions");
-	
+
+	sp_logf("AUTO-SEPARATOR: Setting up window %d as Notices window", window1->refnum);
+
 	/* Set window name */
-	if (window1->name)
-		g_free(window1->name);
-	window1->name = g_strdup("Notices");
+	if (window1->name == NULL || g_strcmp0(window1->name, "Notices") != 0)
+		window_set_name(window1, "Notices");
 	
 	/* Set level to NOTICES + client messages (help, errors, command output) */
 	window_set_level(window1, MSGLEVEL_NOTICES | MSGLEVEL_CLIENTNOTICE | MSGLEVEL_CLIENTCRAP | MSGLEVEL_CLIENTERROR);
@@ -113,36 +138,79 @@ void initialize_notices_window(void)
 	        window1->immortal ? "yes" : "no");
 }
 
-/* Helper function to create server separator window */
+/* A window named after the network may become the network window when it
+ * is empty or already was that network's window */
+static gboolean network_window_ok(WINDOW_REC *window, const char *server_tag)
+{
+	return window->items == NULL ||
+	       (window->servertag != NULL && g_ascii_strcasecmp(window->servertag, server_tag) == 0);
+}
+
+static WINDOW_REC *find_unnamed_network_window(const char *server_tag)
+{
+	GSList *tmp;
+
+	for (tmp = windows; tmp != NULL; tmp = tmp->next) {
+		WINDOW_REC *rec = tmp->data;
+
+		if ((rec->name == NULL || *rec->name == '\0') && rec->items == NULL &&
+		    rec->servertag != NULL && g_ascii_strcasecmp(rec->servertag, server_tag) == 0)
+			return rec;
+	}
+	return NULL;
+}
+
+static WINDOW_REC *create_network_window(const char *name)
+{
+	WINDOW_REC *window;
+
+	/* the same as /WINDOW NEW HIDE */
+	signal_emit("gui window create override", 1, GINT_TO_POINTER(MAIN_WINDOW_TYPE_HIDDEN));
+	window = window_create(NULL, FALSE);
+	if (name != NULL)
+		window_set_name(window, name);
+	return window;
+}
+
+/* Helper function to create server separator window.
+   Through the window API, not /WINDOW commands: each of those printed a
+   line into the new window at every connect ("Window level is now ...",
+   "Window's server set sticky", "Changed to ... server"). */
 static void create_server_separator_window(const char *server_tag)
 {
-	char *cmd;
-	
+	SERVER_REC *server;
+	WINDOW_REC *window;
+
 	if (!server_tag)
 		return;
-	
+
+	server = server_find_tag(server_tag);
+	if (server == NULL)
+		return;
+
 	sp_logf("AUTO-SEPARATOR: Creating separator window for server '%s'", server_tag);
-	
-	/* Execute commands separately - irssi needs individual commands */
-	
-	/* 1. Create new hidden window */
-	signal_emit("send command", 3, "/WINDOW NEW HIDE", NULL, NULL);
-	
-	/* 2. Set window name */
-	cmd = g_strdup_printf("/WINDOW NAME %s", server_tag);
-	sp_logf("AUTO-SEPARATOR: Executing: %s", cmd);
-	signal_emit("send command", 3, cmd, NULL, NULL);
-	g_free(cmd);
-	
-	/* 3. Set window level - ALL except client messages and notices (those go to Notices window) */
-	signal_emit("send command", 3, "/WINDOW LEVEL ALL -NOTICES -CLIENTNOTICE -CLIENTCRAP -CLIENTERROR", NULL, NULL);
-	
-	/* 4. Set server sticky */
-	cmd = g_strdup_printf("/WINDOW SERVER -sticky %s", server_tag);
-	sp_logf("AUTO-SEPARATOR: Executing: %s", cmd);
-	signal_emit("send command", 3, cmd, NULL, NULL);
-	g_free(cmd);
-	
+
+	/* A window already named after the network (e.g. it lost its sticky
+	 * server) becomes the network window again - window names are unique,
+	 * and a new unnamed window would never be found at the next connect. */
+	window = window_find_name(server_tag);
+	if (window != NULL && !network_window_ok(window, server_tag)) {
+		/* the user's own window that only shares the name (it has
+		 * channels or queries of something else): leave it alone and
+		 * use an unnamed network window, found by its server tag */
+		window = find_unnamed_network_window(server_tag);
+		if (window == NULL)
+			window = create_network_window(NULL);
+	} else if (window == NULL) {
+		window = create_network_window(server_tag);
+	}
+	window_change_server(window, server);
+	/* everything except client messages and notices (the Notices window has those) */
+	window_set_level(window, MSGLEVEL_ALL & ~(MSGLEVEL_NOTICES | MSGLEVEL_CLIENTNOTICE |
+	                                          MSGLEVEL_CLIENTCRAP | MSGLEVEL_CLIENTERROR));
+	g_free(window->servertag);
+	window->servertag = g_strdup(server->tag);
+
 	sp_logf("AUTO-SEPARATOR: Separator window creation completed for '%s'", server_tag);
 }
 
@@ -322,14 +390,38 @@ void sig_message_part(SERVER_REC *server, const char *channel, const char *nick,
 	schedule_batched_redraw("message_part"); /* Part affects both activity (left) and nicklist (right) */
 }
 
+/* TRUE if one of the window's channels has the nick, or it is a query
+ * with that nick: a quit or nick change marks only those windows, not
+ * every window of the network. */
+static gboolean window_has_nick(WINDOW_REC *window, SERVER_REC *server,
+                                const char *nick, const char *other_nick)
+{
+	GSList *tmp;
+
+	for (tmp = window->items; tmp != NULL; tmp = tmp->next) {
+		WI_ITEM_REC *item = tmp->data;
+
+		if (item->server != server)
+			continue;
+		if (IS_CHANNEL(item) && nicklist_find(CHANNEL(item), nick) != NULL)
+			return TRUE;
+		if (IS_QUERY(item) &&
+		    (g_ascii_strcasecmp(item->visible_name, nick) == 0 ||
+		     (other_nick != NULL && g_ascii_strcasecmp(item->visible_name, other_nick) == 0)))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 void sig_message_quit(SERVER_REC *server, const char *nick, const char *address,
                              const char *reason)
 {
-	/* Handle quit for all windows where this nick was present */
+	/* Handle quit for all windows where this nick was present (the nick
+	 * is still in the nick lists when "message quit" is sent) */
 	GSList *tmp;
 	for (tmp = windows; tmp != NULL; tmp = tmp->next) {
 		WINDOW_REC *window = tmp->data;
-		if (window->active && window->active->server == server) {
+		if (window_has_nick(window, server, nick, NULL)) {
 			handle_new_activity(window, DATA_LEVEL_EVENT);
 		}
 	}
@@ -339,11 +431,12 @@ void sig_message_quit(SERVER_REC *server, const char *nick, const char *address,
 void sig_message_nick(SERVER_REC *server, const char *newnick, const char *oldnick,
                              const char *address)
 {
-	/* Handle nick change for all windows on this server */
+	/* Handle nick change for the windows where the nick is (the nick
+	 * lists already have the new nick, a query may still have the old) */
 	GSList *tmp;
 	for (tmp = windows; tmp != NULL; tmp = tmp->next) {
 		WINDOW_REC *window = tmp->data;
-		if (window->active && window->active->server == server) {
+		if (window_has_nick(window, server, newnick, oldnick)) {
 			handle_new_activity(window, DATA_LEVEL_EVENT);
 		}
 	}

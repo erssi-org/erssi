@@ -277,6 +277,28 @@ abstracts = {
   sbaway = " (%Z9ece6azZzZ%N)";
   sbnickmode = "$0";
 
+  # contents of the statusbar items of the default config (they hold no
+  # colours themselves, so every theme can restyle them):
+  #   sb_time          the clock ($Z)
+  #   sb_nick          your nick with its channel mode, e.g. @nick
+  #   sb_item          the window item, #channel or query nick
+  #   sb_mode          user and channel modes, $* is "+" and the modes
+  #   sb_lag           the lag item, $* is the lag in seconds
+  #   sb_act           the activity item, $* is the window list
+  #   sb_more          the "more" marker of a scrolled-up window
+  #   sb_prompt        the input prompt, $0 server tag, $1- window item
+  #   sb_prompt_empty  the prompt without an item, $0 window number,
+  #                    $1 window name
+  sb_time = "%Z6e738d$*%N";
+  sb_nick = "%Z7aa2f7$*";
+  sb_item = "%Z7aa2f7$*";
+  sb_mode = "%Z565f89(%Z7aa2f7$*%Z565f89)%N";
+  sb_lag = "%Z565f89Lag:%N %Za9b1d6$*%N";
+  sb_act = "%Z565f89Act:%N $*";
+  sb_more = "%Z565f89-- %Za9b1d6more %Z565f89--";
+  sb_prompt = "%Z565f89[%Z7aa2f7$0%Z565f89❱%N $1-%Z565f89]%N ";
+  sb_prompt_empty = "%Z565f89[%Z7aa2f7$1%Z565f89]%N ";
+
   # activity in statusbar
 
   # muted separator

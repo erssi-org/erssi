@@ -40,11 +40,13 @@ void clear_window_full(TERM_WINDOW *tw, int width, int height);
 void draw_border_vertical(TERM_WINDOW *tw, int width, int height, int right_border);
 
 /* Theme-based drawing functions */
-void draw_str_themed(TERM_WINDOW *tw, int x, int y, WINDOW_REC *wctx, int format_id, const char *text);
+void draw_str_themed(TERM_WINDOW *tw, int x, int y, WINDOW_REC *wctx, int format_id, const char *text,
+                     int max_width);
 void draw_str_themed_2params(TERM_WINDOW *tw, int x, int y, WINDOW_REC *wctx, int format_id, 
-                            const char *param1, const char *param2);
+                            const char *param1, const char *param2, int max_width);
 
 /* Nick formatting */
+const char *sidepanel_ellipsis(void);
 char *truncate_nick_for_sidepanel(const char *nick, int max_width);
 
 /* Panel content drawing */
@@ -57,6 +59,7 @@ void redraw_all(void);
 void redraw_right_panels_only(const char *event_name);
 void redraw_left_panels_only(const char *event_name);
 void redraw_both_panels_only(const char *event_name);
+void sidepanels_invalidate_caches(void);
 
 /* Batching system */
 void schedule_batched_redraw(const char *event_name);

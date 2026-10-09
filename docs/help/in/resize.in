@@ -1,0 +1,21 @@
+
+%9Syntax:%9
+
+@SYNTAX:resize@
+
+%9Description:%9
+
+    Checks the size of the terminal again and, if the number of columns or
+    lines changed, resizes the windows and redraws the screen. If the size
+    did not change, nothing happens; use REDRAW to redraw the screen anyway.
+
+    This is normally done automatically when erssi receives the window
+    size change signal (SIGWINCH); the command helps when that signal was
+    missed.
+
+%9Examples:%9
+
+    /RESIZE
+
+%9See also:%9 REDRAW, WINDOW
+
