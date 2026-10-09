@@ -20,6 +20,7 @@ test_test_796 = executable('test-796',
   dependencies : dep
 )
 test('test-796 test', test_test_796,
+  env : test_env,
   args : [
     '--tap',
   ],

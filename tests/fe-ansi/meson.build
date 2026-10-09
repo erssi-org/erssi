@@ -33,5 +33,6 @@ test_test_paste_join_multiline = executable('test-paste-join-multiline',
 )
 
 test('test-paste-join-multiline test', test_test_paste_join_multiline,
+  env : test_env,
   args : ['--tap'],
   protocol : 'tap')

@@ -15,5 +15,6 @@ test_test_formats = executable('test-formats',
   dependencies : dep
 )
 test('test-formats test', test_test_formats,
+  env : test_env,
   args : ['--tap'],
   protocol : 'tap')

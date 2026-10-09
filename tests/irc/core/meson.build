@@ -16,6 +16,7 @@ test_test_irc = executable('test-irc',
   dependencies : dep
 )
 test('test-irc test', test_test_irc,
+  env : test_env,
   args : [
     '--tap',
   ],
@@ -39,6 +40,7 @@ test_test_channel_events = executable('test-channel-events',
   dependencies : dep
 )
 test('test-channel-events test', test_test_channel_events,
+  env : test_env,
   args : [
     '--tap',
   ],

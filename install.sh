@@ -213,7 +213,6 @@ build_and_install() {
        "-Dwith-otr=yes"
        "-Dwith-proxy=yes"
        "-Dwith-fe-web=yes"
-       "-Dwith-fe-ansi=yes"
        "-Dwith-image-preview=yes"
        "-Ddisable-utf8proc=no"
    )
