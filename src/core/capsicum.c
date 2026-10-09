@@ -38,6 +38,8 @@
 #include <sys/nv.h>
 #include <sys/procdesc.h>
 #include <sys/socket.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <string.h>
 #include <termios.h>
 
@@ -273,13 +275,35 @@ nvlist_t *symbiont_gethostbyname(const nvlist_t *request)
 {
 	nvlist_t *response;
 	IPADDR ip4, ip6;
+	struct addrinfo hints, *ai, *p;
 	const char *addr;
 	int ret, saved_errno;
 
 	addr = nvlist_get_string(request, "addr");
 
-	/* Connect. */
-	ret = net_gethostbyname(addr, &ip4, &ip6);
+	/* Resolve with plain getaddrinfo(): the symbiont is a child forked
+	   from a threaded process, where GResolver (which hands lookups to a
+	   thread pool) is not safe. First IPv4 and first IPv6 address, as
+	   net_gethostbyname_first_ips() returns them. */
+	memset(&ip4, 0, sizeof(ip4));
+	memset(&ip6, 0, sizeof(ip6));
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	ret = getaddrinfo(addr, NULL, &hints, &ai) == 0 ? 0 : -1;
+	if (ret == 0) {
+		for (p = ai; p != NULL; p = p->ai_next) {
+			if (p->ai_family == AF_INET && ip4.family == 0) {
+				ip4.family = AF_INET;
+				memcpy(&ip4.ip, &((struct sockaddr_in *)p->ai_addr)->sin_addr,
+				       sizeof(struct in_addr));
+			} else if (p->ai_family == AF_INET6 && ip6.family == 0) {
+				ip6.family = AF_INET6;
+				ip6.ip = ((struct sockaddr_in6 *)p->ai_addr)->sin6_addr;
+			}
+		}
+		freeaddrinfo(ai);
+	}
 	saved_errno = errno;
 
 	/* Send back the IPs. */

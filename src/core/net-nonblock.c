@@ -24,6 +24,9 @@
 
 #include <irssi/src/core/network.h>
 #include <irssi/src/core/net-nonblock.h>
+#ifdef HAVE_CAPSICUM
+#include <irssi/src/core/capsicum.h>
+#endif
 
 typedef struct {
 	GResolverNameLookupFlags flags;
@@ -86,6 +89,62 @@ static void net_gethostbyname_callback(GResolver *resolver, GAsyncResult *result
 	g_free(data);
 }
 
+#ifdef HAVE_CAPSICUM
+typedef struct {
+	char *addr;
+	GResolverNameLookupFlags flags;
+	GCancellable *cancellable;
+	NetGethostbynameContinuationFunc cont;
+	void *cont_data;
+} CAPSICUM_LOOKUP_REC;
+
+static GInetAddress *ipaddr_to_inet(const IPADDR *ip)
+{
+	return g_inet_address_new_from_bytes((const guint8 *) &ip->ip,
+	                                     ip->family == AF_INET ? G_SOCKET_FAMILY_IPV4 :
+	                                                             G_SOCKET_FAMILY_IPV6);
+}
+
+/* In capability mode GResolver cannot reach DNS (no sockets, no
+   resolv.conf): the lookup goes to the helper process outside the
+   sandbox, as irssi 1.4 did. The helper answers at once; the result is
+   handed over from the main loop, like GResolver's. */
+static gboolean capsicum_lookup_done(CAPSICUM_LOOKUP_REC *rec)
+{
+	RESOLVED_IP_REC *iprec;
+	IPADDR ip4, ip6;
+
+	iprec = g_new0(RESOLVED_IP_REC, 1);
+	memset(&ip4, 0, sizeof(ip4));
+	memset(&ip6, 0, sizeof(ip6));
+	if (g_cancellable_is_cancelled(rec->cancellable)) {
+		g_set_error(&iprec->error, G_IO_ERROR, G_IO_ERROR_CANCELLED,
+		            "Operation was cancelled");
+	} else if (capsicum_net_gethostbyname(rec->addr, &ip4, &ip6) != 0 ||
+	           (ip4.family == 0 && ip6.family == 0)) {
+		g_set_error(&iprec->error, G_RESOLVER_ERROR, G_RESOLVER_ERROR_NOT_FOUND,
+		            "Error resolving \"%s\"", rec->addr);
+	} else {
+		if (ip6.family != 0 && rec->flags != G_RESOLVER_NAME_LOOKUP_FLAGS_IPV4_ONLY)
+			iprec->ailist = g_list_append(iprec->ailist, ipaddr_to_inet(&ip6));
+		if (ip4.family != 0 && rec->flags != G_RESOLVER_NAME_LOOKUP_FLAGS_IPV6_ONLY)
+			iprec->ailist = g_list_append(iprec->ailist, ipaddr_to_inet(&ip4));
+		if (iprec->ailist == NULL)
+			g_set_error(&iprec->error, G_RESOLVER_ERROR, G_RESOLVER_ERROR_NOT_FOUND,
+			            rec->flags == G_RESOLVER_NAME_LOOKUP_FLAGS_IPV4_ONLY ?
+			                "IPv4 address not found for host" :
+			                "IPv6 address not found for host");
+	}
+	resolved_ip_ref(iprec);
+	rec->cont(iprec, rec->cont_data);
+
+	g_object_unref(rec->cancellable);
+	g_free(rec->addr);
+	g_free(rec);
+	return FALSE;
+}
+#endif
+
 /* nonblocking gethostbyname() */
 GCancellable *net_gethostbyname_nonblock(const char *addr, GResolverNameLookupFlags flags,
                                          NetGethostbynameContinuationFunc cont, void *cont_data)
@@ -96,8 +155,21 @@ GCancellable *net_gethostbyname_nonblock(const char *addr, GResolverNameLookupFl
 
 	g_return_val_if_fail(addr != NULL, FALSE);
 
-	resolver = g_resolver_get_default();
 	cancellable = g_cancellable_new();
+#ifdef HAVE_CAPSICUM
+	if (capsicum_enabled()) {
+		CAPSICUM_LOOKUP_REC *rec = g_new0(CAPSICUM_LOOKUP_REC, 1);
+
+		rec->addr = g_strdup(addr);
+		rec->flags = flags;
+		rec->cancellable = g_object_ref(cancellable);
+		rec->cont = cont;
+		rec->cont_data = cont_data;
+		g_idle_add((GSourceFunc) capsicum_lookup_done, rec);
+		return cancellable;
+	}
+#endif
+	resolver = g_resolver_get_default();
 	data = g_new0(NET_GETHOSTBYNAME_CALLBACK_DATA, 1);
 	data->flags = flags;
 	data->cont = cont;

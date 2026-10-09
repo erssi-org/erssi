@@ -479,7 +479,9 @@ int net_gethostbyname_first_ips(const char *addr, GResolverNameLookupFlags flags
 			family = g_inet_address_get_family(addr);
 			if (ip4->family == 0 && family == AF_INET) {
 				ip4->family = AF_INET;
-				memcpy(&ip4->ip, g_inet_address_to_bytes(addr), sizeof(ip4->ip));
+				/* 4 bytes: an IPv4 address is not as large as ip4->ip */
+				memcpy(&ip4->ip, g_inet_address_to_bytes(addr),
+				       g_inet_address_get_native_size(addr));
 			} else if (ip6->family == 0 && family == AF_INET6) {
 				ip6->family = AF_INET6;
 				memcpy(&ip6->ip, g_inet_address_to_bytes(addr), sizeof(ip6->ip));
