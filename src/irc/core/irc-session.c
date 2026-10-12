@@ -89,6 +89,7 @@ static void sig_session_save_server(IRC_SERVER_REC *server, CONFIG_REC *config,
 
 	config_node_set_bool(config, node, "no_cap", server->connrec->no_cap);
 	config_node_set_bool(config, node, "isupport_sent", server->isupport_sent);
+	config_node_set_bool(config, node, "motd_got", server->motd_got);
 	isupport = config_node_section(config, node, "isupport", NODE_TYPE_BLOCK);
         isupport_data.config = config;
         isupport_data.node = isupport;
@@ -115,6 +116,7 @@ static void sig_session_restore_server(IRC_SERVER_REC *server,
 	server->away_reason = g_strdup(config_node_get_str(node, "away_reason", NULL));
 	server->emode_known = config_node_get_bool(node, "emode_known", FALSE);
 	server->isupport_sent = config_node_get_bool(node, "isupport_sent", FALSE);
+	server->motd_got = config_node_get_bool(node, "motd_got", FALSE);
 
 	server->connrec->no_cap = config_node_get_bool(node, "no_cap", FALSE);
 	server->connrec->sasl_mechanism = config_node_get_int(node, "sasl_mechanism", SASL_MECHANISM_NONE);
