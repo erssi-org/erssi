@@ -22,3 +22,19 @@ foreach name : ['crypto', 'wire', 'keyring', 'proto', 'scope', 'outq', 'state']
     protocol : 'tap',
     timeout : {'scope' : 300, 'proto' : 120}.get(name, 30))
 endforeach
+
+# native module <-> rpe2e.pl on a local fake IRC server, in a private tmux
+# server; skipped without tmux, Perl support or rpe2e.pl's Perl modules.
+# It installs this build (meson install), so it depends on what it runs:
+# `meson test` rebuilds those first. About 13 min (every encrypted line
+# holds the flood queue 4 s and more); skipped without RPE2E_SCRIPT
+live_depends = [erssi_exe, libe2e_core_sm, libirc_core_sm]
+if have_perl
+  live_depends += [libperl_core_sm, libfe_perl_sm]
+endif
+test('e2e live interop (native <-> rpe2e.pl)', find_program('live-interop.sh'),
+  args : [meson.build_root(), meson.source_root()],
+  env : e2e_test_env,
+  depends : live_depends,
+  is_parallel : false,
+  timeout : 1500)

@@ -22,13 +22,37 @@ libe2e_proto_a = static_library('e2e_proto',
   pic : true,
 )
 
+# the module: /load e2e, or "e2e" in autoload_modules; the live interop
+# test depends on it
+libe2e_core_sm = shared_library('e2e_core',
+  files(
+    'e2e-commands.c',
+    'e2e-core.c',
+    'e2e-formats.c',
+    'e2e-statusbar.c',
+    'e2e-web.c',
+  ),
+  link_with : libe2e_proto_a,
+  include_directories : rootinc,
+  implicit_include_directories : false,
+  name_suffix : module_suffix,
+  install : true,
+  install_dir : moduledir,
+  dependencies : dep,
+  override_options : ['b_lundef=false'],
+)
+
 # noinst_headers = files(
+#   'e2e-core.h',
 #   'e2e-crypto.h',
+#   'e2e-formats.h',
 #   'e2e-json.h',
 #   'e2e-keyring.h',
 #   'e2e-outq.h',
 #   'e2e-proto.h',
 #   'e2e-scope.h',
+#   'e2e-statusbar.h',
+#   'e2e-web.h',
 #   'e2e-wire.h',
 #   'module.h',
 # )

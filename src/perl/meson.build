@@ -47,7 +47,7 @@ if need_dl_cross_link
   dl_cross_perl_core += libperl_core_sm
 endif
 
-shared_library('fe_perl',
+libfe_perl_sm = shared_library('fe_perl',
   files(
     'module-formats.c',
     'perl-fe.c',
