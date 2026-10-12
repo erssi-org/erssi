@@ -1,0 +1,46 @@
+{
+   "version": 1,
+   "exportedAt": 3,
+   "identity": {
+      "pk": "6zECpstYZ2XQH60yRSPsC8Z7nv1qLZWJwTWt/t95Isw=",
+      "sk": "RVoDppfSjDF9M+BVwvP1Q2rbtUvPYL5IgD/INFeBHpV86BNziHoubiVZjmzPjJbfq1VbIyr9i2eK78MmphtgnA==",
+      "fp": "5aef96240bca5582e6fd0468879a2686",
+      "created_at": 1
+   },
+   "peers": [
+      {
+         "pk": "d4BJ5ub3/9VFcrTZvSlrLWBxexucqg/GMe1AXyGyK/A=",
+         "last_handle": "bob@127.0.0.1",
+         "last_nick": "bob",
+         "first_seen": 1,
+         "last_seen": 2,
+         "status": "trusted",
+         "fingerprint": "2ffc1d06387ef8bb7a34312b6c6c3f69"
+      }
+   ],
+   "incomingSessions": [
+      {
+         "handle": "bob@127.0.0.1",
+         "channel": "#test",
+         "fp": "2ffc1d06387ef8bb7a34312b6c6c3f69",
+         "sk": "WClnU00PkJ0Za5f55pITQnd66oe0b6Ut8WU4nbH7jM8=",
+         "status": "trusted",
+         "createdAt": 1
+      }
+   ],
+   "outgoingSessions": [
+      {
+         "channel": "#test",
+         "sk": "diBpvAem4bXfEjpa572RwQ2qBGlPuqF/ugzWqNzOjyI=",
+         "pendingRotation": true
+      }
+   ],
+   "channels": [
+      {
+         "channel": "#test",
+         "enabled": true
+      }
+   ],
+   "autotrust": [],
+   "outgoingRecipients": []
+}

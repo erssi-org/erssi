@@ -6,6 +6,7 @@ option('with-proxy',        type : 'combo',  description : 'Build irssi-proxy', 
 option('with-perl-lib',     type : 'string', description : 'Specify where to install the Perl libraries for Irssi')
 option('with-perl',         type : 'combo',  description : 'Build with Perl support',                     choices : ['auto', 'yes', 'no'])
 option('with-otr',          type : 'combo',  description : 'Build with OTR support',                      choices : ['auto', 'yes', 'no'])
+option('with-e2e',          type : 'combo',  description : 'Build with native RPE2E end-to-end encryption (needs only OpenSSL)', choices : ['auto', 'yes', 'no'])
 option('with-fe-web',       type : 'combo',  description : 'Build with Web Interface (WebSocket) support', choices : ['auto', 'yes', 'no'])
 option('with-image-preview', type : 'combo', description : 'Build with image preview (requires libcurl)',   choices : ['auto', 'yes', 'no'])
 option('disable-utf8proc',  type : 'combo',  description : 'Build without Julia\'s utf8proc',             choices : ['auto', 'yes', 'no'])

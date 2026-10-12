@@ -12,6 +12,9 @@ endif
 if have_otr
   subdir('otr')
 endif
+if have_e2e
+  subdir('e2e')
+endif
 if have_fe_web
   subdir('fe-web')
 endif
@@ -24,6 +27,10 @@ if want_bot
 endif
 if want_fuzzer
   subdir('fe-fuzz')
+endif
+if have_e2e
+  # replayed by `meson test` in every build, fuzzed with -Dwith-fuzzer=yes
+  subdir('fe-fuzz/e2e')
 endif
 
 install_headers(
