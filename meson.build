@@ -46,6 +46,9 @@ with_perl_lib       = get_option('with-perl-lib')
 require_otr         = get_option('with-otr') == 'yes'
 want_otr            = get_option('with-otr') != 'no'
 
+require_e2e         = get_option('with-e2e') == 'yes'
+want_e2e            = get_option('with-e2e') != 'no'
+
 require_fe_web      = get_option('with-fe-web') == 'yes'
 want_fe_web         = get_option('with-fe-web') != 'no'
 
@@ -524,6 +527,23 @@ if want_fe_web
   endif
 endif
 
+#######
+# E2E #
+#######
+
+# RPE2E end-to-end encryption (src/e2e): every primitive comes from OpenSSL,
+# which is already required. Ed25519, X25519 and ChaCha20-Poly1305 need
+# OpenSSL 1.1.1 or newer, hence the function checks.
+have_e2e = false
+if want_e2e
+  e2e_openssl_ok = cc.has_function('EVP_PKEY_new_raw_private_key', dependencies : openssl_dep, prefix : '#include <openssl/evp.h>') and cc.has_function('EVP_chacha20_poly1305', dependencies : openssl_dep, prefix : '#include <openssl/evp.h>')
+  if e2e_openssl_ok
+    have_e2e = true
+  elif require_e2e
+    error('E2E needs OpenSSL >= 1.1.1 (Ed25519, X25519, ChaCha20-Poly1305)')
+  endif
+endif
+
 #################
 # image-preview #
 #################
@@ -720,6 +740,7 @@ message('Building with Capsicum ........... : ' + have_capsicum.to_string('yes',
 message('Building with utf8proc ........... : ' + have_libutf8proc.to_string('yes', 'no'))
 message('Building with OTR support ........ : ' + have_otr.to_string('yes', 'no'))
 message('Building with FE-WEB support ..... : ' + have_fe_web.to_string('yes', 'no'))
+message('Building with E2E (RPE2E) ........ : ' + have_e2e.to_string('yes', 'no'))
 message('Building with Chafa (images) ..... : ' + chafa_dep.found().to_string('yes', 'no'))
 message('Building with IMAGE-PREVIEW ..... : ' + have_image_preview.to_string('yes', 'no'))
 message('')

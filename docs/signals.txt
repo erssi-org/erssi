@@ -373,3 +373,15 @@ OTR Core
 
 otr.c:
  "otr event", SERVER_REC, char *nick, char *status
+
+E2E
+---
+
+e2e-core.c:
+ "e2e state changed"
+
+e2e-web.c:
+ "e2e state", SERVER_REC, char *target, char *json
+ "e2e state request", SERVER_REC, char *target
+ "e2e action", SERVER_REC, char *target, char *action, char *handle, char *fingerprint
+ "e2e action refused", SERVER_REC, char *target, char *handle, char *reason

@@ -1,0 +1,60 @@
+{
+   "autotrust": [
+      {
+         "handle_pattern": "*@*.example.org",
+         "scope": "global"
+      }
+   ],
+   "channels": {
+      "#test": {
+         "enabled": 1,
+         "mode": "normal"
+      },
+      "#\u00c5\u00bcaba": {
+         "enabled": 1,
+         "mode": "auto-accept"
+      }
+   },
+   "identity": {
+      "created_at": 1,
+      "fp": "5aef96240bca5582e6fd0468879a2686",
+      "pk": "6zECpstYZ2XQH60yRSPsC8Z7nv1qLZWJwTWt/t95Isw=",
+      "sk": "RVoDppfSjDF9M+BVwvP1Q2rbtUvPYL5IgD/INFeBHpV86BNziHoubiVZjmzPjJbfq1VbIyr9i2eK78MmphtgnA=="
+   },
+   "incoming": {
+      "bob@127.0.0.1|#test": {
+         "created_at": 1,
+         "fp": "2ffc1d06387ef8bb7a34312b6c6c3f69",
+         "sk": "WClnU00PkJ0Za5f55pITQnd66oe0b6Ut8WU4nbH7jM8=",
+         "status": "trusted"
+      }
+   },
+   "outgoing": {
+      "#test": {
+         "created_at": 1,
+         "pending_rotation": 0,
+         "sk": "diBpvAem4bXfEjpa572RwQ2qBGlPuqF/ugzWqNzOjyI="
+      }
+   },
+   "outgoing_recipients": {
+      "#test|bob@127.0.0.1": {
+         "channel": "#test",
+         "fingerprint": "2ffc1d06387ef8bb7a34312b6c6c3f69",
+         "first_sent_at": 1,
+         "handle": "bob@127.0.0.1"
+      }
+   },
+   "peers": {
+      "2ffc1d06387ef8bb7a34312b6c6c3f69": {
+         "first_seen": 1,
+         "last_handle": "bob@127.0.0.1",
+         "last_nick": "bob",
+         "last_seen": 2,
+         "pk": "d4BJ5ub3/9VFcrTZvSlrLWBxexucqg/GMe1AXyGyK/A=",
+         "status": "trusted"
+      }
+   },
+   "pending": {},
+   "pending_inbound": {},
+   "pending_trust_change": []
+}

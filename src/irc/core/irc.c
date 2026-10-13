@@ -146,7 +146,11 @@ void irc_send_cmd(IRC_SERVER_REC *server, const char *cmd)
 	int send_now;
 
 	now = g_get_real_time();
+	/* not past a command still waiting in the queue: the penalty of a
+	   long line (wait_cmd) can end before the queue timer sends it.
+	   Commands queued for later (cmdlater, at the end) do not count. */
 	send_now = now >= server->wait_cmd &&
+	           g_slist_length(server->cmdqueue) / 2 <= server->cmdlater &&
 	           (server->cmdcount < server->max_cmds_at_once ||
 		    server->cmd_queue_speed <= 0);
 

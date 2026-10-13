@@ -1,0 +1,358 @@
+
+%9Syntax:%9
+
+@SYNTAX:e2e@
+
+%9Parameters:%9
+
+    HELP:        A guide with the state of the current window and the list
+                 of subcommands (same as /E2E without arguments).
+    ON:          Turns encryption on in the current channel or query
+                 (normal mode).
+    OFF:         Turns encryption off; the mode is remembered. In a query
+                 only for the person's current address (or, when it is
+                 not known, the one this query had); other addresses of
+                 that nick with encryption on are listed. With an
+                 ident@host or a channel name: turns it off for that
+                 address or channel, from any window.
+    MODE:        Sets the mode and also turns encryption ON. Without an
+                 argument: normal; "auto" = auto-accept.
+                   normal       a key request waits for /E2E ACCEPT,
+                                unless you accepted that person here
+                                before,
+                   auto-accept  the key is sent back automatically,
+                   quiet        requests from people whose key you do
+                                not have are dropped silently; the
+                                others wait for /E2E ACCEPT.
+    FINGERPRINT: The full fingerprint of your key (creates the key if it
+                 does not exist).
+    STATUS:      Fingerprint, number of incoming sessions and number of
+                 channels or queries with encryption on, then where it is
+                 on as <network>:<name> (old entries of no network by
+                 their name alone, with a hint to /E2E ADOPT).
+    LIST:        Sessions in the current channel or query: ident@host,
+                 channel, start of the fingerprint, status (trusted,
+                 pending, revoked, or "key held, not accepted": you can
+                 read them, but they do not get your key). -all: the whole
+                 keyring - known people and all sessions. Channels and
+                 queries are shown as <network>:<name>. In a window also
+                 the key requests waiting there ("pending: <nick>
+                 (<ident@host>)").
+    PENDING:     Every key request waiting for /E2E ACCEPT, on every
+                 network: nick, ident@host, <network>:<name>, the start of
+                 the fingerprint of the key and how long it has waited.
+    HANDSHAKE:   Sends the person a key request (KEYREQ) for the current
+                 channel or query; encryption must be on here and their
+                 ident@host known (a common channel, a query).
+    ACCEPT:      Accepts the person: sends your key back (KEYRSP) to their
+                 pending request and requests theirs in return; their
+                 later requests here are answered without asking. Without
+                 an argument: the only request waiting in this window
+                 (with several they are listed - name one). With a nick:
+                 the request waiting here from that nick (compared as the
+                 server compares nicks); when the nick names requests of
+                 two addresses, none is accepted - they are listed, name
+                 one by its ident@host. With an ident@host: in a channel
+                 window the channel's request of that address, if one
+                 waits there; otherwise - from any window of the
+                 network - the request of that address for a query with
+                 it. Only requests of this window's channel or query, or
+                 of that address's query, on this network are ever taken.
+                 Without a pending request, a nick marks their session
+                 here (an ident@host: their query's session) as trusted
+                 and accepts them - only when a real key from them is
+                 stored. A query's key goes only to that query's own
+                 address: a request from anyone else for it is damaged
+                 (rpe2e.pl kept such requests before) - listed by
+                 /E2E PENDING and /E2E ACCEPT, never accepted, removed by
+                 /E2E DECLINE alone in that query. Such an address that was
+                 accepted already (with rpe2e.pl) is damaged too: it may
+                 hold your key of the query, so that key rotates by itself
+                 with your next message there (you are told once) and the
+                 new one never reaches it; /E2E LIST shows it, and /E2E
+                 DECLINE <ident@host> (or alone) in that query removes it.
+    DECLINE:     Declines a pending exchange, chosen as for ACCEPT; an
+                 existing session gets the revoked status and the person
+                 is no longer accepted.
+    REVOKE:      Withdraws trust in the current channel or query and
+                 schedules a rotation of your key, so that person can no
+                 longer read along; they are no longer accepted.
+    UNREVOKE:    Restores trust in their session (only when a real key
+                 from them is stored); to give them your key again,
+                 /E2E ACCEPT them.
+    FORGET:      Removes the person's sessions in the current channel or
+                 query; with -all (at the start or at the end) - everything
+                 about them from the keyring.
+    VERIFY:      Shows the start of your fingerprint and of the person's -
+                 to compare over another channel (e.g. by phone).
+    REVERIFY:    After the person's key has changed (the exchange is then
+                 blocked), accepts the new key; without a recorded change
+                 it clears the old data and a new exchange is needed.
+    ROTATE:      Schedules a rotation of your key in the current channel
+                 or query; the new key is created with the next message and
+                 sent to trusted people.
+    EXPORT:      Writes the whole keyring, including private keys, to a
+                 new JSON file (mode 0600); an existing file or a symlink
+                 is never overwritten.
+    IMPORT:      REPLACES the whole keyring with the file's contents (no
+                 merging); the previous one is kept as
+                 keyring.json.bak-<time>.
+    AUTOTRUST:   Without an argument or with LIST - the list of rules. ADD
+                 adds a rule: the scope is "global" or an exact channel
+                 name (or "@ident@host" of a query), the pattern is
+                 ident@host with * and ? (case-insensitive); matching
+                 people are accepted automatically. A channel added here
+                 is the one of the window's network (listed as
+                 <network>:<name>; a window without a server cannot add
+                 one); rules from rpe2e.pl name a channel of every
+                 network (listed with "(every network)"). REMOVE removes
+                 the rules with that pattern.
+    ADOPT:       Binds the old entries of the current channel or query
+                 (from rpe2e.pl, which keeps no networks apart) to the
+                 window's network; in a query also the
+                 person's keys for their messages to you. Needed when
+                 erssi uses several networks: until then E2E there is
+                 refused. When another network took the old entries
+                 over already, they stay there and this network gets
+                 encryption of its own - always turned on, in normal
+                 mode (keys are exchanged anew; /E2E OFF afterwards
+                 sends in clear text there). When the network has
+                 entries of its own for the name, nothing changes (to
+                 use the old ones there instead: /E2E EXPORT, remove
+                 that network's entries for the name from the file,
+                 /E2E IMPORT it, then /E2E ADOPT).
+    RESET:       Only after a corrupt keyring was moved aside (see below):
+                 starts a new keyring with a new identity. Encryption is
+                 then off everywhere until /E2E ON, and your peers see a
+                 new key (/E2E REVERIFY on their side).
+
+%9Description:%9
+
+    RPE2E end-to-end encryption (XChaCha20-Poly1305, a separate key per
+    sender and channel or query), compatible with repartee, the rpe2e.pl
+    script and the WeeChat rpe2e.py script. Built into erssi as the e2e
+    module: /load e2e loads it (in lower case: the module's file name is
+    built from the word as typed). To load it at every start, add e2e to the
+    autoload_modules setting (/SET autoload_modules followed by the current
+    list and e2e, in lower case too). A module loaded only by /LOAD is not
+    loaded again after a restart or /UPGRADE, and until it is, messages to
+    channels and queries with E2E on are sent in clear text. The module says
+    so: when it is loaded and at /E2E ON (with the /SET to run) while e2e is
+    not in autoload_modules, at /UPGRADE then while E2E is on anywhere
+    (printed just before the restart, so it may be gone from the screen
+    afterwards; a log of that window keeps it), and at /unload e2e while E2E
+    is on anywhere or the keyring is lost. Keys are stored in
+    ~/.erssi/rpe2e/keyring.json - the file rpe2e.pl uses, so moving from the
+    script needs no new keys.
+
+    If the rpe2e.pl script is loaded too, the module stays inactive and
+    says so; unload the script (/SCRIPT UNLOAD rpe2e, and remove it from
+    scripts/autorun) to use the module. The script does not know the
+    module's per-network entries (see Networks), so it would send a
+    channel or query that only the module set up in clear text: while
+    the script is loaded the module still stops such messages (they are
+    NOT sent, and you are told), lets bot commands out with a warning,
+    and warns once that the keyring has such entries. Going back to
+    rpe2e.pl after the module wrote them is a downgrade - unload the
+    script to send there encrypted; /E2E EXPORT keeps a copy.
+
+    Subcommands work in the context of the active window: in a channel
+    window it is the channel, in a query window - the person identified by
+    ident@host. Encryption in a query requires the other side's ident@host
+    to be known (an open query, a common channel or an earlier exchange)
+    and your own, which is learned via WHOIS after connecting - until then
+    some commands ask you to retry. A nick in ACCEPT and DECLINE names a
+    request waiting in the window first; nicks in REVOKE, VERIFY etc. are
+    resolved using the data stored in the keyring.
+
+    Once enabled, every PRIVMSG to the channel or query (plain text, /ME,
+    /MSG, /SAY, /QUOTE PRIVMSG in any case, scripts, other frontends) is
+    encrypted. When encryption is not possible, the message is NOT sent,
+    although it is shown locally, and an [E2E] message is printed; a line
+    to several targets at once (#a,#b) is not sent when one of them is
+    encrypted. Exceptions: on a channel, lines starting with '.' or '!'
+    followed by a letter (bot commands such as .op or !seen) are sent in
+    plain text, with a warning - "..." or "!!" are encrypted - and CTCPs
+    other than ACTION are always sent in plain text. NOTICEs are not
+    encrypted.
+
+    An encrypted message from a person without a trusted session is
+    hidden, and a key request is sent to them (at most every 30 s) if
+    encryption is on here; their answer lets you read them. Your own key
+    goes only to people you accepted: /E2E ACCEPT, an AUTOTRUST rule or
+    auto-accept mode. Having their key is not enough - so in normal mode
+    each of you accepts the other once. A request for a channel is
+    announced in its window as "Pending key exchange from <nick>
+    (<ident@host>) for <network>:<name>" - reply there with /E2E ACCEPT
+    or /E2E DECLINE (alone, or with the ident@host shown); one for a query
+    as "... for a query", answered with /E2E ACCEPT <ident@host> from any
+    window of that network. Asked again, a request is announced at most
+    every 5 minutes, and /E2E PENDING lists every request that waits. Later
+    requests from an accepted person are answered at once. Requests for a
+    channel or query where encryption is off are ignored, a request for a
+    query must come from the person it names, and each kind of request
+    (KEYREQ, KEYRSP, REKEY) from one person for one context is handled at
+    most every 10 s. A key change announced by a person (REKEY) only
+    replaces a key you already have from them, and each one is taken once
+    (after 1024 of them from one person in one context the next key change
+    goes through a new key request instead). When your own key changes, only
+    people you accepted get the new one. At most 64 requests wait for /E2E
+    ACCEPT, at most 256 of your own key requests wait for an answer and at
+    most 256 people you never accepted are remembered, with their keys; the
+    oldest go first (people you accepted are always kept). Messages of the
+    module are prefixed with [E2E]; with /SET e2e_debug ON it also explains
+    what it drops. Line breaks in a decrypted message are shown as spaces.
+
+    A message to a nick is not sent when encryption is on for that nick
+    at another ident@host (a new host, or someone else took the nick), or
+    when its address is not known at the moment (no query, no common
+    channel): /E2E ON in the query encrypts to the new address after a
+    new key exchange, /E2E OFF <ident@host> turns encryption off for the
+    old one.
+    A raw line holding several IRC lines (CR/LF, from a script) is not
+    sent when one of them is a PRIVMSG to an encrypted conversation, and
+    an encrypted line that would be longer than the server allows (a very
+    long channel name) is not sent either. /UPGRADE sends the messages
+    still waiting in the flood queue through the encryption as well.
+
+    Long messages: an encrypted message is sent in parts (chunks) of up to
+    180 bytes, each a line of its own, and they leave through the flood
+    queue like other commands (cmds_max_at_once, cmd_queue_speed; irssi
+    also waits 2 s and 1 s per 100 bytes after a long line), so a message
+    of several parts can take some seconds to go out - a line you type is
+    split by irssi at the server's line limit first, and each of those
+    lines is encrypted on its own. Later messages to that network wait
+    behind the parts and leave in the order typed; each is encrypted when
+    its turn comes, so after /E2E OFF the messages still waiting go out in
+    clear text. Other commands (PART, NICK, QUIT, TOPIC, NOTICEs) do not
+    wait: they leave before the parts still waiting - after /PART the rest
+    of a message to a +n channel is rejected by the server. On disconnect
+    or /E2E RESET the parts not sent yet are dropped and the number is
+    shown in the status window (the receiver gets an incomplete message).
+    /unload e2e drops them too, and the messages in irssi's own flood
+    queue that the module would encrypt or refuse (they would leave in
+    clear text without it); clear text it would let pass stays queued.
+    /UPGRADE sends everything waiting at once, past the flood limit,
+    before it restarts. When rpe2e.pl is loaded the script encrypts, and
+    what still waits in the module is dropped the same way.
+
+    Statusbar: the e2e item shows the E2E state of the active channel or
+    query - "e2e off"; "E2E" (on, a key from someone to read); "E2E
+    waiting for keys" (on, no key from anyone yet); "E2E blocked" (not
+    sent: an old entry of unknown network, or the query's nick has E2E
+    on at another address); "E2E keyring error" - followed by "N to
+    accept" while N key requests wait there for /E2E ACCEPT. Nothing in
+    other windows, and nothing while rpe2e.pl is loaded. It is not in the
+    shipped bars; add it with /STATUSBAR ADDITEM -after window e2e <bar>
+    (the shipped bar with "window" is "info"). The texts are the formats
+    e2e_sb_off, e2e_sb_on, e2e_sb_waiting, e2e_sb_blocked, e2e_sb_error and
+    e2e_sb_pending (/FORMAT, themes). A keyring changed by another program
+    (rpe2e.pl in another erssi) is shown at the next window switch or the
+    next message sent.
+
+    Keyrings: a keyring that cannot be read is never overwritten, and
+    messages are not sent until it can be read again. One that is not
+    valid JSON is moved aside to keyring.json.corrupt-<time>; the E2E
+    state is then LOST: nothing is sent to any channel or query (except
+    bot commands) and nothing is saved, also after a restart, until you
+    run /E2E RESET (a new keyring) or /E2E IMPORT a keyring export.
+    Which people you accepted is stored in keyring.json as "accepted"
+    (rpe2e.pl keeps it, exports do not carry it): with a keyring from
+    rpe2e.pl, repartee or an import, a person asking for your key again
+    needs one /E2E ACCEPT, and does not get your new key when it rotates
+    before that.
+
+    Channel names are compared as the server's CASEMAPPING compares
+    them: ascii, rfc1459 and strict-rfc1459 exactly (rfc1459 when the
+    server names none), and Latin-1 letters as servers of the ircu
+    family fold them; rfc7613, rfc8265 and utf8 with a wider fold (NFKC,
+    case folding and the rfc1459 specials), which may refuse a message
+    to a channel the server keeps apart, but never lets one out in clear
+    text to a channel with E2E on. Until the server has named its
+    CASEMAPPING, or ended its MOTD without one, the wider fold is used.
+    A name the wider fold cannot decide - not valid UTF-8 or holding an
+    unassigned character on such a server, and any non-ASCII name on a
+    server whose CASEMAPPING erssi does not know (it may be a byte code
+    page such as cp1251) - is not sent in clear text while E2E is on for
+    any channel of that network (and while E2E is on for such a name,
+    other names there that cannot be told apart from it get no clear
+    text either). On IRCnet, !name is refused while E2E is on for a
+    !XXXXXname of that name. The nick of a query with E2E on, also one
+    rpe2e.pl keeps by nick, is compared the same way.
+
+    A message of a peer that opens only under the key of a channel the
+    wider fold takes for this one, though some servers keep the two
+    apart (for example #a[b and #a{b), is shown with "(E2E key of
+    #a[b)": the server may have moved it from that channel.
+
+    Known limitations: a server that names rfc1459, ascii or
+    strict-rfc1459 but folds the bytes of another code page (koi8-r,
+    cp1251) is not covered: such names may be one channel to it and two
+    to erssi. NOTICEs, CTCPs other than ACTION, bot commands and IRCv3
+    message tags are never encrypted. Nicks in ACCEPT, REVOKE, VERIFY
+    etc. are resolved with the last nick stored in the keyring, which
+    may meanwhile belong to someone else - check the ident@host the
+    command prints. A keyring written with real Unicode (repartee's
+    export) that stores a nick whose letters all fit Latin-1 (kótek) is
+    read as Latin-1 bytes, so neither erssi nor rpe2e.pl finds that nick
+    by it (one with other letters, żbik, is found). As in repartee, the
+    server can replay an encrypted message within 5 minutes, and drop or
+    reorder the parts of a long one. A key request carries no ident@host:
+    someone who forwards your peer's request before the peer's first
+    contact with you ties that key to their own address, and the peer's
+    own request is then held back as a changed address until /E2E REVERIFY
+    (nobody gets a key that way). The rpe2e.pl script is recognised by its
+    file name (rpe2e*.pl).
+
+    Networks: keys, sessions and settings are kept per network - the
+    chatnet name of the server, otherwise its tag - so #test on one
+    network and #test on another are two conversations with keys of
+    their own (in keyring.json as "<network>" U+001F "#test"; on the wire
+    only the bare name is used, as rpe2e.pl and repartee do). A keyring from
+    rpe2e.pl (one entry per name, for any network) is used as it is while
+    erssi uses one network (counting the servers connected, connecting,
+    waiting to reconnect and set to autoconnect) - nothing to do - and
+    becomes that network's with the first message you send there (or /E2E
+    ADOPT) - messages and key requests from others never move it.
+    In a query, your first message to the person also takes along the
+    keys of their messages to you; those of other people stay old until
+    you write to them while erssi uses one network - on several networks
+    their messages are not read until /E2E ADOPT.
+    With several networks erssi cannot know which network an old entry
+    belongs to: a message to such a channel or query is NOT sent (you are
+    told why), and nothing is decrypted or answered for it there, until
+    /E2E ADOPT in its window binds the old entries to that network, or
+    /E2E OFF turns encryption off for it on that network. Once old entries
+    belong to one network, the same name on any other network is refused
+    the same way until it is set up there (/E2E ADOPT, /E2E OFF); the
+    entries of one network never move to another. EXPORT and IMPORT keep
+    the per-network entries as they are (repartee's exports use the same
+    form).
+    A network without a chatnet is labelled by its server tag, which can
+    change when tags collide - set a chatnet for stable E2E scopes.
+    A channel or address whose name holds the control character U+001F
+    cannot be kept per network: nothing is encrypted for it, and a
+    message to it is not sent while an old entry may have encryption on.
+
+    EXPORT and IMPORT do not expand '~' - give a full path.
+
+%9Examples:%9
+
+    /E2E
+    /E2E ON
+    /E2E PENDING
+    /E2E ACCEPT
+    /E2E ACCEPT alice
+    /E2E DECLINE mallory@host.example.org
+    /E2E VERIFY alice
+    /E2E MODE auto-accept
+    /E2E LIST -all
+    /E2E FORGET -all bob
+    /E2E AUTOTRUST ADD global *@*.example.org
+    /E2E ADOPT
+    /E2E EXPORT /path/to/e2e-keyring.json
+    /E2E RESET
+    /E2E OFF bob@old.example.org
+
+%9See also:%9 MSG, QUERY, LOAD, STATUSBAR, FORMAT
+
