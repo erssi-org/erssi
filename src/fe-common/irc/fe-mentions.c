@@ -25,12 +25,14 @@
 #include <irssi/src/core/settings.h>
 #include <irssi/src/core/signals.h>
 
+#include <irssi/src/irc/core/irc-servers.h>
 #include <irssi/src/irc/dcc/dcc-chat.h>
 
 #include <irssi/src/fe-common/core/fe-windows.h>
 #include <irssi/src/fe-common/core/formats.h>
 #include <irssi/src/fe-common/core/mentions-log.h>
 #include <irssi/src/fe-common/core/printtext.h>
+#include <irssi/src/fe-common/irc/fe-irc-channels.h>
 #include <irssi/src/fe-common/irc/fe-mentions.h>
 #include <irssi/src/fe-common/irc/module-formats.h>
 
@@ -52,6 +54,26 @@ static GQueue *pending;    /* PENDING_REC, oldest first */
 static guint create_tag;   /* idle source that creates the window */
 static char *log_err_path; /* the log path the last error was printed for */
 static gboolean deiniting;
+
+/* A channel message or action while its emission runs. The hilight that
+   is printed for it is recorded with the sender's own nick and text, not
+   with the line as the theme made it (the nick cut to the nick column).
+   The record lives on the stack of the handler that runs the rest of the
+   emission, so it is gone when the emission ends, also when a handler
+   stops it; emissions nested in it (a script sending one) are on top. */
+typedef struct _STASH_REC STASH_REC;
+struct _STASH_REC {
+	STASH_REC *prev;
+	SERVER_REC *server; /* NULL after "server disconnected" */
+	const char *kind;
+	const char *target; /* without a @+ prefix */
+	const char *nick;
+	const char *msg;
+	gboolean recorded;
+};
+
+static STASH_REC *stash;    /* the innermost running emission, or NULL */
+static gboolean recording;  /* a printed hilight is being recorded */
 
 static int kind_format(const char *kind)
 {
@@ -301,7 +323,7 @@ static void sig_message_private(SERVER_REC *server, const char *msg, const char 
 	mentions_record(server, "private", server->tag, "PM", nick, msg);
 }
 
-/* a private /ME only - channel actions are hilights */
+/* a private /ME only - channel actions are hilights (sig_print_text) */
 static void sig_message_irc_action(SERVER_REC *server, const char *msg, const char *nick,
                                    const char *address, const char *target)
 {
@@ -350,6 +372,114 @@ static void sig_dcc_chat_message(CHAT_DCC_REC *dcc, const char *msg)
 		return;
 	mentions_record(SERVER(dcc->server), "dcc", "DCC", "DCC",
 	                dcc->nick != NULL ? dcc->nick : "DCC", msg);
+}
+
+/* Registered ahead of the printers (fe-messages, fe-irc-messages): runs
+   them itself with signal_continue(), so that the record is removed after
+   them whatever they do with the emission.
+
+   The priority is "first" on purpose: it survives a script that stops the
+   emission and re-emits it later, and the stash is then always in place
+   when the printer runs. The price is that the stash holds the arguments as
+   they were BEFORE any default-priority handler rewrote them (a script that
+   changes the text with signal_continue); a hilight is then recorded with
+   the original text. No handler in erssi itself does that. */
+static void stash_emission(const char *kind, SERVER_REC *server, const char *msg,
+                           const char *nick, const char *address, const char *target,
+                           void *extra)
+{
+	STASH_REC rec;
+	IRC_SERVER_REC *irc;
+
+	if (server == NULL || msg == NULL || nick == NULL || target == NULL)
+		return;
+	irc = IRC_SERVER(server);
+	rec.target = irc != NULL ? fe_channel_skip_prefix(irc, target) : target;
+	if (!server_ischannel(server, rec.target))
+		return;
+
+	rec.prev = stash;
+	rec.server = server;
+	rec.kind = kind;
+	rec.nick = nick;
+	rec.msg = msg;
+	rec.recorded = FALSE;
+
+	stash = &rec;
+	signal_continue(6, server, msg, nick, address, target, extra);
+	stash = rec.prev;
+}
+
+static void sig_stash_public(SERVER_REC *server, const char *msg, const char *nick,
+                             const char *address, const char *target, void *nickrec)
+{
+	stash_emission("public", server, msg, nick, address, target, nickrec);
+}
+
+static void sig_stash_op_public(SERVER_REC *server, const char *msg, const char *nick,
+                                const char *address, const char *target, void *extra)
+{
+	stash_emission("public", server, msg, nick, address, target, extra);
+}
+
+static void sig_stash_action(SERVER_REC *server, const char *msg, const char *nick,
+                             const char *address, const char *target, void *extra)
+{
+	stash_emission("action", server, msg, nick, address, target, extra);
+}
+
+static void sig_server_disconnected(SERVER_REC *server)
+{
+	STASH_REC *rec;
+
+	for (rec = stash; rec != NULL; rec = rec->prev) {
+		if (rec->server == server)
+			rec->server = NULL;
+	}
+}
+
+/* A hilight in a channel. The one printed for the running message is
+   recorded once, with its sender and text; one printed by something else
+   (a script) has no sender: "?" and the printed line. A script hilight that
+   is printed while a channel message is being shown, for the same channel
+   (and the same nick, when the script gives one), is taken for that
+   message and credited to its sender; this is rare and not worth more code.
+   Lines printed while a hilight is recorded (the Mentions window, a
+   "mention" handler) are not recorded again. */
+static void sig_print_text(TEXT_DEST_REC *dest, const char *text, const char *stripped)
+{
+	STASH_REC *rec;
+	const char *kind, *nick, *msg;
+
+	if (recording || dest == NULL || dest->server == NULL || dest->target == NULL)
+		return;
+	if ((dest->level & MSGLEVEL_HILIGHT) == 0 || (dest->level & MSGLEVEL_NOHILIGHT) != 0 ||
+	    (dest->level & (MSGLEVEL_PUBLIC | MSGLEVEL_ACTIONS)) == 0)
+		return;
+	if ((mwin != NULL && dest->window == mwin) ||
+	    !server_ischannel(dest->server, dest->target) || is_excluded(dest->server))
+		return;
+
+	rec = stash;
+	if (rec != NULL && rec->server == dest->server &&
+	    g_ascii_strcasecmp(rec->target, dest->target) == 0 &&
+	    (dest->nick == NULL || g_ascii_strcasecmp(rec->nick, dest->nick) == 0)) {
+		/* your own line echoed back (a bouncer) is not a mention */
+		if (rec->recorded || is_own_nick(dest->server, rec->nick))
+			return;
+		rec->recorded = TRUE;
+		kind = rec->kind;
+		nick = rec->nick;
+		msg = rec->msg;
+	} else {
+		kind = "public";
+		nick = "?";
+		msg = stripped != NULL ? stripped : text;
+	}
+
+	recording = TRUE;
+	mentions_record(dest->server, kind, dest->server->tag, dest->target, nick, msg);
+	recording = FALSE;
 }
 
 static void sig_init_finished(void)
@@ -459,6 +589,11 @@ void fe_mentions_init(void)
 	signal_add_last("message irc action", (SIGNAL_FUNC) sig_message_irc_action);
 	signal_add_last("message irc notice", (SIGNAL_FUNC) sig_message_irc_notice);
 	signal_add_last("dcc chat message", (SIGNAL_FUNC) sig_dcc_chat_message);
+	signal_add_first("message public", (SIGNAL_FUNC) sig_stash_public);
+	signal_add_first("message irc op_public", (SIGNAL_FUNC) sig_stash_op_public);
+	signal_add_first("message irc action", (SIGNAL_FUNC) sig_stash_action);
+	signal_add("server disconnected", (SIGNAL_FUNC) sig_server_disconnected);
+	signal_add_last("print text", (SIGNAL_FUNC) sig_print_text);
 	signal_add("window destroyed", (SIGNAL_FUNC) sig_window_destroyed);
 	signal_add("setup changed", (SIGNAL_FUNC) sig_setup_changed);
 	command_bind("mentions", NULL, (SIGNAL_FUNC) cmd_mentions);
@@ -484,6 +619,11 @@ void fe_mentions_deinit(void)
 	signal_remove("message irc action", (SIGNAL_FUNC) sig_message_irc_action);
 	signal_remove("message irc notice", (SIGNAL_FUNC) sig_message_irc_notice);
 	signal_remove("dcc chat message", (SIGNAL_FUNC) sig_dcc_chat_message);
+	signal_remove("message public", (SIGNAL_FUNC) sig_stash_public);
+	signal_remove("message irc op_public", (SIGNAL_FUNC) sig_stash_op_public);
+	signal_remove("message irc action", (SIGNAL_FUNC) sig_stash_action);
+	signal_remove("server disconnected", (SIGNAL_FUNC) sig_server_disconnected);
+	signal_remove("print text", (SIGNAL_FUNC) sig_print_text);
 	signal_remove("window destroyed", (SIGNAL_FUNC) sig_window_destroyed);
 	signal_remove("setup changed", (SIGNAL_FUNC) sig_setup_changed);
 	signal_remove("irssi init finished", (SIGNAL_FUNC) sig_init_finished);

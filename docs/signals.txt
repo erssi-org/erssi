@@ -337,7 +337,9 @@ fe-irc-messages.c:
 
 fe-mentions.c:
  "mention", SERVER_REC, char *kind, char *where, char *nick, char *text
-   kind is "private", "action", "notice" or "dcc".
+   kind is "private", "action", "notice", "dcc" or "public" (a channel
+   hilight, including a channel /ME). nick is "?" for a hilight that a
+   script printed into a channel (no sender known).
    (SERVER_REC is NULL for a DCC CHAT without a server; text has the
    formatting codes stripped and is trimmed)
 

@@ -85,6 +85,9 @@ def main():
         cfg = harness.config(port, "alice", servers=[("E2E", port), ("Bitlbee", port)])
         cfg = cfg.replace('Bitlbee = { type = "IRC"; };', 'Bitlbee = { type = "IRC"; nick = "alicebot"; };')
         assert 'nick = "alicebot"' in cfg, cfg
+        # as in the shipped config: the nick anywhere in a line is a hilight
+        cfg = cfg.replace('theme = "default";', 'theme = "default"; hilight_nick_matches_everywhere = "yes";')
+        assert 'hilight_nick_matches_everywhere = "yes"' in cfg, cfg
         alice = harness.Erssi(st["inst"], work, "alice", cfg)
         st["alice"] = alice
         st["ML"] = alice.home / "logs" / "mentions.log"
@@ -213,6 +216,146 @@ def main():
         absent_ml("relay text")
         st["carol"].send("PRIVMSG alice :normal text")
         assert wait_ml("[E2E] PM <carol> normal text"), ml_text()
+
+    def t_channel_hilight():
+        st["bob"].send("PRIVMSG #test :hello, is alice here?")
+        assert wait_ml("[E2E] #test <bob> hello, is alice here?"), ml_text()
+        assert st["alice"].wait_file(st["alice"].all_log(), "#test bob: hello, is alice here?", WAIT), \
+            "no channel line in the Mentions window"
+
+    def t_mid_sentence():
+        # the nick in the middle of the line (hilight_nick_matches_everywhere)
+        alice = st["alice"]
+        off = log_size()
+        alice.type("/set hilight_nick_matches_everywhere")
+        assert wait_log_re(r"hilight_nick_matches_everywhere\s+(= )?ON", off), \
+            "hilight_nick_matches_everywhere is not on:\n" + log_since(off)
+        st["bob"].send("PRIVMSG #test :I told alice yesterday")
+        assert wait_ml("[E2E] #test <bob> I told alice yesterday"), ml_text()
+
+    def t_no_hilight():
+        st["bob"].send("PRIVMSG #test :just chatting")
+        assert st["alice"].wait_file(st["alice"].all_log(), "just chatting", WAIT), "not delivered"
+        absent_ml("just chatting")
+
+    def t_channel_action():
+        # a channel action is a hilight through a hilight rule (fe-messages
+        # matches the own nick only in messages); this one is for actions only
+        alice = st["alice"]
+        off = log_size()
+        alice.type("/hilight -level ACTIONS alice")
+        assert wait_log_since(off, "alice"), log_since(off)
+        st["bob"].send("PRIVMSG #test :\x01ACTION waves at alice\x01")
+        assert wait_ml("[E2E] #test <bob> waves at alice"), ml_text()
+        assert alice.wait_file(alice.all_log(), "#test * bob waves at alice", WAIT), \
+            "no action line in the Mentions window"
+        alice.type("/dehilight alice")  # the rule must not leak into later cases
+
+    def t_hilight_rule():
+        alice = st["alice"]
+        off = log_size()
+        alice.type("/hilight banana")
+        assert wait_log_since(off, "banana"), log_since(off)
+        st["carol"].send("PRIVMSG #test :I like banana")
+        assert wait_ml("[E2E] #test <carol> I like banana"), ml_text()
+        alice.type("/dehilight banana")
+
+    def t_own_nick_in_own_line():
+        alice = st["alice"]
+        alice.type("/msg -E2E #test alice is me")
+        assert st["bob"].expect("PRIVMSG #test :alice is me"), "own line not sent"
+        assert alice.wait_file(alice.all_log(), "alice is me", WAIT), "own line not shown"
+        absent_ml("alice is me")
+
+    def t_own_channel_echo():
+        # your own channel line echoed back by a bouncer, with your nick in it
+        alice = st["alice"]
+        st["bob"].send("TESTRAW alice ::alice!u@127.0.0.1 PRIVMSG #test :alice echoed in channel")
+        assert alice.wait_file(alice.all_log(), "alice echoed in channel", WAIT), "echo not delivered"
+        absent_ml("alice echoed in channel")
+
+    def t_op_public():
+        # PRIVMSG @#test (to the ops of a channel)
+        st["bob"].send("TESTRAW alice ::bob!u@127.0.0.1 PRIVMSG @#test :ops only, alice")
+        assert wait_ml("[E2E] #test <bob> ops only, alice"), ml_text()
+
+    def t_channel_excluded_network():
+        # alicebot is on Bitlbee (excluded): its hilights are left out
+        alice = st["alice"]
+        st["carol"].send("PRIVMSG #test :alicebot: excluded hilight")
+        assert alice.wait_file(alice.all_log(), "alicebot: excluded hilight", WAIT), "not delivered"
+        absent_ml("excluded hilight")
+
+    def t_long_nick():
+        # the real nick, not the one cut to the nick column of the theme
+        alice = st["alice"]
+        long = harness.Client(st["port"], "a_very_long_nick")
+        try:
+            long.send("JOIN #test")
+            assert alice.wait_file(alice.all_log(), "a_very_long_nick", WAIT), "long nick did not join"
+            long.send("PRIVMSG #test :alice: long nick")
+            assert wait_ml("[E2E] #test <a_very_long_nick> alice: long nick"), ml_text()
+            # the channel shows the nick cut to the nick column, so the
+            # check above is not vacuous
+            chan_log = alice.home / "logs" / "E2E" / "#test.log"
+            assert alice.wait_file(chan_log, "alice: long nick", WAIT), "no channel line"
+            line = [x for x in chan_log.read_text(errors="replace").splitlines() if "alice: long nick" in x][-1]
+            assert "a_very_long_nick" not in line, "nick not cut: " + line
+            assert alice.wait_file(alice.all_log(), "#test a_very_long_nick: alice: long nick", WAIT), \
+                "the Mentions window does not show the whole nick"
+        finally:
+            try:
+                long.send("QUIT :bye")  # a clean close: the ircd sees no reset
+            except OSError:
+                pass
+            long.close()
+
+    def t_script_stop_and_echo():
+        # A script that stops "message public" leaves nothing behind for a
+        # later hilight; a hilight printed while one is recorded (a "mention"
+        # handler echoing) is not recorded again, so it cannot loop.
+        if not st["inst"].has_perl:
+            return
+        alice = st["alice"]
+        (alice.home / "scripts" / "mtest.pl").write_text(
+            "use Irssi;\n"
+            "Irssi::signal_add('message public', sub {\n"
+            "  return unless $_[1] =~ /stopme/;\n"
+            "  Irssi::signal_stop(); Irssi::print('mtest stopped ' . $_[1]);\n"
+            "});\n"
+            "Irssi::signal_add('mention', sub {\n"
+            "  my ($server, $kind, $where, $nick, $text) = @_;\n"
+            "  return unless $server && $text =~ /echoback/;\n"
+            "  $server->print('#test', 'echo of alice ' . $text, MSGLEVEL_PUBLIC | MSGLEVEL_HILIGHT);\n"
+            "});\n"
+            "Irssi::command_bind('mtestprint', sub {\n"
+            "  Irssi::server_find_tag('E2E')->print('#test', $_[0], MSGLEVEL_PUBLIC | MSGLEVEL_HILIGHT);\n"
+            "});\n")
+        off = log_size()
+        alice.type("/script load mtest")
+        try:
+            # to the E2E connection only (alicebot gets no copy that could
+            # take the place of this one)
+            st["bob"].send("TESTRAW alice ::bob!u@127.0.0.1 PRIVMSG #test :stopme alice")
+            assert wait_log_since(off, "mtest stopped stopme alice"), "not stopped:\n" + log_since(off)
+            alice.type("/mtestprint alice: stray line")
+            assert wait_ml("[E2E] #test <?> alice: stray line"), ml_text()
+            assert "stopme" not in ml_text(), ml_text()
+            # the echo of a message's hilight, and of a hilight printed by
+            # the script itself (no message running: without the guard each
+            # echo would be recorded and echoed again, without end)
+            st["bob"].send("PRIVMSG #test :alice echoback")
+            assert wait_ml("[E2E] #test <bob> alice echoback"), ml_text()
+            assert wait_log_since(off, "echo of alice alice echoback"), "no echo:\n" + log_since(off)
+            alice.type("/mtestprint alice: script echoback")
+            assert wait_ml("[E2E] #test <?> alice: script echoback"), ml_text()
+            assert wait_log_since(off, "echo of alice alice: script echoback"), "no echo:\n" + log_since(off)
+            time.sleep(1)
+            assert alice.proc.poll() is None, "erssi is gone"
+            lines = [x for x in ml_text().splitlines() if "echoback" in x]
+            assert len(lines) == 2, "\n".join(lines)
+        finally:
+            alice.type("/script unload mtest")
 
     def t_utf8_bytes():
         st["bob"].send("PRIVMSG alice :zażółć gęślą jaźń")
@@ -427,7 +570,11 @@ def main():
         harness.main([t_install, t_start, t_window_created_not_active, t_private, t_private_action,
                       t_notice_from_person, t_notice_from_server_and_channel_skipped, t_own_and_echo,
                       t_format_injection, t_ignore, t_ignore_nohilight, t_mask_targets, t_cnotice_ignore,
-                      t_excluded_network, t_utf8_bytes, t_log_modes,
+                      t_excluded_network, t_channel_hilight, t_mid_sentence, t_no_hilight,
+                      t_channel_action, t_hilight_rule, t_own_nick_in_own_line, t_own_channel_echo,
+                      t_op_public,
+                      t_channel_excluded_network, t_long_nick, t_script_stop_and_echo,
+                      t_utf8_bytes, t_log_modes,
                       t_log_error_once, t_dcc, t_dcc_excluded_network, t_command, t_immortal_and_recreated,
                       t_rename, t_name_taken, t_window_off,
                       t_help, t_sanitizers])

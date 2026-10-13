@@ -15,10 +15,22 @@
 
     Goes to the Mentions window, where erssi collects what was written to
     you: private messages and private /ME actions, NOTICEs from people to
-    your nick (not from servers, not sent to a channel or a server mask)
-    and DCC CHAT messages. Messages that /IGNORE hides are left out, and
-    so are those from a nick with a NOHILIGHT ignore
+    your nick (not from servers, not sent to a channel or a server mask),
+    DCC CHAT messages and channel hilights. Messages that /IGNORE hides
+    are left out, and so are those from a nick with a NOHILIGHT ignore
     (/IGNORE nick MSGS NOHILIGHT).
+
+    A channel hilight is a channel message or /ME action that erssi shows
+    as a hilight: your nick in it (hilight_nick_matches, and
+    hilight_nick_matches_everywhere for the nick anywhere in the line) or
+    a match of a /HILIGHT rule (an action with your nick is a hilight
+    only through a rule, e.g. /HILIGHT -level ACTIONS yournick). It is
+    recorded with the sender's whole nick and the text as it was sent,
+    not as the theme shows it. Your own lines are never hilights. A
+    hilight that a script prints into a channel is recorded with the
+    nick "?" and the printed line, unless it is printed while that
+    channel's message is shown: then it counts as that message and is
+    recorded with its sender.
 
     Entries have the HILIGHT level, so the window gets the hilight colour
     in the window list.
