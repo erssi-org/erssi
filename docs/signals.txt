@@ -335,6 +335,14 @@ fe-irc-messages.c:
  "message irc own_ctcp", SERVER_REC, char *cmd, char *data, char *target
  "message irc ctcp", SERVER_REC, char *cmd, char *data, char *nick, char *address, char *target
 
+fe-mentions.c:
+ "mention", SERVER_REC, char *kind, char *where, char *nick, char *text
+   kind is "private", "action", "notice", "dcc" or "public" (a channel
+   hilight, including a channel /ME). nick is "?" for a hilight that a
+   script printed into a channel (no sender known).
+   (SERVER_REC is NULL for a DCC CHAT without a server; text has the
+   formatting codes stripped and is trimmed)
+
 fe-modes.c:
  "message irc mode", SERVER_REC, char *channel, char *nick, char *addr, char *mode
 

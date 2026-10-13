@@ -29,6 +29,7 @@
 #include <irssi/src/fe-common/core/themes.h>
 #include <irssi/src/fe-common/irc/fe-irc-server.h>
 #include <irssi/src/fe-common/irc/fe-irc-channels.h>
+#include <irssi/src/fe-common/irc/fe-mentions.h>
 
 void fe_irc_queries_init(void);
 void fe_irc_queries_deinit(void);
@@ -84,6 +85,7 @@ void fe_common_irc_init(void)
 	fe_irc_channels_init();
 	fe_irc_queries_init();
 	fe_irc_messages_init();
+	fe_mentions_init();
 	fe_irc_commands_init();
 	fe_ircnet_init();
 	fe_irc_server_init();
@@ -104,6 +106,7 @@ void fe_common_irc_init(void)
 
 void fe_common_irc_deinit(void)
 {
+	fe_mentions_deinit();
 	fe_irc_channels_deinit();
 	fe_irc_queries_deinit();
 	fe_irc_messages_deinit();

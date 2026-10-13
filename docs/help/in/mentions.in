@@ -1,0 +1,75 @@
+
+%9Syntax:%9
+
+@SYNTAX:mentions@
+
+%9Parameters:%9
+
+    CLEAR:       Removes the entries from the Mentions window (as
+                 /SCROLLBACK CLEAR does); the log file is not touched.
+
+    Without an argument (or with any other one) goes to the Mentions
+    window.
+
+%9Description:%9
+
+    Goes to the Mentions window, where erssi collects what was written to
+    you: private messages and private /ME actions, NOTICEs from people to
+    your nick (not from servers, not sent to a channel or a server mask),
+    DCC CHAT messages and channel hilights. Messages that /IGNORE hides
+    are left out, and so are those from a nick with a NOHILIGHT ignore
+    (/IGNORE nick MSGS NOHILIGHT).
+
+    A channel hilight is a channel message or /ME action that erssi shows
+    as a hilight: your nick in it (hilight_nick_matches, and
+    hilight_nick_matches_everywhere for the nick anywhere in the line) or
+    a match of a /HILIGHT rule (an action with your nick is a hilight
+    only through a rule, e.g. /HILIGHT -level ACTIONS yournick). It is
+    recorded with the sender's whole nick and the text as it was sent,
+    not as the theme shows it. Your own lines are never hilights. A
+    hilight that a script prints into a channel is recorded with the
+    nick "?" and the printed line, unless it is printed while that
+    channel's message is shown: then it counts as that message and is
+    recorded with its sender.
+
+    Entries have the HILIGHT level, so the window gets the hilight colour
+    in the window list.
+
+    The window is created in the background at startup and has
+    /WINDOW IMMORTAL on. If it is closed anyway (after
+    /WINDOW IMMORTAL OFF), it is created again.
+
+    With mentions_log on, every entry is also appended to a log file in
+    the form "YYYY-MM-DD HH:MM:SS [tag] place <nick> text", so it survives
+    a restart. The file is created with mode 0600 and a missing directory
+    with mode 0700. Control characters in the text are written as spaces.
+
+    Networks named in mentions_exclude_networks are left out, both from the
+    window and from the log (for example a Bitlbee gateway). This
+    includes DCC CHATs that were offered through such a network.
+
+%9Settings:%9
+
+    mentions_window = Mentions
+        Name of the Mentions window. Empty: no window; the log and the
+        "mention" signal still work. A name another window already has
+        is refused.
+    mentions_log = OFF
+        Append every entry to the log file.
+    mentions_log_file =
+        The log file. Empty means logs/mentions.log in the irssi
+        directory; '~' is your home directory; a relative name is in
+        the irssi directory.
+    mentions_exclude_networks =
+        Networks (chat network names, separated by spaces or commas)
+        whose messages are not mentions.
+
+%9Examples:%9
+
+    /MENTIONS
+    /MENTIONS CLEAR
+    /SET mentions_log ON
+    /SET mentions_exclude_networks Bitlbee
+
+%9See also:%9 HILIGHT, IGNORE, LASTLOG, SCROLLBACK, WINDOW
+
