@@ -181,6 +181,15 @@ FORMAT_REC fecommon_irc_formats[] = {
 	{ "ask_oper_pass", "Operator password:", 0 },
 	{ "accept_list", "Accepted users: {hilight $0}", 1, { 0 } },
 
+	/* ---- */
+	{ NULL, "Mentions", 0 },
+
+	{ "mentions_public", "{channel $0} {nick $1}%n: $2", 3, { 0, 0, 0 } },
+	{ "mentions_action", "{channel $0} %_*%_ {nick $1} $2", 3, { 0, 0, 0 } },
+	{ "mentions_private", "%_PM%_ {nick $1}%n: $2", 3, { 0, 0, 0 } },
+	{ "mentions_notice", "%_NOTICE%_ {nick $1}%n: $2", 3, { 0, 0, 0 } },
+	{ "mentions_dcc", "%_DCC%_ {nick $1}%n: $2", 3, { 0, 0, 0 } },
+
 	{ NULL, NULL, 0 }
 };
 /* clang-format on */

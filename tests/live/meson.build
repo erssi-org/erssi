@@ -9,7 +9,7 @@ if python3_prog.found()
   live_env = environment()
   live_env.set('HOME', meson.build_root() / 'test-home')
   live_env.set('PYTHONDONTWRITEBYTECODE', '1')
-  foreach t : ['harness']
+  foreach t : ['harness', 'mentions']
     test('live ' + t, python3_prog, args : [files('test_' + t + '.py'), meson.build_root(), meson.source_root()],
          env : live_env, is_parallel : false, timeout : 300)
   endforeach

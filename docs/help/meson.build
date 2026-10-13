@@ -51,6 +51,7 @@ install_data(
     'lusers',
     'map',
     'me',
+    'mentions',
     'mircdcc',
     'mode',
     'motd',

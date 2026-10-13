@@ -34,7 +34,6 @@ fe_ansi_dep = []
 fe_ansi_libs = [
   libconfig_a,
   libcore_a,
-  libfe_common_core_a,
 ]
 fe_ansi_c_args = [
   def_themesdir,
@@ -65,6 +64,9 @@ executable('erssi',
   implicit_include_directories : false,
   export_dynamic : true,
   c_args : fe_ansi_c_args,
+  # whole: loadable modules may use any fe-common/core function, also one
+  # the binary itself never calls, so all of them must be linked and exported
+  link_whole : libfe_common_core_a,
   link_with : fe_ansi_libs,
   install : true,
   dependencies : dep + fe_ansi_dep,
